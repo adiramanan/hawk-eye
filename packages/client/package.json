@@ -1,0 +1,38 @@
+{
+  "name": "@hawk-eye/client",
+  "version": "0.0.1",
+  "description": "Embeddable React component for visual design editing",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./styles": {
+      "import": "./dist/styles/index.css"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "tailwind-merge": "^2.2.0",
+    "diff": "^5.1.0"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@types/diff": "^5.0.0",
+    "typescript": "^5.9.2",
+    "tsup": "^8.0.0"
+  }
+}
