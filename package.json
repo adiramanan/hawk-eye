@@ -18,7 +18,7 @@
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "vitest"
+    "test": "vitest --run"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",

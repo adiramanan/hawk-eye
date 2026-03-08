@@ -24,7 +24,7 @@
 - **Plugin Build:** tsup → ESM bundle
 - **Demo Build:** Vite
 - **Linting:** ESLint + @typescript-eslint, Prettier
-- **Testing:** vitest (Phase 2+)
+- **Testing:** Vitest smoke-test baseline in Phase 0
 
 ---
 
@@ -87,16 +87,23 @@ packages/vite-plugin/src/
 
 ---
 
+## Current Implementation Surface
+- `@hawk-eye/client` currently exports a placeholder `DesignTool` button only.
+- `@hawk-eye/vite-plugin` currently exports a serve-only plugin shell.
+- The demo app verifies package wiring, not end-user inspector functionality.
+
 ## Known Issues & Workarounds
-(None yet — populated as development progresses)
+- Packages are not published yet; evaluate through the local workspace/demo.
+- Do not reintroduce a `./styles` export in `@hawk-eye/client` until a real CSS artifact exists.
 
 ---
 
 ## Phase Progress
-- **Phase 0 (Setup):** IN PROGRESS
+- **Phase 0 (Setup):** COMPLETE
   - Monorepo structure
   - TypeScript + tooling config
-  - Agent handoff system (this file)
+  - Agent handoff system
+  - Truthful docs, MIT license, and smoke-test baseline
 
 - **Phase 1 (Inspector):** NOT STARTED
   - Babel source injection
@@ -122,7 +129,8 @@ packages/vite-plugin/src/
 ---
 
 ## Useful Links & References
-- Specification: `/Users/adityuh/Documents/vibe-code/hawk-eye/hawk-eye/spec.md` (provided at project start)
+- Specification: `spec.md`
+- Architecture: `docs/ARCHITECTURE.md`
 - pnpm docs: https://pnpm.io/workspaces
 - ts-morph: https://ts-morph.com/ (AST manipulation)
 - tailwind-merge: https://github.com/dcastil/tailwind-merge
@@ -131,4 +139,4 @@ packages/vite-plugin/src/
 ---
 
 ## Last Updated
-2025-03-07 (initial setup)
+2026-03-07 (Phase 0 closeout)

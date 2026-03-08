@@ -199,6 +199,69 @@
 
 ---
 
+## D9: Commit the pnpm Lockfile
+
+**Decision:** Track `pnpm-lock.yaml` in git for this repository.
+
+**Rationale:**
+- Phase 0 should produce a reproducible install, not just a best-effort scaffold.
+- Locking the workspace avoids agent-to-agent drift in dependency versions.
+- It makes CI/local verification comparable across machines and worktrees.
+
+**Alternatives Considered:**
+- Ignore the lockfile: less churn, but non-reproducible installs
+- Generate the lockfile only in CI: adds indirection and local mismatch risk
+
+**Trade-offs:**
+- Dependency bumps will update the lockfile
+- Contributors must keep the lockfile in sync with manifest changes
+
+**Status:** CONFIRMED (2026-03-07)
+
+---
+
+## D10: Phase 0 Documentation Should Be Truthful
+
+**Decision:** Keep public docs aligned with the current scaffold and describe future functionality as roadmap work.
+
+**Rationale:**
+- The repository is pre-alpha and does not yet implement the README's original product claims.
+- Truthful docs reduce onboarding friction and prevent agents from planning against non-existent code.
+- Broken or aspirational links create avoidable maintenance overhead in a handoff-heavy repo.
+
+**Alternatives Considered:**
+- Keep aspirational marketing copy with disclaimers
+- Only fix broken links and defer content alignment
+
+**Trade-offs:**
+- The README is less promotional today
+- More updates will be needed as Phases 1-4 land
+
+**Status:** CONFIRMED (2026-03-07)
+
+---
+
+## D11: Keep a Minimal Smoke-Test Baseline in Phase 0
+
+**Decision:** Phase 0 includes one Vitest smoke test and a single-run `pnpm test` command.
+
+**Rationale:**
+- A stable test command is part of a finished setup phase.
+- Even one smoke test protects the current package entrypoints from accidental regressions.
+- It avoids the false impression that testing is configured when it currently exits with "No test files found."
+
+**Alternatives Considered:**
+- Pass with no tests via CLI flag only
+- Remove the test script until later phases
+
+**Trade-offs:**
+- The test suite remains very shallow until feature work begins
+- Contributors must update the smoke test if placeholder exports change
+
+**Status:** CONFIRMED (2026-03-07)
+
+---
+
 ## Decision Review Schedule
 - Every phase end, review decisions with latest learnings
 - Update rationale if new context emerges

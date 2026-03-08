@@ -15,7 +15,9 @@
     "sourceMap": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@hawk-eye/client": ["packages/client/src/index.ts"],
+      "@hawk-eye/vite-plugin": ["packages/vite-plugin/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "dist", "build", "coverage"]

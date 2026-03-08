@@ -1,39 +1,32 @@
 # Current Session Context
 
 ## Last Agent
-Claude Code (Haiku 4.5)
+Codex
 
 ## Last Session
-2025-03-07 — Repository initialization and monorepo setup
+2026-03-07 - Phase 0 closeout
 
 ## Current Status
-**Phase:** 0 (Setup) — IN PROGRESS (60% complete)
+**Phase:** 0 (Setup) - COMPLETE
 
-Completed:
-- ✅ Planned monorepo architecture
-- ✅ Created .agents/ directory and MEMORY.md
-- ✅ Decided on pnpm + TypeScript stack
-
-In Progress:
-- 🔄 Creating directory structure and config files
-- 🔄 Setting up package.json files
+Completed in the closeout pass:
+- Verified the monorepo scaffold and aligned the status docs with reality
+- Removed a broken package export from `@hawk-eye/client`
+- Added a Phase 0 smoke test so `pnpm test` is meaningful
+- Rewrote README/contributing docs to match the current scaffold
+- Added `spec.md`, `docs/ARCHITECTURE.md`, and `LICENSE`
+- Installed workspace dependencies and re-ran verification
 
 ## Next Steps
-1. Create monorepo directories (packages/client, packages/vite-plugin, demo/, docs/)
-2. Create root package.json with pnpm workspace config
-3. Create pnpm-workspace.yaml
-4. Create configuration files (tsconfig.json, .eslintrc.json, .prettierrc, .nvmrc, .pnpmrc)
-5. Create package-specific package.json files
-6. Create build configs (tsup.config.ts, vite.config.ts)
-7. Create initial source scaffolds
-8. Run `pnpm install` and verify
-9. Create git commit
+1. Start Phase 1 inspector work
+2. Implement source metadata injection in the Vite plugin
+3. Replace the placeholder `DesignTool` button with an actual inspector trigger
+4. Establish browser-to-plugin communication
 
 ## Known Blockers
-None yet.
+None.
 
 ## Notes for Next Agent
-- Use the Handoff Ritual: Read MEMORY.md first (5 min), then this file
-- All tools use pnpm, not npm
-- TypeScript strict mode is enforced
-- Check DECISIONS.md for architectural rationale
+- Read `MEMORY.md` and `DECISIONS.md` before starting Phase 1
+- The repo now expects `pnpm-lock.yaml` to be committed
+- `pnpm test` is a smoke-test baseline, not feature-complete coverage
