@@ -2,20 +2,18 @@ import { describe, expect, it } from 'vitest';
 import { DesignTool } from '../packages/client/src';
 import hawkeyePlugin from '../packages/vite-plugin/src';
 
-describe('Phase 0 smoke tests', () => {
-  it('exports the placeholder design tool component', () => {
-    const element = DesignTool({});
-
-    expect(element.type).toBe('div');
-    expect(element.props['data-testid']).toBe('hawk-eye-design-tool');
+describe('workspace smoke tests', () => {
+  it('exports the design tool component', () => {
+    expect(typeof DesignTool).toBe('function');
   });
 
-  it('creates the serve-only Vite plugin shell', () => {
+  it('creates the serve-only Vite plugin', () => {
     const plugin = hawkeyePlugin();
 
     expect(plugin.name).toBe('@hawk-eye/vite-plugin');
     expect(plugin.apply).toBe('serve');
-    expect(typeof plugin.configResolved).toBe('function');
+    expect(plugin.enforce).toBe('pre');
+    expect(typeof plugin.transform).toBe('function');
     expect(typeof plugin.configureServer).toBe('function');
   });
 });

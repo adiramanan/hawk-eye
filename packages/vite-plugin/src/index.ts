@@ -1,4 +1,6 @@
 import type { Plugin } from 'vite';
+import { injectSourceMetadata } from './source-injector';
+import { registerInspectHandler } from './ws-server';
 
 /**
  * Hawk-Eye Vite Plugin
@@ -12,15 +14,20 @@ import type { Plugin } from 'vite';
  * Phase 1–3: Implement inspector bridge, writers, and file persistence
  */
 export default function hawkeyePlugin(): Plugin {
+  let root = process.cwd();
+
   return {
     name: '@hawk-eye/vite-plugin',
     apply: 'serve',
-    configResolved(_config) {
-      // Configuration initialization to be implemented in Phase 1
+    enforce: 'pre',
+    configResolved(config) {
+      root = config.root;
     },
-    configureServer(_server) {
-      // Server setup for WebSocket and file watching
-      // To be implemented in Phase 1
+    transform(code, id) {
+      return injectSourceMetadata(code, id, root);
+    },
+    configureServer(server) {
+      registerInspectHandler(server, root);
     },
   };
 }

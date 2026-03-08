@@ -6,7 +6,7 @@ Hawk-Eye aims to let designers and AI prototypers refine React interfaces visual
 
 ## Current Scope
 
-The repository is in pre-alpha and has completed Phase 0 only.
+The repository is in pre-alpha and has completed Phase 1.
 
 Implemented:
 
@@ -14,11 +14,11 @@ Implemented:
 - demo app wiring
 - build, lint, type-check, and smoke-test commands
 - agent handoff and project tracking files
+- dev-only source injection for intrinsic JSX elements
+- inspector trigger, hover overlay, click-to-lock selection, and repo-relative source display
 
 Not implemented:
 
-- source-to-element mapping
-- inspector overlays
 - property editing
 - writing changes back to source files
 
@@ -64,3 +64,12 @@ Phase 0 is complete when:
 - README and contributor docs describe the current scaffold truthfully
 - package entrypoints do not reference missing artifacts
 - the repo contains a standard open-source license
+
+## Phase 1 Acceptance Criteria
+
+Phase 1 is complete when:
+
+- Vite dev transforms inject source metadata into intrinsic JSX elements
+- the client runtime can toggle inspector mode, hover elements, and lock selection on click
+- the overlay displays repo-relative `file:line:column` source info
+- `pnpm type-check`, `pnpm lint`, `pnpm test`, and `pnpm build` pass with the inspector implementation in place

@@ -7,15 +7,16 @@ export default function App() {
         <div className="max-w-4xl mx-auto px-4 py-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Hawk-Eye Demo</h1>
           <p className="text-lg text-gray-600 mb-8">
-            Click the design tool icon in the bottom-right corner to activate the inspector.
+            Toggle Hawk-Eye in the bottom-right corner, hover any card or button, then click to lock
+            the current element and inspect its source location.
           </p>
 
           {/* Example card component for testing */}
           <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
             <h2 className="text-2xl font-semibold text-gray-800 mb-4">Example Card</h2>
             <p className="text-gray-600 mb-4">
-              This is a sample card component. Try selecting it with the design tool to edit its
-              properties.
+              This is a sample card component. Phase 1 lets you hover it, lock it, and inspect the
+              exact file, line, and column behind the live DOM element.
             </p>
             <button className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition">
               Click me

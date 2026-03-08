@@ -88,9 +88,9 @@ packages/vite-plugin/src/
 ---
 
 ## Current Implementation Surface
-- `@hawk-eye/client` currently exports a placeholder `DesignTool` button only.
-- `@hawk-eye/vite-plugin` currently exports a serve-only plugin shell.
-- The demo app verifies package wiring, not end-user inspector functionality.
+- `@hawk-eye/client` exports a dev-only inspector with a floating trigger, hover outline, click-to-lock selection, and source info panel.
+- `@hawk-eye/vite-plugin` injects `data-source` metadata into intrinsic JSX elements and replies to selection requests over Vite HMR.
+- The demo app exercises the full Phase 1 inspector flow in a React + Vite + Tailwind environment.
 
 ## Known Issues & Workarounds
 - Packages are not published yet; evaluate through the local workspace/demo.
@@ -105,10 +105,10 @@ packages/vite-plugin/src/
   - Agent handoff system
   - Truthful docs, MIT license, and smoke-test baseline
 
-- **Phase 1 (Inspector):** NOT STARTED
+- **Phase 1 (Inspector):** COMPLETE
   - Babel source injection
   - Hover overlay + element selection
-  - WebSocket bridge to Vite plugin
+  - Vite HMR bridge to the plugin
 
 - **Phase 2 (Properties Panel):** NOT STARTED
   - Properties UI controls
@@ -139,4 +139,4 @@ packages/vite-plugin/src/
 ---
 
 ## Last Updated
-2026-03-07 (Phase 0 closeout)
+2026-03-08 (Phase 1 complete)

@@ -1,6 +1,6 @@
 # Contributing to Hawk-Eye
 
-This repository is in pre-alpha. Phase 0 setup is complete; Phase 1 feature work has not started yet.
+This repository is in pre-alpha. Phase 1 inspector work is complete; Phase 2 is the next milestone.
 
 ## Development Setup
 
@@ -69,17 +69,17 @@ Suggested commit types:
 ## Phase Guidance
 
 - Phase 0: complete
-- Phase 1: next milestone, focused on inspector/source mapping
-- Phase 2: property editing and live preview
+- Phase 1: complete
+- Phase 2: next milestone, focused on property editing and live preview
 - Phase 3: writers and file persistence
 - Phase 4: hardening and release prep
 
 ## Testing
 
-Phase 0 keeps a minimal smoke-test baseline so `pnpm test` is stable.
+The current test suite covers the Phase 0 baseline plus Phase 1 inspector behavior.
 
 - Use `pnpm test` for the current Vitest smoke suite.
-- Add broader behavioral coverage as Phase 1 and later code lands.
+- Extend coverage as Phase 2 and later code lands.
 
 ## Troubleshooting
 

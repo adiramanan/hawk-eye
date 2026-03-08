@@ -32,8 +32,10 @@
 
 ## Phase 1: Inspector Overlay & Source Injection
 
-**Status:** NOT STARTED
-**Target Duration:** 1.5-2 weeks
+**Status:** COMPLETE (100%)
+**Start Date:** 2026-03-08
+**Completion Date:** 2026-03-08
+**Target Duration:** 1 day in this prototype repo
 
 ### Key Deliverables
 1. Babel transform that injects source metadata into JSX
@@ -43,17 +45,21 @@
 5. Source context retrieval (file path, line number, styling approach)
 
 ### Checklist
-- [ ] Implement source injection transform
-- [ ] Implement `DesignTool` trigger/inspector runtime
-- [ ] Implement WebSocket bridge
-- [ ] Add overlay isolation and rendering
-- [ ] Validate across common JSX patterns
+- [x] Implement source injection transform
+- [x] Implement `DesignTool` trigger/inspector runtime
+- [x] Implement Vite HMR bridge
+- [x] Add Shadow DOM overlay isolation and rendering
+- [x] Validate across common JSX patterns used in the demo
+
+**Blockers:** None
+
+**Next Phase Gate:** Phase 2 may begin immediately.
 
 ---
 
 ## Phase 2: Properties Panel & Live Preview
 
-**Status:** NOT STARTED
+**Status:** NEXT
 **Target Duration:** 1.5-2 weeks
 
 ### Key Deliverables
@@ -121,4 +127,4 @@
 - Phase 4: 1 week
 - **Total MVP:** 5–7 weeks full-time, 8–12 weeks part-time
 
-Current: 2025-03-07 (Phase 0 in progress)
+Current: 2026-03-08 (Phase 1 complete, Phase 2 next)
