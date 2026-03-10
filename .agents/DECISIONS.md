@@ -262,6 +262,29 @@
 
 ---
 
+## D12: Phase 2 Uses Session-Scoped DOM Preview Overrides
+
+**Decision:** Apply Phase 2 edits as temporary inline style overrides in the browser, keyed by `data-source`, and clear them on reset, inspector exit, or reload.
+
+**Rationale:**
+- Phase 2 should feel like a visual editor without taking on Phase 3’s source-writing complexity.
+- Session-scoped drafts let users compare multiple elements in one inspector session without committing anything to code.
+- Keying drafts by source token keeps the preview model compatible with the existing Phase 1 selection bridge.
+
+**Alternatives Considered:**
+- Only keep edits for the currently selected element
+- Add file persistence in Phase 2
+- Rewrite classes immediately instead of previewing in the DOM
+
+**Trade-offs:**
+- Preview edits are temporary and disappear on reload
+- Inline preview overrides can diverge from the source styling strategy until Phase 3 translates them back into code
+- The client must preserve the original detected styling mode even after preview adds inline styles
+
+**Status:** CONFIRMED (2026-03-10)
+
+---
+
 ## Decision Review Schedule
 - Every phase end, review decisions with latest learnings
 - Update rationale if new context emerges

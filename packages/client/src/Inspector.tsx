@@ -1,11 +1,16 @@
 import type { CSSProperties } from 'react';
-import type { MeasuredElement, SelectionDetails } from './types';
+import { PropertiesPanel } from './PropertiesPanel';
+import type { EditablePropertyId, MeasuredElement, SelectionDraft } from './types';
 
 interface InspectorProps {
   enabled: boolean;
   hovered: MeasuredElement | null;
+  pendingDrafts: SelectionDraft[];
   selected: MeasuredElement | null;
-  selectionDetails: SelectionDetails | null;
+  selectedDraft: SelectionDraft | null;
+  onChange(propertyId: EditablePropertyId, value: string): void;
+  onResetAll(): void;
+  onResetProperty(source: string, propertyId: EditablePropertyId): void;
   onToggle(): void;
 }
 
@@ -32,8 +37,12 @@ function toMeasureStyle(measured: MeasuredElement): CSSProperties {
 export function Inspector({
   enabled,
   hovered,
+  pendingDrafts,
   selected,
-  selectionDetails,
+  selectedDraft,
+  onChange,
+  onResetAll,
+  onResetProperty,
   onToggle,
 }: InspectorProps) {
   const activeMeasurement = selected ?? hovered;
@@ -54,28 +63,36 @@ export function Inspector({
         {enabled ? (
           <aside data-hawk-eye-ui="panel">
             <p data-hawk-eye-ui="eyebrow">
-              {selectionDetails ? 'Locked selection' : 'Inspector active'}
+              {selectedDraft ? 'Locked selection' : 'Inspector active'}
             </p>
 
-            {selectionDetails ? (
+            {selectedDraft ? (
               <>
                 <div data-hawk-eye-ui="title-row">
-                  <h2 data-hawk-eye-ui="title">{selectionDetails.tagName}</h2>
-                  <span data-hawk-eye-ui="badge">{selectionDetails.styleMode}</span>
+                  <h2 data-hawk-eye-ui="title">{selectedDraft.tagName}</h2>
+                  <span data-hawk-eye-ui="badge">{selectedDraft.styleMode}</span>
                 </div>
 
                 <dl data-hawk-eye-ui="detail-list">
                   <div data-hawk-eye-ui="detail">
                     <dt data-hawk-eye-ui="label">Source</dt>
                     <dd data-hawk-eye-ui="value">
-                      {selectionDetails.file}:{selectionDetails.line}:{selectionDetails.column}
+                      {selectedDraft.file}:{selectedDraft.line}:{selectedDraft.column}
                     </dd>
                   </div>
                   <div data-hawk-eye-ui="detail">
                     <dt data-hawk-eye-ui="label">Token</dt>
-                    <dd data-hawk-eye-ui="value">{selectionDetails.source}</dd>
+                    <dd data-hawk-eye-ui="value">{selectedDraft.source}</dd>
                   </div>
                 </dl>
+
+                <PropertiesPanel
+                  onChange={onChange}
+                  onResetAll={onResetAll}
+                  onResetProperty={onResetProperty}
+                  pendingDrafts={pendingDrafts}
+                  selectedDraft={selectedDraft}
+                />
               </>
             ) : (
               <p data-hawk-eye-ui="hint">

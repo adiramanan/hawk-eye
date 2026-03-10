@@ -1,6 +1,6 @@
 # Contributing to Hawk-Eye
 
-This repository is in pre-alpha. Phase 1 inspector work is complete; Phase 2 is the next milestone.
+This repository is in pre-alpha. Phase 2 live-preview editing is complete; Phase 3 is the next milestone.
 
 ## Development Setup
 
@@ -34,7 +34,7 @@ hawk-eye/
 │   └── vite-plugin/     # @hawk-eye/vite-plugin
 ├── demo/                # Local React + Tailwind app
 ├── docs/                # Architecture notes
-├── tests/               # Smoke tests
+├── tests/               # Vitest coverage
 ├── eslint.config.js     # Shared ESLint config
 ├── .prettierrc          # Shared Prettier config
 └── tsup.config.ts       # Shared package build config
@@ -70,16 +70,16 @@ Suggested commit types:
 
 - Phase 0: complete
 - Phase 1: complete
-- Phase 2: next milestone, focused on property editing and live preview
-- Phase 3: writers and file persistence
+- Phase 2: complete
+- Phase 3: next milestone, focused on source writers and persistence
 - Phase 4: hardening and release prep
 
 ## Testing
 
-The current test suite covers the Phase 0 baseline plus Phase 1 inspector behavior.
+The current test suite covers the Phase 0 baseline plus Phase 1 and Phase 2 client behavior.
 
-- Use `pnpm test` for the current Vitest smoke suite.
-- Extend coverage as Phase 2 and later code lands.
+- Use `pnpm test` for the current Vitest suite.
+- Extend coverage as Phase 3 and later code lands.
 
 ## Troubleshooting
 

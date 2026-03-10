@@ -1,12 +1,30 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { startTransition, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import {
+  applyDraftInputValue,
+  applyDraftToElement,
+  clearDraftOverrides,
+  createSelectionDraft,
+  getDirtyDrafts,
+  getInspectableElementBySource,
+  hasDraftChanges,
+  mergeSelectionDraft,
+  resetDraftProperty,
+} from './drafts';
 import { Inspector } from './Inspector';
 import { hawkEyeStyles } from './styles';
-import type { MeasuredElement, SelectionDetails, SelectionPayload, StyleMode } from './types';
+import type {
+  EditablePropertyId,
+  MeasuredElement,
+  SelectionDetails,
+  SelectionDraft,
+  SelectionPayload,
+  StyleMode,
+} from './types';
 import { requestSelection, subscribeToSelection } from './ws-client';
 
 export interface DesignToolProps {
-  // Phase 1 keeps the public API zero-config.
+  // Phase 2 keeps the public API zero-config.
 }
 
 function parseSourceToken(source: string): SelectionPayload | null {
@@ -66,11 +84,19 @@ function measureElement(element: HTMLElement | null) {
   } satisfies MeasuredElement;
 }
 
+function measureElementBySource(source: string) {
+  return measureElement(getInspectableElementBySource(source));
+}
+
 function sameMeasuredElement(current: MeasuredElement | null, next: MeasuredElement | null) {
   return current?.element === next?.element && current?.source === next?.source;
 }
 
 function getSelectableElementAtPoint(clientX: number, clientY: number) {
+  if (typeof document.elementFromPoint !== 'function') {
+    return null;
+  }
+
   const target = document.elementFromPoint(clientX, clientY);
 
   if (!target || isHawkEyeElement(target)) {
@@ -127,40 +153,216 @@ function createShadowPortalRoot() {
 
 function DesignToolRuntime() {
   const [enabled, setEnabled] = useState(false);
+  const [drafts, setDrafts] = useState<Record<string, SelectionDraft>>({});
   const [hovered, setHovered] = useState<MeasuredElement | null>(null);
   const [selected, setSelected] = useState<MeasuredElement | null>(null);
-  const [selectionPayload, setSelectionPayload] = useState<SelectionPayload | null>(null);
-  const lockedSourceRef = useRef<string | null>(null);
-  const selectedRef = useRef<MeasuredElement | null>(null);
+  const [selectedSource, setSelectedSource] = useState<string | null>(null);
+  const draftsRef = useRef<Record<string, SelectionDraft>>({});
+  const selectedSourceRef = useRef<string | null>(null);
 
   useEffect(() => {
-    selectedRef.current = selected;
-    lockedSourceRef.current = selected?.source ?? null;
-  }, [hovered, selected]);
+    draftsRef.current = drafts;
+  }, [drafts]);
+
+  useEffect(() => {
+    selectedSourceRef.current = selectedSource;
+  }, [selectedSource]);
+
+  function clearSessionDrafts() {
+    for (const draft of Object.values(draftsRef.current)) {
+      clearDraftOverrides(draft);
+    }
+
+    setDrafts({});
+    setHovered(null);
+    setSelected(null);
+    setSelectedSource(null);
+  }
+
+  function refreshSelectedMeasurement(source: string, draftOverride?: SelectionDraft) {
+    const nextMeasurement = measureElementBySource(source);
+
+    if (nextMeasurement) {
+      const nextDraft = draftOverride ?? draftsRef.current[source];
+
+      if (nextDraft) {
+        applyDraftToElement(nextMeasurement.element, nextDraft);
+      }
+    }
+
+    setSelected(nextMeasurement);
+  }
+
+  function ensureDraftForMeasurement(measured: MeasuredElement) {
+    const details = buildSelectionDetails(measured, parseSourceToken(measured.source));
+
+    if (!details) {
+      return null;
+    }
+
+    const currentDraft = draftsRef.current[measured.source];
+    const nextDraft = currentDraft
+      ? mergeSelectionDraft(currentDraft, details)
+      : createSelectionDraft(details, measured.element);
+
+    applyDraftToElement(measured.element, nextDraft);
+    setDrafts((current) => ({
+      ...current,
+      [measured.source]: nextDraft,
+    }));
+
+    return nextDraft;
+  }
+
+  function resetAllChanges() {
+    const currentDrafts = Object.values(draftsRef.current);
+
+    for (const draft of currentDrafts) {
+      clearDraftOverrides(draft);
+    }
+
+    const lockedSource = selectedSource;
+
+    if (!lockedSource) {
+      setDrafts({});
+      return;
+    }
+
+    const lockedMeasurement = measureElementBySource(lockedSource);
+    const existingDraft = draftsRef.current[lockedSource];
+
+    if (!lockedMeasurement || !existingDraft) {
+      setDrafts({});
+      setSelected(null);
+      setSelectedSource(null);
+      return;
+    }
+
+    const nextDraft = createSelectionDraft(
+      {
+        ...existingDraft,
+        tagName: lockedMeasurement.element.tagName.toLowerCase(),
+      },
+      lockedMeasurement.element
+    );
+
+    setDrafts({
+      [lockedSource]: nextDraft,
+    });
+    setSelected(lockedMeasurement);
+  }
+
+  function updateDraftProperty(propertyId: EditablePropertyId, inputValue: string) {
+    const source = selectedSource;
+
+    if (!source) {
+      return;
+    }
+
+    const currentDraft = drafts[source];
+    const element = getInspectableElementBySource(source) ?? selected?.element ?? null;
+
+    if (!currentDraft || !element) {
+      return;
+    }
+
+    const nextSnapshot = applyDraftInputValue(
+      element,
+      propertyId,
+      currentDraft.properties[propertyId],
+      inputValue
+    );
+
+    const nextDraft = {
+      ...currentDraft,
+      properties: {
+        ...currentDraft.properties,
+        [propertyId]: nextSnapshot,
+      },
+    };
+
+    setDrafts((current) => ({
+      ...current,
+      [source]: nextDraft,
+    }));
+    refreshSelectedMeasurement(source, nextDraft);
+  }
+
+  function resetProperty(source: string, propertyId: EditablePropertyId) {
+    const currentDraft = drafts[source];
+
+    if (!currentDraft) {
+      return;
+    }
+
+    const element = getInspectableElementBySource(source);
+    const nextSnapshot = resetDraftProperty(element, currentDraft, propertyId);
+    const nextDraft = {
+      ...currentDraft,
+      properties: {
+        ...currentDraft.properties,
+        [propertyId]: nextSnapshot,
+      },
+    };
+
+    setDrafts((current) => {
+      if (source !== selectedSource && !hasDraftChanges(nextDraft)) {
+        const nextDrafts = { ...current };
+        delete nextDrafts[source];
+        return nextDrafts;
+      }
+
+      return {
+        ...current,
+        [source]: nextDraft,
+      };
+    });
+
+    if (source === selectedSource) {
+      refreshSelectedMeasurement(source, nextDraft);
+    }
+  }
 
   useEffect(() => {
     return subscribeToSelection((payload) => {
-      if (lockedSourceRef.current === payload.source) {
-        setSelectionPayload(payload);
-      }
+      startTransition(() => {
+        setDrafts((current) => {
+          const existingDraft = current[payload.source];
+
+          if (!existingDraft) {
+            return current;
+          }
+
+          return {
+            ...current,
+            [payload.source]: mergeSelectionDraft(existingDraft, {
+              ...existingDraft,
+              ...payload,
+            }),
+          };
+        });
+      });
     });
   }, []);
 
   useEffect(() => {
     if (!enabled) {
-      setHovered(null);
-      setSelected(null);
-      setSelectionPayload(null);
+      clearSessionDrafts();
       return;
     }
 
     const syncMeasurements = () => {
-      setHovered((current) => measureElement(current?.element ?? null));
-      setSelected((current) => measureElement(current?.element ?? null));
+      setHovered((current) => (current ? measureElementBySource(current.source) : null));
+
+      const lockedSource = selectedSourceRef.current;
+
+      if (lockedSource) {
+        refreshSelectedMeasurement(lockedSource);
+      }
     };
 
     const handlePointerMove = (event: MouseEvent) => {
-      if (selectedRef.current) {
+      if (selectedSourceRef.current) {
         return;
       }
 
@@ -188,8 +390,9 @@ function DesignToolRuntime() {
       event.preventDefault();
       event.stopPropagation();
 
+      ensureDraftForMeasurement(nextMeasurement);
+      setSelectedSource(nextMeasurement.source);
       setSelected(nextMeasurement);
-      setSelectionPayload(parseSourceToken(nextMeasurement.source));
       requestSelection({ source: nextMeasurement.source });
     };
 
@@ -217,15 +420,78 @@ function DesignToolRuntime() {
     };
   }, [enabled]);
 
-  const selectionDetails = buildSelectionDetails(selected, selectionPayload);
+  useEffect(() => {
+    if (!enabled || typeof window.MutationObserver === 'undefined') {
+      return;
+    }
+
+    let frame = 0;
+
+    const syncDrafts = () => {
+      frame = 0;
+
+      for (const draft of Object.values(draftsRef.current)) {
+        const element = getInspectableElementBySource(draft.source);
+
+        if (element) {
+          applyDraftToElement(element, draft);
+        }
+      }
+
+      const lockedSource = selectedSourceRef.current;
+
+      if (lockedSource) {
+        const nextMeasurement = measureElementBySource(lockedSource);
+        setSelected(nextMeasurement);
+      }
+    };
+
+    const observer = new window.MutationObserver(() => {
+      if (frame) {
+        return;
+      }
+
+      frame = window.requestAnimationFrame(syncDrafts);
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+    });
+
+    return () => {
+      observer.disconnect();
+
+      if (frame) {
+        window.cancelAnimationFrame(frame);
+      }
+    };
+  }, [enabled]);
+
+  const selectedDraft = selectedSource ? (drafts[selectedSource] ?? null) : null;
+  const pendingDrafts = getDirtyDrafts(drafts).sort((left, right) => {
+    if (left.source === selectedSource) {
+      return -1;
+    }
+
+    if (right.source === selectedSource) {
+      return 1;
+    }
+
+    return left.source.localeCompare(right.source);
+  });
 
   return (
     <Inspector
       enabled={enabled}
       hovered={hovered}
+      onChange={updateDraftProperty}
+      onResetAll={resetAllChanges}
+      onResetProperty={resetProperty}
       onToggle={() => setEnabled((current) => !current)}
+      pendingDrafts={pendingDrafts}
       selected={selected}
-      selectionDetails={selectionDetails}
+      selectedDraft={selectedDraft}
     />
   );
 }

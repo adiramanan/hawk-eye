@@ -8,7 +8,7 @@ Hawk-Eye is currently a pre-alpha monorepo with three active workspace packages:
 - `@hawk-eye/vite-plugin`: Vite integration point
 - `hawk-eye-demo`: local validation app
 
-Today, the client and plugin packages collaborate to provide a working Phase 1 inspector in Vite development mode.
+Today, the client and plugin packages collaborate to provide a working Phase 2 inspector and live-preview editor in Vite development mode.
 
 ## Runtime Boundaries
 
@@ -20,11 +20,10 @@ The client package owns the browser-side UX. In the current state it owns:
 - Shadow DOM overlay rendering
 - hover tracking and click-to-lock selection
 - source-info display
+- grouped property controls for the locked selection
+- session-scoped draft state for live preview edits
+- DOM-only inline preview overrides and reset behavior
 - HMR bridge calls back to the Vite plugin
-
-In later phases it will also own:
-
-- property editing UI
 
 ### Vite plugin
 
@@ -36,7 +35,7 @@ The Vite plugin owns dev-server integration. In the current state it owns:
 
 In later phases it will also own:
 
-- style detection
+- style-strategy detection
 - source-file mutation and HMR refresh
 
 ### Demo app
@@ -46,15 +45,15 @@ The demo app is the integration harness. It proves that the local packages insta
 ## Build and Verification
 
 - pnpm workspaces manage local package linking
-- tsup builds the library packages as ESM + CJS
+- tsup builds the library packages
 - Vite builds and serves the demo app
 - ESLint and TypeScript provide static validation
-- Vitest provides a minimal smoke-test baseline
+- Vitest covers source injection, bridge handling, and the client runtime
 
 ## Next Architectural Step
 
-Phase 2 adds the next architectural layer:
+Phase 3 adds the source-writer layer:
 
-1. derive editable visual properties from the selected element
-2. render property controls and live preview state in the client runtime
-3. preserve the current inspector bridge as the selection foundation for later writers
+1. detect the styling strategy behind the selected element
+2. translate pending preview changes into source-level mutations
+3. write changes safely and trigger the appropriate Vite refresh path

@@ -4,28 +4,29 @@
 Codex
 
 ## Last Session
-2026-03-08 - Phase 1 inspector implementation
+2026-03-10 - Phase 2 live preview editing
 
 ## Current Status
-**Phase:** 1 (Inspector) - COMPLETE
+**Phase:** 2 (Properties) - COMPLETE
 
 Completed in the implementation pass:
-- Added Vite-side intrinsic JSX source injection and selection payload validation
-- Added a client-side inspector trigger, hover overlay, click-to-lock flow, and source info panel
-- Added automated tests for source injection, HMR payload handling, and the DesignTool runtime
-- Updated the demo copy and public docs to reflect a real Phase 1 inspector milestone
-- Re-ran install, type-check, lint, test, and build with the new implementation in place
+- Added grouped property controls for spacing, radius, colors, typography, and opacity
+- Added session-scoped draft accumulation and DOM-only live preview overrides
+- Added per-field reset, global reset, and inspector-exit cleanup
+- Expanded jsdom coverage to include live preview editing, resets, session persistence, and exit cleanup
+- Updated the demo copy and public docs to reflect a real Phase 2 milestone
+- Re-ran type-check, lint, test, build, and format verification with the new implementation in place
 
 ## Next Steps
-1. Start Phase 2 property editing work
-2. Derive editable visual properties from the locked selection
-3. Build the properties panel and live preview state
-4. Keep the current selection/HMR bridge as the basis for later writers
+1. Start Phase 3 writer work
+2. Detect the styling strategy behind a locked selection
+3. Translate preview drafts into source-level mutations
+4. Write changes safely and trigger the correct Vite refresh path
 
 ## Known Blockers
 None.
 
 ## Notes for Next Agent
-- Read `MEMORY.md` and `DECISIONS.md` before starting Phase 2
+- Read `MEMORY.md` and `DECISIONS.md` before starting Phase 3
 - The repo now expects `pnpm-lock.yaml` to be committed
-- `pnpm test` now includes Phase 1 inspector coverage in jsdom
+- `pnpm test` now includes Phase 2 live-preview coverage in jsdom

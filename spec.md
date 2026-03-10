@@ -6,21 +6,24 @@ Hawk-Eye aims to let designers and AI prototypers refine React interfaces visual
 
 ## Current Scope
 
-The repository is in pre-alpha and has completed Phase 1.
+The repository is in pre-alpha and has completed Phase 2.
 
 Implemented:
 
 - workspace/package scaffolding
 - demo app wiring
-- build, lint, type-check, and smoke-test commands
+- build, lint, type-check, and test commands
 - agent handoff and project tracking files
 - dev-only source injection for intrinsic JSX elements
 - inspector trigger, hover overlay, click-to-lock selection, and repo-relative source display
+- guided property controls for spacing, radius, colors, typography, and opacity
+- live DOM preview with session-scoped pending changes and reset controls
 
 Not implemented:
 
-- property editing
+- style-strategy-specific source mutation
 - writing changes back to source files
+- durable diff/apply workflows
 
 ## Phase Plan
 
@@ -73,3 +76,13 @@ Phase 1 is complete when:
 - the client runtime can toggle inspector mode, hover elements, and lock selection on click
 - the overlay displays repo-relative `file:line:column` source info
 - `pnpm type-check`, `pnpm lint`, `pnpm test`, and `pnpm build` pass with the inspector implementation in place
+
+## Phase 2 Acceptance Criteria
+
+Phase 2 is complete when:
+
+- locking a selection opens a properties panel with grouped visual controls
+- spacing, radius, colors, typography, and opacity can be previewed live in the browser
+- pending preview changes persist across selection switches during the active inspector session
+- per-field reset, global reset, and inspector exit all restore the live DOM to its baseline state
+- `pnpm type-check`, `pnpm lint`, `pnpm test`, and `pnpm build` pass with the live preview implementation in place

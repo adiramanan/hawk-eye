@@ -1,0 +1,216 @@
+import { editablePropertyDefinitionMap, editablePropertyDefinitions } from './editable-properties';
+import type {
+  EditablePropertyId,
+  PropertySnapshot,
+  SelectionDetails,
+  SelectionDraft,
+} from './types';
+
+interface ApplyInputResult {
+  baseline: string;
+  inlineValue: string;
+  invalid: boolean;
+  inputValue: string;
+  value: string;
+}
+
+function escapeAttributeValue(value: string) {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+function clampOpacity(rawValue: string) {
+  const nextValue = Number.parseFloat(rawValue);
+
+  if (!Number.isFinite(nextValue)) {
+    return null;
+  }
+
+  return String(Math.min(1, Math.max(0, Math.round(nextValue * 100) / 100)));
+}
+
+function restoreOriginalInlineValue(
+  element: HTMLElement,
+  propertyId: EditablePropertyId,
+  snapshot: PropertySnapshot
+) {
+  const definition = editablePropertyDefinitionMap[propertyId];
+
+  if (snapshot.inlineValue) {
+    element.style.setProperty(definition.cssProperty, snapshot.inlineValue);
+    return;
+  }
+
+  element.style.removeProperty(definition.cssProperty);
+}
+
+export function createSelectionDraft(
+  details: SelectionDetails,
+  element: HTMLElement
+): SelectionDraft {
+  const computedStyle = window.getComputedStyle(element);
+  const properties = {} as SelectionDraft['properties'];
+
+  for (const definition of editablePropertyDefinitions) {
+    const baseline =
+      computedStyle.getPropertyValue(definition.cssProperty).trim() ||
+      element.style.getPropertyValue(definition.cssProperty).trim();
+    const inlineValue = element.style.getPropertyValue(definition.cssProperty).trim();
+
+    properties[definition.id] = {
+      baseline,
+      inlineValue,
+      inputValue: baseline,
+      invalid: false,
+      value: baseline,
+    };
+  }
+
+  return {
+    ...details,
+    properties,
+  };
+}
+
+export function mergeSelectionDraft(
+  draft: SelectionDraft,
+  details: SelectionDetails
+): SelectionDraft {
+  return {
+    ...draft,
+    file: details.file,
+    line: details.line,
+    column: details.column,
+    tagName: details.tagName,
+    // Preserve the original detected strategy even after preview adds inline overrides.
+    styleMode: draft.styleMode,
+  };
+}
+
+export function getInspectableElementBySource(source: string) {
+  if (typeof document === 'undefined') {
+    return null;
+  }
+
+  return document.querySelector<HTMLElement>(`[data-source="${escapeAttributeValue(source)}"]`);
+}
+
+export function applyDraftToElement(element: HTMLElement, draft: SelectionDraft) {
+  for (const definition of editablePropertyDefinitions) {
+    const snapshot = draft.properties[definition.id];
+
+    if (snapshot.value === snapshot.baseline) {
+      restoreOriginalInlineValue(element, definition.id, snapshot);
+      continue;
+    }
+
+    element.style.setProperty(definition.cssProperty, snapshot.value);
+  }
+}
+
+export function clearDraftOverrides(draft: SelectionDraft) {
+  const element = getInspectableElementBySource(draft.source);
+
+  if (!element) {
+    return;
+  }
+
+  for (const definition of editablePropertyDefinitions) {
+    restoreOriginalInlineValue(element, definition.id, draft.properties[definition.id]);
+  }
+}
+
+export function applyDraftInputValue(
+  element: HTMLElement,
+  propertyId: EditablePropertyId,
+  snapshot: PropertySnapshot,
+  rawValue: string
+): ApplyInputResult {
+  const definition = editablePropertyDefinitionMap[propertyId];
+  const candidate =
+    definition.control === 'opacity' ? clampOpacity(rawValue.trim()) : rawValue.trim();
+
+  if (!candidate) {
+    return {
+      baseline: snapshot.baseline,
+      inlineValue: snapshot.inlineValue,
+      invalid: true,
+      inputValue: rawValue,
+      value: snapshot.value,
+    };
+  }
+
+  const scratchElement = document.createElement('div');
+  scratchElement.style.setProperty(definition.cssProperty, candidate);
+  const normalizedValue = scratchElement.style.getPropertyValue(definition.cssProperty).trim();
+
+  if (!normalizedValue) {
+    return {
+      baseline: snapshot.baseline,
+      inlineValue: snapshot.inlineValue,
+      invalid: true,
+      inputValue: rawValue,
+      value: snapshot.value,
+    };
+  }
+
+  if (normalizedValue === snapshot.baseline) {
+    restoreOriginalInlineValue(element, propertyId, snapshot);
+
+    return {
+      baseline: snapshot.baseline,
+      inlineValue: snapshot.inlineValue,
+      invalid: false,
+      inputValue: normalizedValue,
+      value: snapshot.baseline,
+    };
+  }
+
+  element.style.setProperty(definition.cssProperty, normalizedValue);
+
+  return {
+    baseline: snapshot.baseline,
+    inlineValue: snapshot.inlineValue,
+    invalid: false,
+    inputValue: normalizedValue,
+    value: normalizedValue,
+  };
+}
+
+export function resetDraftProperty(
+  element: HTMLElement | null,
+  draft: SelectionDraft,
+  propertyId: EditablePropertyId
+) {
+  const snapshot = draft.properties[propertyId];
+
+  if (element) {
+    restoreOriginalInlineValue(element, propertyId, snapshot);
+  }
+
+  return {
+    ...snapshot,
+    inputValue: snapshot.baseline,
+    invalid: false,
+    value: snapshot.baseline,
+  };
+}
+
+export function hasDraftChanges(draft: SelectionDraft) {
+  return editablePropertyDefinitions.some(
+    (definition) =>
+      draft.properties[definition.id].value !== draft.properties[definition.id].baseline
+  );
+}
+
+export function getDirtyDrafts(drafts: Record<string, SelectionDraft>) {
+  return Object.values(drafts).filter(hasDraftChanges);
+}
+
+export function getDirtyPropertyIds(draft: SelectionDraft) {
+  return editablePropertyDefinitions
+    .filter(
+      (definition) =>
+        draft.properties[definition.id].value !== draft.properties[definition.id].baseline
+    )
+    .map((definition) => definition.id);
+}

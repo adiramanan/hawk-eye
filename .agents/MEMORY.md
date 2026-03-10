@@ -58,22 +58,18 @@
 ### Directory Layout
 ```
 packages/client/src/
-├── DesignTool.tsx         # Root component (trigger icon)
-├── Inspector.tsx          # Hover/click overlay
-├── PropertiesPanel.tsx    # Right-side panel
-├── DiffView.tsx           # Change review UI
-├── controls/              # Reusable property controls
-├── ChangeAccumulator.ts   # State management for edits
-├── ws-client.ts           # WebSocket client
-├── tailwind-map.ts        # CSS ↔ Tailwind token mapping
-└── styles/                # CSS injected into Shadow DOM
+├── DesignTool.tsx          # Root runtime + session state
+├── Inspector.tsx           # Overlay shell + panel container
+├── PropertiesPanel.tsx     # Guided property controls + pending changes
+├── editable-properties.ts  # Property metadata
+├── drafts.ts               # Live preview draft helpers
+├── ws-client.ts            # WebSocket client
+├── styles.ts               # CSS injected into Shadow DOM
+└── types.ts                # Internal runtime types
 
 packages/vite-plugin/src/
 ├── index.ts               # Plugin entry
 ├── source-injector.ts     # Babel transform
-├── style-detector.ts      # Determine Tailwind vs inline
-├── writers/               # Code mutation logic
-├── diff-generator.ts      # Compute diffs
 └── ws-server.ts           # WebSocket handler
 ```
 
@@ -88,9 +84,9 @@ packages/vite-plugin/src/
 ---
 
 ## Current Implementation Surface
-- `@hawk-eye/client` exports a dev-only inspector with a floating trigger, hover outline, click-to-lock selection, and source info panel.
+- `@hawk-eye/client` exports a dev-only inspector with a floating trigger, hover outline, click-to-lock selection, source info panel, guided property controls, and session-scoped live preview edits.
 - `@hawk-eye/vite-plugin` injects `data-source` metadata into intrinsic JSX elements and replies to selection requests over Vite HMR.
-- The demo app exercises the full Phase 1 inspector flow in a React + Vite + Tailwind environment.
+- The demo app exercises the full Phase 2 inspector and live-preview flow in a React + Vite + Tailwind environment.
 
 ## Known Issues & Workarounds
 - Packages are not published yet; evaluate through the local workspace/demo.
@@ -110,10 +106,10 @@ packages/vite-plugin/src/
   - Hover overlay + element selection
   - Vite HMR bridge to the plugin
 
-- **Phase 2 (Properties Panel):** NOT STARTED
-  - Properties UI controls
-  - Live preview (DOM style overrides)
-  - Change accumulator
+- **Phase 2 (Properties Panel):** COMPLETE
+  - Guided properties UI controls
+  - Live preview via DOM style overrides
+  - Session-scoped draft accumulation and reset behavior
 
 - **Phase 3 (Code Writers):** NOT STARTED
   - Tailwind writer (token swap)
@@ -139,4 +135,4 @@ packages/vite-plugin/src/
 ---
 
 ## Last Updated
-2026-03-08 (Phase 1 complete)
+2026-03-10 (Phase 2 complete)

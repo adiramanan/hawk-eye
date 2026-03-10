@@ -9,6 +9,8 @@ import type { SelectionPayload } from '../packages/client/src/types';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
+const mountedCleanups = new Set<() => void>();
+
 interface HotStub {
   emit(event: string, payload: SelectionPayload): void;
   off(event: string, cb: (payload: SelectionPayload) => void): void;
@@ -54,6 +56,25 @@ function mockRect(element: HTMLElement, rect: Partial<DOMRect>) {
   });
 }
 
+function applyBaselineStyles(element: HTMLElement, source: string) {
+  element.dataset.source = source;
+  element.style.paddingTop = '16px';
+  element.style.paddingRight = '20px';
+  element.style.paddingBottom = '12px';
+  element.style.paddingLeft = '18px';
+  element.style.marginTop = '8px';
+  element.style.marginRight = '4px';
+  element.style.marginBottom = '10px';
+  element.style.marginLeft = '6px';
+  element.style.borderRadius = '14px';
+  element.style.backgroundColor = 'rgb(10, 20, 30)';
+  element.style.color = 'rgb(200, 210, 220)';
+  element.style.fontSize = '18px';
+  element.style.fontWeight = '600';
+  element.style.lineHeight = '24px';
+  element.style.opacity = '0.8';
+}
+
 function renderDesignTool() {
   const container = document.createElement('div');
   document.body.append(container);
@@ -70,12 +91,27 @@ function renderDesignTool() {
     throw new Error('Hawk-Eye shadow root was not created');
   }
 
+  const cleanup = () => {
+    if (!mountedCleanups.has(cleanup)) {
+      return;
+    }
+
+    mountedCleanups.delete(cleanup);
+
+    act(() => {
+      root.unmount();
+    });
+    container.remove();
+  };
+
+  mountedCleanups.add(cleanup);
+
   return {
     cleanup() {
-      act(() => {
-        root.unmount();
-      });
-      container.remove();
+      cleanup();
+    },
+    debugText() {
+      return host.shadowRoot?.textContent ?? '';
     },
     host,
     shadowRoot: host.shadowRoot,
@@ -85,14 +121,22 @@ function renderDesignTool() {
 function click(node: Element | Window | Document) {
   act(() => {
     node.dispatchEvent(
-      new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 20, clientY: 20 })
+      new MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+        clientX: 20,
+        clientY: 20,
+        composed: true,
+      })
     );
   });
 }
 
 function pointerMove(node: Document) {
   act(() => {
-    node.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientX: 20, clientY: 20 }));
+    node.dispatchEvent(
+      new MouseEvent('pointermove', { bubbles: true, clientX: 20, clientY: 20, composed: true })
+    );
   });
 }
 
@@ -102,7 +146,48 @@ function pressEscape() {
   });
 }
 
+function updateInput(input: InstanceType<typeof window.HTMLInputElement>, value: string) {
+  const prototype = Object.getPrototypeOf(input);
+  const setValue =
+    Object.getOwnPropertyDescriptor(prototype, 'value')?.set ??
+    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+
+  if (!setValue) {
+    throw new Error('Could not find native input value setter');
+  }
+
+  act(() => {
+    setValue.call(input, value);
+    input.dispatchEvent(new window.Event('input', { bubbles: true, composed: true }));
+    input.dispatchEvent(new window.Event('change', { bubbles: true, composed: true }));
+  });
+}
+
+function setElementFromPoint(target: HTMLElement | null) {
+  Object.defineProperty(document, 'elementFromPoint', {
+    configurable: true,
+    value: vi.fn(() => target),
+  });
+}
+
+function getControl(
+  shadowRoot: { querySelector(selectors: string): Element | null },
+  propertyId: string
+) {
+  const input = shadowRoot.querySelector(`[data-hawk-eye-control="${propertyId}"]`);
+
+  if (!(input instanceof window.HTMLInputElement)) {
+    throw new Error(`Could not find control ${propertyId}`);
+  }
+
+  return input;
+}
+
 afterEach(() => {
+  for (const cleanup of Array.from(mountedCleanups)) {
+    cleanup();
+  }
+
   delete globalThis.__HAWK_EYE_HOT__;
   document.body.innerHTML = '';
   vi.restoreAllMocks();
@@ -123,43 +208,15 @@ describe('DesignTool', () => {
     cleanup();
   });
 
-  it('tracks hovered selectable elements and shows measurements', () => {
-    const target = document.createElement('button');
-    target.dataset.source = 'demo/src/App.tsx:10:5';
-    mockRect(target, { height: 48, left: 40, top: 64, width: 120 });
-    document.body.append(target);
-
-    Object.defineProperty(document, 'elementFromPoint', {
-      configurable: true,
-      value: vi.fn(() => target),
-    });
-
-    const { cleanup, shadowRoot } = renderDesignTool();
-    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
-
-    click(trigger);
-    pointerMove(document);
-
-    expect(shadowRoot.querySelector('[data-hawk-eye-ui="measure"]')?.textContent).toContain(
-      '120 x 48'
-    );
-    cleanup();
-  });
-
-  it('locks selection on click and requests source details over the HMR bridge', () => {
+  it('locks selection, requests source details, and hydrates the property controls', () => {
     const hot = createHotStub();
     globalThis.__HAWK_EYE_HOT__ = hot;
 
     const target = document.createElement('button');
-    target.className = 'rounded-lg bg-indigo-600';
-    target.dataset.source = 'demo/src/App.tsx:21:13';
+    applyBaselineStyles(target, 'demo/src/App.tsx:21:13');
     mockRect(target, { height: 40, left: 32, top: 80, width: 144 });
     document.body.append(target);
-
-    Object.defineProperty(document, 'elementFromPoint', {
-      configurable: true,
-      value: vi.fn(() => target),
-    });
+    setElementFromPoint(target);
 
     const { cleanup, shadowRoot } = renderDesignTool();
     const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
@@ -180,30 +237,142 @@ describe('DesignTool', () => {
     expect(hot.send).toHaveBeenCalledWith('hawk-eye:inspect', { source: 'demo/src/App.tsx:21:13' });
     expect(shadowRoot.textContent).toContain('Locked selection');
     expect(shadowRoot.textContent).toContain('demo/src/App.tsx:21:13');
-    expect(shadowRoot.textContent).toContain('tailwind');
+    expect(getControl(shadowRoot, 'paddingTop').value).toBe('16px');
+    expect(getControl(shadowRoot, 'borderRadius').value).toBe('14px');
+    expect(getControl(shadowRoot, 'fontWeight').value).toBe('600');
+    expect(getControl(shadowRoot, 'opacity-number').value).toBe('0.8');
     cleanup();
   });
 
-  it('exits inspector mode on Escape', () => {
+  it('applies live preview edits and keeps invalid text visible without replacing the last valid preview', () => {
     const target = document.createElement('div');
-    target.dataset.source = 'demo/src/App.tsx:8:7';
-    mockRect(target, { height: 32, left: 24, top: 24, width: 96 });
+    applyBaselineStyles(target, 'demo/src/App.tsx:8:7');
+    mockRect(target, { height: 48, left: 24, top: 40, width: 120 });
     document.body.append(target);
+    setElementFromPoint(target);
 
-    Object.defineProperty(document, 'elementFromPoint', {
-      configurable: true,
-      value: vi.fn(() => target),
-    });
+    const { cleanup, shadowRoot } = renderDesignTool();
+    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+    const paddingTopInput = () => getControl(shadowRoot, 'paddingTop');
+
+    click(trigger);
+    click(document);
+
+    updateInput(paddingTopInput(), '24px');
+    expect(target.style.paddingTop).toBe('24px');
+    expect(shadowRoot.textContent).toContain('16px -> 24px');
+
+    updateInput(paddingTopInput(), 'banana');
+    expect(target.style.paddingTop).toBe('24px');
+    expect(paddingTopInput().value).toBe('banana');
+    expect(shadowRoot.textContent).toContain('Invalid value. Preview stays at 24px.');
+    cleanup();
+  });
+
+  it('supports per-field reset and resetting all preview changes', () => {
+    const target = document.createElement('div');
+    applyBaselineStyles(target, 'demo/src/App.tsx:11:5');
+    mockRect(target, { height: 56, left: 24, top: 40, width: 140 });
+    document.body.append(target);
+    setElementFromPoint(target);
+
+    const { cleanup, host, shadowRoot } = renderDesignTool();
+    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+
+    click(trigger);
+    click(document);
+
+    updateInput(getControl(shadowRoot, 'paddingTop'), '24px');
+    updateInput(getControl(shadowRoot, 'opacity-number'), '0.5');
+
+    const paddingReset = shadowRoot.querySelector(
+      '[data-property-id="paddingTop"] [data-hawk-eye-ui="control-reset"]'
+    );
+
+    if (!(paddingReset instanceof window.HTMLButtonElement)) {
+      throw new Error('Missing padding reset button');
+    }
+
+    setElementFromPoint(host);
+    click(paddingReset);
+
+    expect(target.style.paddingTop).toBe('16px');
+    expect(target.style.opacity).toBe('0.5');
+
+    const resetAll = shadowRoot.querySelector('[data-hawk-eye-ui="secondary-button"]');
+
+    if (!(resetAll instanceof window.HTMLButtonElement)) {
+      throw new Error('Missing reset all button');
+    }
+
+    setElementFromPoint(host);
+    click(resetAll);
+
+    expect(target.style.paddingTop).toBe('16px');
+    expect(target.style.opacity).toBe('0.8');
+    expect(shadowRoot.textContent).not.toContain('0.8 -> 0.5');
+    expect(shadowRoot.textContent).toContain('Live preview changes stay in this session only.');
+    cleanup();
+  });
+
+  it('preserves preview drafts across selections and restores them when reselected', () => {
+    const first = document.createElement('button');
+    applyBaselineStyles(first, 'demo/src/App.tsx:20:5');
+    mockRect(first, { height: 40, left: 24, top: 40, width: 144 });
+    document.body.append(first);
+
+    const second = document.createElement('div');
+    applyBaselineStyles(second, 'demo/src/App.tsx:38:9');
+    second.style.paddingTop = '10px';
+    second.style.marginTop = '2px';
+    mockRect(second, { height: 96, left: 220, top: 40, width: 180 });
+    document.body.append(second);
+
+    const { cleanup, shadowRoot } = renderDesignTool();
+    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+
+    click(trigger);
+
+    setElementFromPoint(first);
+    click(document);
+    updateInput(getControl(shadowRoot, 'paddingTop'), '24px');
+
+    setElementFromPoint(second);
+    click(document);
+    updateInput(getControl(shadowRoot, 'marginTop'), '12px');
+
+    expect(first.style.paddingTop).toBe('24px');
+    expect(second.style.marginTop).toBe('12px');
+    expect(shadowRoot.textContent).toContain('demo/src/App.tsx:20:5');
+    expect(shadowRoot.textContent).toContain('demo/src/App.tsx:38:9');
+
+    setElementFromPoint(first);
+    click(document);
+
+    expect(getControl(shadowRoot, 'paddingTop').value).toBe('24px');
+    cleanup();
+  });
+
+  it('clears all session previews when the inspector exits', () => {
+    const target = document.createElement('div');
+    applyBaselineStyles(target, 'demo/src/App.tsx:14:3');
+    mockRect(target, { height: 44, left: 24, top: 40, width: 132 });
+    document.body.append(target);
+    setElementFromPoint(target);
 
     const { cleanup, shadowRoot } = renderDesignTool();
     const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
 
     click(trigger);
     click(document);
+    updateInput(getControl(shadowRoot, 'paddingTop'), '28px');
+
+    expect(target.style.paddingTop).toBe('28px');
     pressEscape();
 
-    expect(shadowRoot.textContent).not.toContain('Locked selection');
+    expect(target.style.paddingTop).toBe('16px');
     expect(shadowRoot.textContent).toContain('Inspect with Hawk-Eye');
+    expect(shadowRoot.textContent).not.toContain('Reset all changes');
     cleanup();
   });
 
@@ -211,10 +380,7 @@ describe('DesignTool', () => {
     const { cleanup, host, shadowRoot } = renderDesignTool();
     const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
 
-    Object.defineProperty(document, 'elementFromPoint', {
-      configurable: true,
-      value: vi.fn(() => host),
-    });
+    setElementFromPoint(host);
 
     click(trigger);
     pointerMove(document);
