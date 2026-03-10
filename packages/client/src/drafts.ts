@@ -126,8 +126,8 @@ export function applyDraftInputValue(
   rawValue: string
 ): ApplyInputResult {
   const definition = editablePropertyDefinitionMap[propertyId];
-  const candidate =
-    definition.control === 'opacity' ? clampOpacity(rawValue.trim()) : rawValue.trim();
+  const isOpacitySlider = definition.control === 'slider' && definition.id === 'opacity';
+  const candidate = isOpacitySlider ? clampOpacity(rawValue.trim()) : rawValue.trim();
 
   if (!candidate) {
     return {

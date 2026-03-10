@@ -259,67 +259,87 @@ function DesignToolRuntime() {
       return;
     }
 
-    const currentDraft = drafts[source];
     const element = getInspectableElementBySource(source) ?? selected?.element ?? null;
 
-    if (!currentDraft || !element) {
+    if (!element) {
       return;
     }
 
-    const nextSnapshot = applyDraftInputValue(
-      element,
-      propertyId,
-      currentDraft.properties[propertyId],
-      inputValue
-    );
+    let nextDraft: SelectionDraft | null = null;
 
-    const nextDraft = {
-      ...currentDraft,
-      properties: {
-        ...currentDraft.properties,
-        [propertyId]: nextSnapshot,
-      },
-    };
+    setDrafts((current) => {
+      const currentDraft = current[source];
 
-    setDrafts((current) => ({
-      ...current,
-      [source]: nextDraft,
-    }));
-    refreshSelectedMeasurement(source, nextDraft);
+      if (!currentDraft) {
+        return current;
+      }
+
+      const nextSnapshot = applyDraftInputValue(
+        element,
+        propertyId,
+        currentDraft.properties[propertyId],
+        inputValue
+      );
+
+      const updatedDraft = {
+        ...currentDraft,
+        properties: {
+          ...currentDraft.properties,
+          [propertyId]: nextSnapshot,
+        },
+      };
+      nextDraft = updatedDraft;
+
+      return {
+        ...current,
+        [source]: updatedDraft,
+      };
+    });
+
+    if (nextDraft) {
+      refreshSelectedMeasurement(source, nextDraft);
+    }
   }
 
   function resetProperty(source: string, propertyId: EditablePropertyId) {
-    const currentDraft = drafts[source];
-
-    if (!currentDraft) {
-      return;
-    }
-
     const element = getInspectableElementBySource(source);
-    const nextSnapshot = resetDraftProperty(element, currentDraft, propertyId);
-    const nextDraft = {
-      ...currentDraft,
-      properties: {
-        ...currentDraft.properties,
-        [propertyId]: nextSnapshot,
-      },
-    };
+    let nextDraft: SelectionDraft | null = null;
+    let removedDraft = false;
 
     setDrafts((current) => {
-      if (source !== selectedSource && !hasDraftChanges(nextDraft)) {
+      const currentDraft = current[source];
+
+      if (!currentDraft) {
+        return current;
+      }
+
+      const nextSnapshot = resetDraftProperty(element, currentDraft, propertyId);
+      const updatedDraft = {
+        ...currentDraft,
+        properties: {
+          ...currentDraft.properties,
+          [propertyId]: nextSnapshot,
+        },
+      };
+      nextDraft = updatedDraft;
+
+      if (source !== selectedSource && !hasDraftChanges(updatedDraft)) {
         const nextDrafts = { ...current };
         delete nextDrafts[source];
+        removedDraft = true;
         return nextDrafts;
       }
 
       return {
         ...current,
-        [source]: nextDraft,
+        [source]: updatedDraft,
       };
     });
 
-    if (source === selectedSource) {
+    if (source === selectedSource && nextDraft) {
       refreshSelectedMeasurement(source, nextDraft);
+    } else if (removedDraft) {
+      refreshSelectedMeasurement(source);
     }
   }
 

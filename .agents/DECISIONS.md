@@ -285,6 +285,95 @@
 
 ---
 
+## D13: Rich Control Architecture — Data-Driven Control Dispatcher
+
+**Decision:** Expand the `EditablePropertyControl` type union and use a `renderControl()` dispatcher in PropertiesPanel that switches on the control type to render the appropriate component.
+
+**Rationale:**
+- The current architecture already uses a data-driven approach (property definitions array is the single source of truth)
+- A dispatcher pattern scales cleanly from 2 control types to 10+ without spaghetti conditionals
+- Each control component is self-contained and independently testable
+- New control types require only: (1) add to the union type, (2) build the component, (3) add a case to the dispatcher
+
+**Alternatives Considered:**
+- Render props / component-in-definition: More flexible but harder to type and test
+- Single polymorphic input component: Becomes a god component, violates SRP
+
+**Trade-offs:**
+- More files to maintain (one per control type)
+- All controls must conform to a common value/onChange interface (CSS string in, CSS string out)
+
+**Status:** CONFIRMED (2026-03-10)
+
+---
+
+## D14: Styles Module Split
+
+**Decision:** Split `styles.ts` (429 lines) into `styles/base.ts`, `styles/controls.ts`, `styles/sections.ts`, and `styles/index.ts`. The combined export (`hawkEyeStyles`) stays the same.
+
+**Rationale:**
+- Adding 7+ control components and 10+ section layouts will grow styles to 1500-2000+ lines
+- Module split keeps each file focused and reviewable
+- No breaking change to the existing import contract
+
+**Alternatives Considered:**
+- Keep everything in one file: Unmaintainable at 2000+ lines
+- CSS-in-JS per component: Shadow DOM requires all styles in one stylesheet injection
+- External CSS file: Breaks Shadow DOM isolation
+
+**Trade-offs:**
+- Slightly more import indirection
+- Must ensure all modules contribute to a single concatenated string
+
+**Status:** CONFIRMED (2026-03-10)
+
+---
+
+## D15: Per-Side Control Pattern
+
+**Decision:** A single `PerSideControl` component maps to 4 `EditablePropertyId` values (top/right/bottom/left). It receives 4 snapshots and calls `onChange(id, value)` for each affected side. Linked mode calls it for all 4.
+
+**Rationale:**
+- Replaces 8 separate text inputs with 2 compact visual controls (padding + margin)
+- The draft system already supports per-property changes — no architectural change needed
+- Link/unlink matches Framer's UX and is a standard design tool pattern
+
+**Alternatives Considered:**
+- Shorthand property (e.g., `padding: 8px 16px`): Harder to diff, less granular control
+- Keep individual text inputs: Works but doesn't feel like a design tool
+
+**Trade-offs:**
+- The PerSideControl must know about 4 property IDs, creating tighter coupling than a simple input
+- Linked mode must fire 4 onChange calls atomically
+
+**Status:** CONFIRMED (2026-03-10)
+
+---
+
+## D16: Custom Color Picker in Shadow DOM
+
+**Decision:** Build a custom inline color picker using `<canvas>` for the saturation/lightness gradient and hue bar. No external component library.
+
+**Rationale:**
+- Shadow DOM prevents using any external color picker library that depends on global styles
+- `<canvas>` is the standard approach for gradient rendering in design tools
+- Keeps the bundle lightweight (no additional dependency)
+- The picker API is simple: input a CSS color string, output a CSS color string
+
+**Alternatives Considered:**
+- `<input type="color">`: Browser-native but no opacity control, limited customization, breaks Shadow DOM isolation
+- External library (react-color, etc.): Can't render correctly inside Shadow DOM
+- Text-only input: Works but doesn't feel like a design tool
+
+**Trade-offs:**
+- Most complex single control to build (~200-300 lines)
+- Canvas rendering doesn't work in jsdom tests (test logic separately from rendering)
+- Color conversion utilities needed (hex ↔ rgb ↔ hsl)
+
+**Status:** CONFIRMED (2026-03-10)
+
+---
+
 ## Decision Review Schedule
 - Every phase end, review decisions with latest learnings
 - Update rationale if new context emerges
