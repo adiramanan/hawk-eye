@@ -374,6 +374,96 @@
 
 ---
 
+## D17: Figma-Style Focused Property Groups
+
+**Decision:** In focused mode, replace the current 10 CSS-centric groups with 5 Figma-style sections (Layout, Fill, Typography, Design, Effects), showing only 15 essential properties. The full 60+ property set remains accessible via a toggle.
+
+**Rationale:**
+- Designers think in terms of spatial, color, type, shape, and depth adjustments — not CSS categories
+- 15 properties cover the most common "polish" operations: spacing, colors, font size/weight/alignment, border-radius, box-shadow
+- Matches Figma's inspector mental model (Layout, Fill, Typography, Design, Effects)
+- Reduces cognitive load for non-developers doing quick design fixes
+- Supports the product goal of reducing token usage for small design fixes (no AI needed)
+
+**Alternatives Considered:**
+- Keep all 60+ properties with better search: Still overwhelming for non-technical users
+- Fixed minimal set with no toggle: Limits power users who need advanced properties
+- Per-element smart filtering: Too complex, unpredictable for users
+
+**Trade-offs:**
+- Two rendering modes in PropertiesPanel (focused vs full) add complexity
+- Some properties designers might want (opacity, overflow) are excluded from the minimal set
+- Group names differ between modes (Layout vs Spacing/Auto Layout) which could confuse users switching between modes
+
+**Status:** CONFIRMED (2026-03-12)
+
+---
+
+## D18: Smart Style Detection with Detach
+
+**Decision:** Detect Tailwind vs inline vs mixed style strategies server-side using ts-morph JSX analysis. Add a "Detach" toggle that converts class-based elements to pure inline styles (like Figma's "detach instance").
+
+**Rationale:**
+- Different style strategies require different write approaches (class swap vs inline mutation)
+- Server-side analysis using ts-morph reads the actual source AST — more reliable than client-side heuristics
+- The "Detach" concept is familiar to Figma/Framer users — gives a clean break from the class system
+- Only string literal className values are analyzed; dynamic expressions (cn/clsx/ternaries) fall back to inline styles
+
+**How Detach Works:**
+1. User clicks "Detach" on a class-based element
+2. Client reads `getComputedStyle` for all 15 focused properties
+3. All values populate the draft as dirty properties
+4. Draft's `styleMode` becomes `'detached'`
+5. On save: writer removes `className` attribute, writes all properties as inline `style`
+
+**Alternatives Considered:**
+- Client-side only detection (check element.className): Can't distinguish Tailwind from BEM/custom classes
+- Always write inline styles: Loses Tailwind class structure for non-detached elements
+- No detach feature: Limits designer freedom when classes are too constraining
+
+**Trade-offs:**
+- Detach is destructive (removes all classes) — should be clearly labeled and possibly confirmable
+- Server roundtrip for style analysis adds latency on element selection
+- Dynamic className expressions remain opaque
+
+**Status:** CONFIRMED (2026-03-12)
+
+---
+
+## D19: Save-to-Branch Workflow
+
+**Decision:** On save, create a new git branch from current HEAD, write mutations to source files via AST, commit the changes, and switch back to the original branch. User reviews changes via PR diff. Abort if working tree has uncommitted changes.
+
+**Rationale:**
+- Safest approach: working tree stays clean, changes are isolated on a branch
+- Fully reversible: user can delete the branch if changes are wrong
+- PR-based review is natural for developers and enables collaboration
+- Git operations happen server-side in the Vite plugin (has Node.js access via child_process)
+- Branch naming (`hawk-eye/design-tweaks-{timestamp}`) makes changes easy to identify
+
+**Save Flow:**
+1. `git status --porcelain` — abort if dirty
+2. `git rev-parse --abbrev-ref HEAD` — save current branch
+3. `git checkout -b hawk-eye/design-tweaks-{timestamp}` — create new branch
+4. Run source-writer to mutate files
+5. `git add` + `git commit` modified files
+6. `git checkout {original-branch}` — switch back
+7. Send result to client
+
+**Alternatives Considered:**
+- Write to files directly (no branch): Risky, pollutes working tree, hard to review
+- Generate patch/diff only: Zero risk but requires manual application
+- Auto-create PR: Too invasive, requires GitHub auth
+
+**Trade-offs:**
+- Requires clean working tree (user must commit/stash first)
+- Git operations are not atomic — if step 5 fails, user is left on the new branch
+- Multiple save sessions create multiple branches (could clutter)
+
+**Status:** CONFIRMED (2026-03-12)
+
+---
+
 ## Decision Review Schedule
 - Every phase end, review decisions with latest learnings
 - Update rationale if new context emerges

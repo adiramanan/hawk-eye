@@ -107,14 +107,18 @@ packages/vite-plugin/src/
   - Vite HMR bridge to the plugin
 
 - **Phase 2 (Properties Panel):** COMPLETE
-  - Guided properties UI controls
+  - Guided properties UI controls (60+ CSS properties, 8 control types, 10 groups)
   - Live preview via DOM style overrides
   - Session-scoped draft accumulation and reset behavior
+  - Search, keyboard navigation, resizable panel
 
-- **Phase 3 (Code Writers):** NOT STARTED
-  - Tailwind writer (token swap)
-  - Inline style writer (AST mutation)
-  - File writing + HMR
+- **Phase 3 (Designer-Friendly Editor + Code Writers + Save-to-Branch):** IN PROGRESS
+  - 3.1: Focused 15-property subset with Figma-style sections (Layout/Fill/Typography/Design/Effects)
+  - 3.2: Server-side style strategy detection (Tailwind vs inline vs mixed)
+  - 3.3: Bidirectional Tailwind CSS-to-class mapping
+  - 3.4: AST mutation writer using ts-morph
+  - 3.5: Detach-from-classes toggle (like Figma's detach instance)
+  - 3.6: Save-to-branch workflow (git branch + commit + switch back)
 
 - **Phase 4 (Polish):** NOT STARTED
   - Edge case handling
@@ -134,5 +138,35 @@ packages/vite-plugin/src/
 
 ---
 
+## Phase 3 Key Patterns
+
+### Focused Property Set
+15 properties in 5 Figma-style groups:
+- **Layout** (8): paddingTop/Right/Bottom/Left, marginTop/Right/Bottom/Left
+- **Fill** (2): backgroundColor, color
+- **Typography** (3): fontSize, fontWeight, textAlign
+- **Design** (1): borderRadius
+- **Effects** (1): boxShadow
+
+### Style Strategy Detection
+- Server-side ts-morph analysis of JSX source at `line:column`
+- Returns `StyleMode`: `'inline' | 'tailwind' | 'mixed' | 'detached' | 'unknown'`
+- Only processes string literal `className` — dynamic expressions (cn/clsx/ternaries) report as `'unknown'`
+
+### Save Workflow
+- Creates branch `hawk-eye/design-tweaks-{YYYYMMDD-HHmmss}` from HEAD
+- Writes mutations → commits → switches back to original branch
+- Aborts if working tree is dirty (uncommitted changes)
+
+### Dependencies Already Available
+- `ts-morph ^21.0.0` — in `@hawk-eye/vite-plugin` package.json (for style analysis + source writing)
+- `diff ^5.1.0` — in `@hawk-eye/vite-plugin` package.json (for change previews)
+- `tailwindPrefix` field on every property definition — maps to Tailwind class prefix
+
+### Parallelism
+Phases 3.1, 3.2, 3.3 can run fully in parallel (no dependencies between them). Phase 3.4 depends on 3.2 + 3.3. Phase 3.5 depends on 3.1 + 3.4. Phase 3.6 depends on 3.4.
+
+---
+
 ## Last Updated
-2026-03-10 (Phase 2 complete)
+2026-03-12 (Phase 3 planning complete)
