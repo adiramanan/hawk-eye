@@ -12,12 +12,14 @@ export interface SelectionPayload {
 export type StyleMode = 'inline' | 'tailwind' | 'unknown';
 
 export interface SelectionDetails extends SelectionPayload {
+  instanceKey: string;
   styleMode: StyleMode;
   tagName: string;
 }
 
 export interface MeasuredElement {
   element: HTMLElement;
+  instanceKey: string;
   rect: DOMRect;
   source: string;
 }

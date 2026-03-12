@@ -480,6 +480,41 @@ describe('DesignTool', () => {
     cleanup();
   });
 
+  it('updates the selected instance when multiple elements share the same source token', () => {
+    const sharedSource = 'demo/src/App.tsx:72:9';
+
+    const first = document.createElement('div');
+    applyBaselineStyles(first, sharedSource);
+    first.style.paddingTop = '8px';
+    mockRect(first, { height: 44, left: 24, top: 40, width: 132 });
+    document.body.append(first);
+
+    const second = document.createElement('div');
+    applyBaselineStyles(second, sharedSource);
+    second.style.paddingTop = '16px';
+    mockRect(second, { height: 44, left: 220, top: 40, width: 132 });
+    document.body.append(second);
+
+    setElementFromPoint(second);
+
+    const { cleanup, shadowRoot } = renderDesignTool();
+    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+
+    click(trigger);
+    click(document);
+
+    expect(getControl(shadowRoot, 'paddingTop').value).toBe('16px');
+
+    updateInput(
+      getControl(shadowRoot, 'paddingTop') as InstanceType<typeof window.HTMLInputElement>,
+      '28px'
+    );
+
+    expect(second.style.paddingTop).toBe('28px');
+    expect(first.style.paddingTop).toBe('8px');
+    cleanup();
+  });
+
   it('clears all session previews when the inspector exits', () => {
     const target = document.createElement('div');
     applyBaselineStyles(target, 'demo/src/App.tsx:14:3');

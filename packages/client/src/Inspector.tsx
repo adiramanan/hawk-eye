@@ -10,7 +10,7 @@ interface InspectorProps {
   selectedDraft: SelectionDraft | null;
   onChange(propertyId: EditablePropertyId, value: string): void;
   onResetAll(): void;
-  onResetProperty(source: string, propertyId: EditablePropertyId): void;
+  onResetProperty(instanceKey: string, propertyId: EditablePropertyId): void;
   onToggle(): void;
 }
 

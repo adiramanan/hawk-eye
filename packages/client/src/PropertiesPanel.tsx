@@ -95,7 +95,7 @@ interface PropertiesPanelProps {
   selectedDraft: SelectionDraft;
   onChange(propertyId: EditablePropertyId, value: string): void;
   onResetAll(): void;
-  onResetProperty(source: string, propertyId: EditablePropertyId): void;
+  onResetProperty(instanceKey: string, propertyId: EditablePropertyId): void;
 }
 
 interface PropertyCardOptions {
@@ -198,7 +198,7 @@ export function PropertiesPanel({
           dirty ? (
             <button
               data-hawk-eye-ui="control-reset"
-              onClick={() => onResetProperty(selectedDraft.source, propertyId)}
+              onClick={() => onResetProperty(selectedDraft.instanceKey, propertyId)}
               type="button"
             >
               Reset
@@ -261,7 +261,7 @@ export function PropertiesPanel({
               data-hawk-eye-ui="control-reset"
               onClick={() => {
                 for (const entry of dirtyEntries) {
-                  onResetProperty(selectedDraft.source, entry.id);
+                  onResetProperty(selectedDraft.instanceKey, entry.id);
                 }
               }}
               type="button"
@@ -279,10 +279,10 @@ export function PropertiesPanel({
         span="full"
       >
         <PerSideControl
-          key={`${selectedDraft.source}-${cardId}`}
+          key={`${selectedDraft.instanceKey}-${cardId}`}
           label={label}
           onChange={onChange}
-          onReset={(propertyId) => onResetProperty(selectedDraft.source, propertyId)}
+          onReset={(propertyId) => onResetProperty(selectedDraft.instanceKey, propertyId)}
           sides={{
             top: { id: propertyIds.top, snapshot: selectedDraft.properties[propertyIds.top] },
             right: { id: propertyIds.right, snapshot: selectedDraft.properties[propertyIds.right] },
@@ -309,7 +309,7 @@ export function PropertiesPanel({
           dirty ? (
             <button
               data-hawk-eye-ui="control-reset"
-              onClick={() => onResetProperty(selectedDraft.source, propertyId)}
+              onClick={() => onResetProperty(selectedDraft.instanceKey, propertyId)}
               type="button"
             >
               Reset
@@ -485,7 +485,7 @@ export function PropertiesPanel({
               const dirtyProperties = getDirtyPropertyIds(draft);
 
               return (
-                <article data-hawk-eye-ui="change-card" key={draft.source}>
+                <article data-hawk-eye-ui="change-card" key={draft.instanceKey}>
                   <div data-hawk-eye-ui="change-card-head">
                     <div>
                       <p data-hawk-eye-ui="change-title">{draft.tagName}</p>
@@ -500,7 +500,10 @@ export function PropertiesPanel({
                       const snapshot = draft.properties[propertyId];
 
                       return (
-                        <div data-hawk-eye-ui="change-item" key={`${draft.source}-${propertyId}`}>
+                        <div
+                          data-hawk-eye-ui="change-item"
+                          key={`${draft.instanceKey}-${propertyId}`}
+                        >
                           <div data-hawk-eye-ui="change-copy">
                             <span data-hawk-eye-ui="change-label">{definition.shortLabel}</span>
                             <span data-hawk-eye-ui="change-values">
@@ -509,7 +512,7 @@ export function PropertiesPanel({
                           </div>
                           <button
                             data-hawk-eye-ui="pill-button"
-                            onClick={() => onResetProperty(draft.source, propertyId)}
+                            onClick={() => onResetProperty(draft.instanceKey, propertyId)}
                             type="button"
                           >
                             Reset

@@ -14,8 +14,38 @@ interface ApplyInputResult {
   value: string;
 }
 
+const INSTANCE_KEY_SEPARATOR = '@@';
+
 function escapeAttributeValue(value: string) {
   return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+function getInspectableElementsBySource(source: string) {
+  return Array.from(
+    document.querySelectorAll<HTMLElement>(`[data-source="${escapeAttributeValue(source)}"]`)
+  );
+}
+
+function parseInspectableElementKey(instanceKey: string) {
+  const separatorIndex = instanceKey.lastIndexOf(INSTANCE_KEY_SEPARATOR);
+
+  if (separatorIndex === -1) {
+    return {
+      occurrence: 0,
+      source: instanceKey,
+    };
+  }
+
+  const source = instanceKey.slice(0, separatorIndex);
+  const occurrence = Number.parseInt(
+    instanceKey.slice(separatorIndex + INSTANCE_KEY_SEPARATOR.length),
+    10
+  );
+
+  return {
+    occurrence: Number.isInteger(occurrence) ? occurrence : 0,
+    source,
+  };
 }
 
 function clampOpacity(rawValue: string) {
@@ -78,6 +108,7 @@ export function mergeSelectionDraft(
   return {
     ...draft,
     file: details.file,
+    instanceKey: details.instanceKey,
     line: details.line,
     column: details.column,
     tagName: details.tagName,
@@ -86,12 +117,31 @@ export function mergeSelectionDraft(
   };
 }
 
-export function getInspectableElementBySource(source: string) {
+export function createInspectableElementKey(element: HTMLElement) {
   if (typeof document === 'undefined') {
     return null;
   }
 
-  return document.querySelector<HTMLElement>(`[data-source="${escapeAttributeValue(source)}"]`);
+  const source = element.dataset.source?.trim();
+
+  if (!source) {
+    return null;
+  }
+
+  const matches = getInspectableElementsBySource(source);
+  const occurrence = matches.findIndex((match) => match === element);
+
+  return `${source}${INSTANCE_KEY_SEPARATOR}${Math.max(occurrence, 0)}`;
+}
+
+export function getInspectableElementByKey(instanceKey: string) {
+  if (typeof document === 'undefined') {
+    return null;
+  }
+
+  const { source, occurrence } = parseInspectableElementKey(instanceKey);
+
+  return getInspectableElementsBySource(source)[occurrence] ?? null;
 }
 
 export function applyDraftToElement(element: HTMLElement, draft: SelectionDraft) {
@@ -108,7 +158,7 @@ export function applyDraftToElement(element: HTMLElement, draft: SelectionDraft)
 }
 
 export function clearDraftOverrides(draft: SelectionDraft) {
-  const element = getInspectableElementBySource(draft.source);
+  const element = getInspectableElementByKey(draft.instanceKey);
 
   if (!element) {
     return;

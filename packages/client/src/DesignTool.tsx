@@ -4,9 +4,10 @@ import {
   applyDraftInputValue,
   applyDraftToElement,
   clearDraftOverrides,
+  createInspectableElementKey,
   createSelectionDraft,
   getDirtyDrafts,
-  getInspectableElementBySource,
+  getInspectableElementByKey,
   hasDraftChanges,
   mergeSelectionDraft,
   resetDraftProperty,
@@ -77,19 +78,26 @@ function measureElement(element: HTMLElement | null) {
     return null;
   }
 
+  const instanceKey = createInspectableElementKey(element);
+
+  if (!instanceKey) {
+    return null;
+  }
+
   return {
     element,
+    instanceKey,
     rect: element.getBoundingClientRect(),
     source,
   } satisfies MeasuredElement;
 }
 
-function measureElementBySource(source: string) {
-  return measureElement(getInspectableElementBySource(source));
+function measureElementByKey(instanceKey: string) {
+  return measureElement(getInspectableElementByKey(instanceKey));
 }
 
 function sameMeasuredElement(current: MeasuredElement | null, next: MeasuredElement | null) {
-  return current?.element === next?.element && current?.source === next?.source;
+  return current?.element === next?.element && current?.instanceKey === next?.instanceKey;
 }
 
 function getSelectableElementAtPoint(clientX: number, clientY: number) {
@@ -129,6 +137,7 @@ function buildSelectionDetails(
 
   return {
     ...parsedPayload,
+    instanceKey: measured.instanceKey,
     styleMode: getStyleMode(measured.element),
     tagName: measured.element.tagName.toLowerCase(),
   };
@@ -156,17 +165,17 @@ function DesignToolRuntime() {
   const [drafts, setDrafts] = useState<Record<string, SelectionDraft>>({});
   const [hovered, setHovered] = useState<MeasuredElement | null>(null);
   const [selected, setSelected] = useState<MeasuredElement | null>(null);
-  const [selectedSource, setSelectedSource] = useState<string | null>(null);
+  const [selectedInstanceKey, setSelectedInstanceKey] = useState<string | null>(null);
   const draftsRef = useRef<Record<string, SelectionDraft>>({});
-  const selectedSourceRef = useRef<string | null>(null);
+  const selectedInstanceKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     draftsRef.current = drafts;
   }, [drafts]);
 
   useEffect(() => {
-    selectedSourceRef.current = selectedSource;
-  }, [selectedSource]);
+    selectedInstanceKeyRef.current = selectedInstanceKey;
+  }, [selectedInstanceKey]);
 
   function clearSessionDrafts() {
     for (const draft of Object.values(draftsRef.current)) {
@@ -176,14 +185,14 @@ function DesignToolRuntime() {
     setDrafts({});
     setHovered(null);
     setSelected(null);
-    setSelectedSource(null);
+    setSelectedInstanceKey(null);
   }
 
-  function refreshSelectedMeasurement(source: string, draftOverride?: SelectionDraft) {
-    const nextMeasurement = measureElementBySource(source);
+  function refreshSelectedMeasurement(instanceKey: string, draftOverride?: SelectionDraft) {
+    const nextMeasurement = measureElementByKey(instanceKey);
 
     if (nextMeasurement) {
-      const nextDraft = draftOverride ?? draftsRef.current[source];
+      const nextDraft = draftOverride ?? draftsRef.current[instanceKey];
 
       if (nextDraft) {
         applyDraftToElement(nextMeasurement.element, nextDraft);
@@ -200,7 +209,7 @@ function DesignToolRuntime() {
       return null;
     }
 
-    const currentDraft = draftsRef.current[measured.source];
+    const currentDraft = draftsRef.current[measured.instanceKey];
     const nextDraft = currentDraft
       ? mergeSelectionDraft(currentDraft, details)
       : createSelectionDraft(details, measured.element);
@@ -208,7 +217,7 @@ function DesignToolRuntime() {
     applyDraftToElement(measured.element, nextDraft);
     setDrafts((current) => ({
       ...current,
-      [measured.source]: nextDraft,
+      [measured.instanceKey]: nextDraft,
     }));
 
     return nextDraft;
@@ -221,20 +230,20 @@ function DesignToolRuntime() {
       clearDraftOverrides(draft);
     }
 
-    const lockedSource = selectedSource;
+    const lockedInstanceKey = selectedInstanceKey;
 
-    if (!lockedSource) {
+    if (!lockedInstanceKey) {
       setDrafts({});
       return;
     }
 
-    const lockedMeasurement = measureElementBySource(lockedSource);
-    const existingDraft = draftsRef.current[lockedSource];
+    const lockedMeasurement = measureElementByKey(lockedInstanceKey);
+    const existingDraft = draftsRef.current[lockedInstanceKey];
 
     if (!lockedMeasurement || !existingDraft) {
       setDrafts({});
       setSelected(null);
-      setSelectedSource(null);
+      setSelectedInstanceKey(null);
       return;
     }
 
@@ -247,19 +256,19 @@ function DesignToolRuntime() {
     );
 
     setDrafts({
-      [lockedSource]: nextDraft,
+      [lockedInstanceKey]: nextDraft,
     });
     setSelected(lockedMeasurement);
   }
 
   function updateDraftProperty(propertyId: EditablePropertyId, inputValue: string) {
-    const source = selectedSource;
+    const instanceKey = selectedInstanceKey;
 
-    if (!source) {
+    if (!instanceKey) {
       return;
     }
 
-    const element = getInspectableElementBySource(source) ?? selected?.element ?? null;
+    const element = getInspectableElementByKey(instanceKey) ?? selected?.element ?? null;
 
     if (!element) {
       return;
@@ -268,7 +277,7 @@ function DesignToolRuntime() {
     let nextDraft: SelectionDraft | null = null;
 
     setDrafts((current) => {
-      const currentDraft = current[source];
+      const currentDraft = current[instanceKey];
 
       if (!currentDraft) {
         return current;
@@ -292,22 +301,22 @@ function DesignToolRuntime() {
 
       return {
         ...current,
-        [source]: updatedDraft,
+        [instanceKey]: updatedDraft,
       };
     });
 
     if (nextDraft) {
-      refreshSelectedMeasurement(source, nextDraft);
+      refreshSelectedMeasurement(instanceKey, nextDraft);
     }
   }
 
-  function resetProperty(source: string, propertyId: EditablePropertyId) {
-    const element = getInspectableElementBySource(source);
+  function resetProperty(instanceKey: string, propertyId: EditablePropertyId) {
+    const element = getInspectableElementByKey(instanceKey);
     let nextDraft: SelectionDraft | null = null;
     let removedDraft = false;
 
     setDrafts((current) => {
-      const currentDraft = current[source];
+      const currentDraft = current[instanceKey];
 
       if (!currentDraft) {
         return current;
@@ -323,23 +332,23 @@ function DesignToolRuntime() {
       };
       nextDraft = updatedDraft;
 
-      if (source !== selectedSource && !hasDraftChanges(updatedDraft)) {
+      if (instanceKey !== selectedInstanceKey && !hasDraftChanges(updatedDraft)) {
         const nextDrafts = { ...current };
-        delete nextDrafts[source];
+        delete nextDrafts[instanceKey];
         removedDraft = true;
         return nextDrafts;
       }
 
       return {
         ...current,
-        [source]: updatedDraft,
+        [instanceKey]: updatedDraft,
       };
     });
 
-    if (source === selectedSource && nextDraft) {
-      refreshSelectedMeasurement(source, nextDraft);
+    if (instanceKey === selectedInstanceKey && nextDraft) {
+      refreshSelectedMeasurement(instanceKey, nextDraft);
     } else if (removedDraft) {
-      refreshSelectedMeasurement(source);
+      refreshSelectedMeasurement(instanceKey);
     }
   }
 
@@ -347,19 +356,30 @@ function DesignToolRuntime() {
     return subscribeToSelection((payload) => {
       startTransition(() => {
         setDrafts((current) => {
-          const existingDraft = current[payload.source];
+          let changed = false;
+          const nextEntries = Object.entries(current).map(([instanceKey, draft]) => {
+            if (draft.source !== payload.source) {
+              return [instanceKey, draft] as const;
+            }
 
-          if (!existingDraft) {
+            changed = true;
+
+            return [
+              instanceKey,
+              mergeSelectionDraft(draft, {
+                ...payload,
+                instanceKey: draft.instanceKey,
+                styleMode: draft.styleMode,
+                tagName: draft.tagName,
+              }),
+            ] as const;
+          });
+
+          if (!changed) {
             return current;
           }
 
-          return {
-            ...current,
-            [payload.source]: mergeSelectionDraft(existingDraft, {
-              ...existingDraft,
-              ...payload,
-            }),
-          };
+          return Object.fromEntries(nextEntries);
         });
       });
     });
@@ -372,17 +392,17 @@ function DesignToolRuntime() {
     }
 
     const syncMeasurements = () => {
-      setHovered((current) => (current ? measureElementBySource(current.source) : null));
+      setHovered((current) => (current ? measureElementByKey(current.instanceKey) : null));
 
-      const lockedSource = selectedSourceRef.current;
+      const lockedInstanceKey = selectedInstanceKeyRef.current;
 
-      if (lockedSource) {
-        refreshSelectedMeasurement(lockedSource);
+      if (lockedInstanceKey) {
+        refreshSelectedMeasurement(lockedInstanceKey);
       }
     };
 
     const handlePointerMove = (event: MouseEvent) => {
-      if (selectedSourceRef.current) {
+      if (selectedInstanceKeyRef.current) {
         return;
       }
 
@@ -411,7 +431,7 @@ function DesignToolRuntime() {
       event.stopPropagation();
 
       ensureDraftForMeasurement(nextMeasurement);
-      setSelectedSource(nextMeasurement.source);
+      setSelectedInstanceKey(nextMeasurement.instanceKey);
       setSelected(nextMeasurement);
       requestSelection({ source: nextMeasurement.source });
     };
@@ -451,17 +471,17 @@ function DesignToolRuntime() {
       frame = 0;
 
       for (const draft of Object.values(draftsRef.current)) {
-        const element = getInspectableElementBySource(draft.source);
+        const element = getInspectableElementByKey(draft.instanceKey);
 
         if (element) {
           applyDraftToElement(element, draft);
         }
       }
 
-      const lockedSource = selectedSourceRef.current;
+      const lockedInstanceKey = selectedInstanceKeyRef.current;
 
-      if (lockedSource) {
-        const nextMeasurement = measureElementBySource(lockedSource);
+      if (lockedInstanceKey) {
+        const nextMeasurement = measureElementByKey(lockedInstanceKey);
         setSelected(nextMeasurement);
       }
     };
@@ -488,17 +508,17 @@ function DesignToolRuntime() {
     };
   }, [enabled]);
 
-  const selectedDraft = selectedSource ? (drafts[selectedSource] ?? null) : null;
+  const selectedDraft = selectedInstanceKey ? (drafts[selectedInstanceKey] ?? null) : null;
   const pendingDrafts = getDirtyDrafts(drafts).sort((left, right) => {
-    if (left.source === selectedSource) {
+    if (left.instanceKey === selectedInstanceKey) {
       return -1;
     }
 
-    if (right.source === selectedSource) {
+    if (right.instanceKey === selectedInstanceKey) {
       return 1;
     }
 
-    return left.source.localeCompare(right.source);
+    return left.source.localeCompare(right.source) || left.instanceKey.localeCompare(right.instanceKey);
   });
 
   return (
