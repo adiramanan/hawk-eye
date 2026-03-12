@@ -2,6 +2,7 @@ import type {
   EditablePropertyDefinition,
   EditablePropertyGroupId,
   EditablePropertyId,
+  FocusedGroupId,
 } from './types';
 
 export const editablePropertyDefinitions = [
@@ -832,4 +833,55 @@ export const editablePropertyGroupLabels: Record<EditablePropertyGroupId, string
   typography: 'Typography',
   effects: 'Effects',
   layout: 'Advanced',
+};
+
+export const FOCUSED_PROPERTY_IDS = new Set<EditablePropertyId>([
+  'paddingTop',
+  'paddingRight',
+  'paddingBottom',
+  'paddingLeft',
+  'marginTop',
+  'marginRight',
+  'marginBottom',
+  'marginLeft',
+  'backgroundColor',
+  'color',
+  'fontSize',
+  'fontWeight',
+  'textAlign',
+  'borderRadius',
+  'boxShadow',
+]);
+
+export const focusedGroupOrder = [
+  'layout',
+  'fill',
+  'typography',
+  'design',
+  'effects',
+] as const satisfies FocusedGroupId[];
+
+export const focusedGroupLabels: Record<FocusedGroupId, string> = {
+  layout: 'Layout',
+  fill: 'Fill',
+  typography: 'Typography',
+  design: 'Design',
+  effects: 'Effects',
+};
+
+export const focusedGroupMembers: Record<FocusedGroupId, EditablePropertyId[]> = {
+  layout: [
+    'paddingTop',
+    'paddingRight',
+    'paddingBottom',
+    'paddingLeft',
+    'marginTop',
+    'marginRight',
+    'marginBottom',
+    'marginLeft',
+  ],
+  fill: ['backgroundColor', 'color'],
+  typography: ['fontSize', 'fontWeight', 'textAlign'],
+  design: ['borderRadius'],
+  effects: ['boxShadow'],
 };

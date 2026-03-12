@@ -9,12 +9,21 @@ export interface SelectionPayload {
   column: number;
 }
 
-export type StyleMode = 'inline' | 'tailwind' | 'unknown';
+export type StyleMode = 'inline' | 'tailwind' | 'mixed' | 'detached' | 'unknown';
+
+export interface StyleAnalysisPayload {
+  source: string;
+  mode: StyleMode;
+  classNames: string[];
+  inlineStyles: Record<string, string>;
+}
 
 export interface SelectionDetails extends SelectionPayload {
   instanceKey: string;
   styleMode: StyleMode;
   tagName: string;
+  classNames: string[];
+  inlineStyles: Record<string, string>;
 }
 
 export interface MeasuredElement {
@@ -106,6 +115,8 @@ export type EditablePropertyGroupId =
   | 'typography'
   | 'effects'
   | 'layout';
+
+export type FocusedGroupId = 'layout' | 'fill' | 'typography' | 'design' | 'effects';
 
 export type EditablePropertyControl =
   | 'text'

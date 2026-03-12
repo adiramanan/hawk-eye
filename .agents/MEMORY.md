@@ -153,6 +153,11 @@ packages/vite-plugin/src/
 - Returns `StyleMode`: `'inline' | 'tailwind' | 'mixed' | 'detached' | 'unknown'`
 - Only processes string literal `className` — dynamic expressions (cn/clsx/ternaries) report as `'unknown'`
 
+### AST Writer
+- `writeSourceMutations(root, payload)` lives in `packages/vite-plugin/src/source-writer.ts`
+- Handles Tailwind class swaps, inline style object upserts, mixed-mode fallback, and detached writes
+- Returns structured warnings for unsupported dynamic `className` and dynamic `style` cases
+
 ### Save Workflow
 - Creates branch `hawk-eye/design-tweaks-{YYYYMMDD-HHmmss}` from HEAD
 - Writes mutations → commits → switches back to original branch
@@ -169,4 +174,4 @@ Phases 3.1, 3.2, 3.3 can run fully in parallel (no dependencies between them). P
 ---
 
 ## Last Updated
-2026-03-12 (Phase 3 planning complete)
+2026-03-12 (Phase 3.4 complete)

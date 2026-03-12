@@ -114,6 +114,8 @@ export function mergeSelectionDraft(
     tagName: details.tagName,
     // Preserve the original detected strategy even after preview adds inline overrides.
     styleMode: draft.styleMode,
+    classNames: draft.classNames,
+    inlineStyles: draft.inlineStyles,
   };
 }
 

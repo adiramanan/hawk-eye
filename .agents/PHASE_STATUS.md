@@ -185,7 +185,7 @@
 
 ## Phase 3: Designer-Friendly Editor + Code Writers + Save-to-Branch
 
-**Status:** IN PROGRESS (0%)
+**Status:** IN PROGRESS (67%)
 **Start Date:** 2026-03-12
 
 ### Overview
@@ -206,16 +206,17 @@ Phase 3.3 (Tailwind Map) ────────────┘         │
 
 ## Phase 3.1: Focused Property Subset with Figma-Style Sections
 
-**Status:** NOT STARTED
+**Status:** COMPLETE (100%)
+**Completion Date:** 2026-03-12
 **Depends on:** None (pure UI, zero risk — can run in parallel with 3.2 and 3.3)
 
 ### Checklist
-- [ ] Add `FocusedGroupId` type to `packages/client/src/types.ts`: `'layout' | 'fill' | 'typography' | 'design' | 'effects'`
-- [ ] Add `FOCUSED_PROPERTY_IDS` set to `packages/client/src/editable-properties.ts`
-- [ ] Add `focusedGroupOrder`, `focusedGroupLabels`, `focusedGroupMembers` mappings to `packages/client/src/editable-properties.ts`
-- [ ] Add focused/all toggle to `packages/client/src/PropertiesPanel.tsx`
-- [ ] Render Figma-style sections when focused mode is on
-- [ ] Verify type-check, lint, test, build pass
+- [x] Add `FocusedGroupId` type to `packages/client/src/types.ts`: `'layout' | 'fill' | 'typography' | 'design' | 'effects'`
+- [x] Add `FOCUSED_PROPERTY_IDS` set to `packages/client/src/editable-properties.ts`
+- [x] Add `focusedGroupOrder`, `focusedGroupLabels`, `focusedGroupMembers` mappings to `packages/client/src/editable-properties.ts`
+- [x] Refactor `packages/client/src/PropertiesPanel.tsx` into a focused-only rendering path
+- [x] Remove search and full-list UI exposure from the panel surface
+- [x] Verify type-check, lint, test, build pass
 
 ### Finalized Property Set (15 properties, 5 Figma-style groups)
 
@@ -237,7 +238,7 @@ Phase 3.3 (Tailwind Map) ────────────┘         │
 ### Key Files
 - `packages/client/src/types.ts` — add FocusedGroupId type
 - `packages/client/src/editable-properties.ts` — add focused sets and mappings
-- `packages/client/src/PropertiesPanel.tsx` — add toggle + focused rendering
+- `packages/client/src/PropertiesPanel.tsx` — render the focused-only 15-property surface
 
 **No changes to:** `drafts.ts` (snapshot/restore works with all properties regardless of UI filter)
 
@@ -245,18 +246,19 @@ Phase 3.3 (Tailwind Map) ────────────┘         │
 
 ## Phase 3.2: Style Strategy Detection
 
-**Status:** NOT STARTED
+**Status:** COMPLETE (100%)
+**Completion Date:** 2026-03-12
 **Depends on:** None (can run in parallel with 3.1 and 3.3)
 
 ### Checklist
-- [ ] Extend `StyleMode` in `packages/client/src/types.ts` to `'inline' | 'tailwind' | 'mixed' | 'detached' | 'unknown'`
-- [ ] Create `packages/vite-plugin/src/style-analyzer.ts` — uses ts-morph to parse source file, find JSX element at line:column, inspect className and style attributes
-- [ ] Returns `{ mode: StyleMode, classNames: string[], inlineStyles: Record<string, string> }`
-- [ ] Add `hawk-eye:analyze-style` WS event to `packages/vite-plugin/src/ws-server.ts`
-- [ ] Add `requestStyleAnalysis(source)` to `packages/client/src/ws-client.ts`
-- [ ] On element selection in `packages/client/src/DesignTool.tsx`, request server-side style analysis
-- [ ] Store `styleMode` and `classNames` on the `SelectionDraft`
-- [ ] Verify type-check, lint, test, build pass
+- [x] Extend `StyleMode` in `packages/client/src/types.ts` to `'inline' | 'tailwind' | 'mixed' | 'detached' | 'unknown'`
+- [x] Create `packages/vite-plugin/src/style-analyzer.ts` — uses ts-morph to parse source file, find JSX element at line:column, inspect className and style attributes
+- [x] Returns `{ mode: StyleMode, classNames: string[], inlineStyles: Record<string, string> }`
+- [x] Add `hawk-eye:analyze-style` WS event to `packages/vite-plugin/src/ws-server.ts`
+- [x] Add `requestStyleAnalysis(source)` to `packages/client/src/ws-client.ts`
+- [x] On element selection in `packages/client/src/DesignTool.tsx`, request server-side style analysis
+- [x] Store analyzed style metadata on the `SelectionDraft`
+- [x] Verify type-check, lint, test, build pass
 
 ### Key Implementation Notes
 - For className: tokenize string literals, match tokens against known Tailwind patterns (prefix table: `p-`, `m-`, `bg-`, `text-`, `flex-`, `rounded-`, etc.)
@@ -274,17 +276,18 @@ Phase 3.3 (Tailwind Map) ────────────┘         │
 
 ## Phase 3.3: Tailwind CSS-to-Class Mapping
 
-**Status:** NOT STARTED
+**Status:** COMPLETE (100%)
+**Completion Date:** 2026-03-12
 **Depends on:** None (standalone, can run in parallel with 3.1 and 3.2)
 
 ### Checklist
-- [ ] Create `packages/vite-plugin/src/tailwind-map.ts`
-- [ ] Implement `cssToTailwindClass(cssProperty: string, value: string): string | null`
-- [ ] Implement `tailwindClassToCss(className: string): { property: string, value: string } | null`
-- [ ] Cover the focused 15 properties: padding (`pt`/`pr`/`pb`/`pl`), margin (`mt`/`mr`/`mb`/`ml`), `bg-{color}`, `text-{color}`, `text-{size}`, `font-{weight}`, `text-{align}`, `rounded-{size}`, `shadow-{size}`
-- [ ] Support arbitrary value syntax for non-standard values: `p-[14px]`, `bg-[#hex]`, `rounded-[13px]`
-- [ ] Add comprehensive unit tests for roundtrip conversions
-- [ ] Verify type-check, lint, test, build pass
+- [x] Create `packages/vite-plugin/src/tailwind-map.ts`
+- [x] Implement `cssToTailwindClass(cssProperty: string, value: string): string | null`
+- [x] Implement `tailwindClassToCss(className: string): { property: string, value: string } | null`
+- [x] Cover the focused 15 properties: padding (`pt`/`pr`/`pb`/`pl`), margin (`mt`/`mr`/`mb`/`ml`), `bg-{color}`, `text-{color}`, `text-{size}`, `font-{weight}`, `text-{align}`, `rounded-{size}`, `shadow-{size}`
+- [x] Support arbitrary value syntax for non-standard values: `p-[14px]`, `bg-[#hex]`, `rounded-[13px]`
+- [x] Add comprehensive unit tests for roundtrip conversions
+- [x] Verify type-check, lint, test, build pass
 
 ### Key Implementation Notes
 - Pure data + functions, no side effects — highly testable
@@ -301,20 +304,21 @@ Phase 3.3 (Tailwind Map) ────────────┘         │
 
 ## Phase 3.4: AST Mutation Writer (ts-morph)
 
-**Status:** NOT STARTED
+**Status:** COMPLETE (100%)
+**Completion Date:** 2026-03-12
 **Depends on:** Phase 3.2 (style analyzer) + Phase 3.3 (tailwind map)
 
 ### Checklist
-- [ ] Create `packages/vite-plugin/src/mutations.ts` — TypeScript types for mutation payloads
-- [ ] Create `packages/vite-plugin/src/source-writer.ts` — the core mutation engine
-- [ ] Implement `findJsxElementAtPosition(sourceFile, line, column)` utility with coordinate conversion (Babel 1-indexed line:col → ts-morph positions)
-- [ ] Implement Tailwind class swapping: find existing class in className string, replace with new class from tailwind-map
-- [ ] Implement inline style writing: find or create `style` JSX attribute, add/update property in style object
-- [ ] Implement detached mode: remove `className` entirely, write all properties as inline style
-- [ ] Implement mixed mode: Tailwind swaps where classes exist, inline for the rest
-- [ ] Handle string literal className only — fall back to inline styles with warning for dynamic expressions
-- [ ] Add unit tests writing to temp files — verify formatting preservation
-- [ ] Verify type-check, lint, test, build pass
+- [x] Create `packages/vite-plugin/src/mutations.ts` — TypeScript types for mutation payloads
+- [x] Create `packages/vite-plugin/src/source-writer.ts` — the core mutation engine
+- [x] Implement `findJsxElementAtPosition(sourceFile, line, column)` utility with coordinate conversion (Babel 1-indexed line:col → ts-morph positions)
+- [x] Implement Tailwind class swapping: find existing class in className string, replace with new class from tailwind-map
+- [x] Implement inline style writing: find or create `style` JSX attribute, add/update property in style object
+- [x] Implement detached mode: remove `className` entirely, write all properties as inline style
+- [x] Implement mixed mode: Tailwind swaps where classes exist, inline for the rest
+- [x] Handle string literal className only — fall back to inline styles with warning for dynamic expressions
+- [x] Add unit tests writing to temp files — verify formatting preservation
+- [x] Verify type-check, lint, test, build pass
 
 ### Mutation Types
 ```typescript
@@ -342,6 +346,7 @@ interface SavePayload {
 ### Key Risks
 - Babel injects `data-source` with 1-indexed line:column. ts-morph uses 1-indexed lines but internally works with 0-indexed character positions. Build and thoroughly test `findJsxElementAtPosition()`.
 - When the same JSX node has multiple runtime instances (e.g., inside `.map()`), changes are written once to the source template. Warn the user that changes affect all instances.
+- Dynamic `className` and non-object-literal `style` expressions are intentionally not rewritten structurally yet; the writer warns and falls back or skips inline writes.
 
 ### Key Files
 - `packages/vite-plugin/src/mutations.ts` — NEW

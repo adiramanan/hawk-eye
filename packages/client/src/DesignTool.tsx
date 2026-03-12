@@ -20,9 +20,14 @@ import type {
   SelectionDetails,
   SelectionDraft,
   SelectionPayload,
-  StyleMode,
+  StyleAnalysisPayload,
 } from './types';
-import { requestSelection, subscribeToSelection } from './ws-client';
+import {
+  requestSelection,
+  requestStyleAnalysis,
+  subscribeToSelection,
+  subscribeToStyleAnalysis,
+} from './ws-client';
 
 export interface DesignToolProps {
   // Phase 2 keeps the public API zero-config.
@@ -49,18 +54,6 @@ function parseSourceToken(source: string): SelectionPayload | null {
     line,
     column,
   };
-}
-
-function getStyleMode(element: HTMLElement): StyleMode {
-  if (element.hasAttribute('style') && element.getAttribute('style')?.trim()) {
-    return 'inline';
-  }
-
-  if (element.className && String(element.className).trim()) {
-    return 'tailwind';
-  }
-
-  return 'unknown';
 }
 
 function isHawkEyeElement(target: Element | null) {
@@ -138,8 +131,10 @@ function buildSelectionDetails(
   return {
     ...parsedPayload,
     instanceKey: measured.instanceKey,
-    styleMode: getStyleMode(measured.element),
+    styleMode: 'unknown',
     tagName: measured.element.tagName.toLowerCase(),
+    classNames: [],
+    inlineStyles: {},
   };
 }
 
@@ -353,7 +348,7 @@ function DesignToolRuntime() {
   }
 
   useEffect(() => {
-    return subscribeToSelection((payload) => {
+    const unsubscribeSelection = subscribeToSelection((payload) => {
       startTransition(() => {
         setDrafts((current) => {
           let changed = false;
@@ -371,6 +366,8 @@ function DesignToolRuntime() {
                 instanceKey: draft.instanceKey,
                 styleMode: draft.styleMode,
                 tagName: draft.tagName,
+                classNames: draft.classNames,
+                inlineStyles: draft.inlineStyles,
               }),
             ] as const;
           });
@@ -383,7 +380,51 @@ function DesignToolRuntime() {
         });
       });
     });
+
+    const unsubscribeStyleAnalysis = subscribeToStyleAnalysis((payload: StyleAnalysisPayload) => {
+      startTransition(() => {
+        setDrafts((current) => {
+          let changed = false;
+          const nextEntries = Object.entries(current).map(([instanceKey, draft]) => {
+            if (draft.source !== payload.source) {
+              return [instanceKey, draft] as const;
+            }
+
+            changed = true;
+
+            return [
+              instanceKey,
+              {
+                ...draft,
+                styleMode: payload.mode,
+                classNames: payload.classNames,
+                inlineStyles: payload.inlineStyles,
+              },
+            ] as const;
+          });
+
+          if (!changed) {
+            return current;
+          }
+
+          return Object.fromEntries(nextEntries);
+        });
+      });
+    });
+
+    return () => {
+      unsubscribeSelection();
+      unsubscribeStyleAnalysis();
+    };
   }, []);
+
+  useEffect(() => {
+    if (!enabled || !selected?.source) {
+      return;
+    }
+
+    requestStyleAnalysis({ source: selected.source });
+  }, [enabled, selected?.source]);
 
   useEffect(() => {
     if (!enabled) {

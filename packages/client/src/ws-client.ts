@@ -1,11 +1,13 @@
-import type { InspectRequest, SelectionPayload } from './types';
+import type { InspectRequest, SelectionPayload, StyleAnalysisPayload } from './types';
 
 export const HAWK_EYE_INSPECT_EVENT = 'hawk-eye:inspect';
 export const HAWK_EYE_SELECTION_EVENT = 'hawk-eye:selection';
+export const HAWK_EYE_ANALYZE_STYLE_EVENT = 'hawk-eye:analyze-style';
+export const HAWK_EYE_STYLE_ANALYSIS_EVENT = 'hawk-eye:style-analysis';
 
 interface HotClient {
-  on(event: string, cb: (payload: SelectionPayload) => void): void;
-  off?(event: string, cb: (payload: SelectionPayload) => void): void;
+  on<T>(event: string, cb: (payload: T) => void): void;
+  off?<T>(event: string, cb: (payload: T) => void): void;
   send?(event: string, payload?: InspectRequest): void;
 }
 
@@ -21,6 +23,10 @@ export function requestSelection(payload: InspectRequest) {
   getHotClient()?.send?.(HAWK_EYE_INSPECT_EVENT, payload);
 }
 
+export function requestStyleAnalysis(payload: InspectRequest) {
+  getHotClient()?.send?.(HAWK_EYE_ANALYZE_STYLE_EVENT, payload);
+}
+
 export function subscribeToSelection(cb: (payload: SelectionPayload) => void) {
   const hotClient = getHotClient();
 
@@ -32,5 +38,19 @@ export function subscribeToSelection(cb: (payload: SelectionPayload) => void) {
 
   return () => {
     hotClient.off?.(HAWK_EYE_SELECTION_EVENT, cb);
+  };
+}
+
+export function subscribeToStyleAnalysis(cb: (payload: StyleAnalysisPayload) => void) {
+  const hotClient = getHotClient();
+
+  if (!hotClient) {
+    return () => undefined;
+  }
+
+  hotClient.on(HAWK_EYE_STYLE_ANALYSIS_EVENT, cb);
+
+  return () => {
+    hotClient.off?.(HAWK_EYE_STYLE_ANALYSIS_EVENT, cb);
   };
 }

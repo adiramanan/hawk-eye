@@ -5,21 +5,34 @@ import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DesignTool } from '../packages/client/src';
-import type { SelectionPayload } from '../packages/client/src/types';
+import type { SelectionPayload, StyleAnalysisPayload } from '../packages/client/src/types';
+import {
+  HAWK_EYE_ANALYZE_STYLE_EVENT,
+  HAWK_EYE_INSPECT_EVENT,
+} from '../packages/client/src/ws-client';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 const mountedCleanups = new Set<() => void>();
 
 interface HotStub {
-  emit(event: string, payload: SelectionPayload): void;
-  off(event: string, cb: (payload: SelectionPayload) => void): void;
-  on(event: string, cb: (payload: SelectionPayload) => void): void;
+  emit(event: string, payload: SelectionPayload | StyleAnalysisPayload): void;
+  off(
+    event: string,
+    cb: (payload: SelectionPayload | StyleAnalysisPayload) => void
+  ): void;
+  on(
+    event: string,
+    cb: (payload: SelectionPayload | StyleAnalysisPayload) => void
+  ): void;
   send: ReturnType<typeof vi.fn>;
 }
 
 function createHotStub(): HotStub {
-  const handlers = new Map<string, Set<(payload: SelectionPayload) => void>>();
+  const handlers = new Map<
+    string,
+    Set<(payload: SelectionPayload | StyleAnalysisPayload) => void>
+  >();
 
   return {
     emit(event, payload) {
@@ -29,7 +42,9 @@ function createHotStub(): HotStub {
       handlers.get(event)?.delete(cb);
     },
     on(event, cb) {
-      const callbacks = handlers.get(event) ?? new Set<(payload: SelectionPayload) => void>();
+      const callbacks =
+        handlers.get(event) ??
+        new Set<(payload: SelectionPayload | StyleAnalysisPayload) => void>();
       callbacks.add(cb);
       handlers.set(event, callbacks);
     },
@@ -82,6 +97,7 @@ function applyBaselineStyles(element: HTMLElement, source: string) {
   element.style.boxShadow = '0px 4px 12px rgba(15, 23, 42, 0.18)';
   element.style.fontSize = '18px';
   element.style.fontWeight = '600';
+  element.style.textAlign = 'left';
   element.style.lineHeight = '24px';
   element.style.fontFamily = 'Inter, sans-serif';
   element.style.opacity = '0.8';
@@ -310,28 +326,42 @@ describe('DesignTool', () => {
       });
     });
 
-    expect(hot.send).toHaveBeenCalledWith('hawk-eye:inspect', { source: 'demo/src/App.tsx:21:13' });
+    expect(hot.send).toHaveBeenCalledWith(HAWK_EYE_INSPECT_EVENT, {
+      source: 'demo/src/App.tsx:21:13',
+    });
+    expect(hot.send).toHaveBeenCalledWith(HAWK_EYE_ANALYZE_STYLE_EVENT, {
+      source: 'demo/src/App.tsx:21:13',
+    });
     expect(shadowRoot.textContent).toContain('Locked selection');
     expect(shadowRoot.textContent).toContain('demo/src/App.tsx:21:13');
-    expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="spacing"]')).toHaveLength(1);
-    expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="fill-appearance"]')).toHaveLength(1);
+    expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="layout"]')).toHaveLength(1);
+    expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="fill"]')).toHaveLength(1);
     expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="typography"]')).toHaveLength(1);
-    expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="size"]')).toHaveLength(1);
-    expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="layout-priority"]')).toHaveLength(1);
-    expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="stroke"]')).toHaveLength(1);
+    expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="design"]')).toHaveLength(1);
     expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="effects"]')).toHaveLength(1);
-    expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="position"]')).toHaveLength(1);
-    expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="auto-layout"]')).toHaveLength(1);
-    expect(shadowRoot.querySelector('[data-hawk-eye-section="fill"]')).toBeNull();
     expect(getControl(shadowRoot, 'paddingTop').value).toBe('16px');
-    expect(getControl(shadowRoot, 'borderTopLeftRadius').value).toBe('14px');
+    expect(getControl(shadowRoot, 'borderRadius').value).toBe('14');
     expect(getControl(shadowRoot, 'fontWeight').value).toBe('600');
-    expect(getControl(shadowRoot, 'opacity-number').value).toBe('0.8');
-    expect(shadowRoot.querySelector('[data-hawk-eye-control="borderRadius"]')).toBeNull();
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="backgroundColor"]')).not.toBeNull();
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="opacity-number"]')).toBeNull();
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="width"]')).toBeNull();
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="positionType"]')).toBeNull();
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="fontFamily"]')).toBeNull();
+
+    act(() => {
+      hot.emit('hawk-eye:style-analysis', {
+        source: 'demo/src/App.tsx:21:13',
+        mode: 'tailwind',
+        classNames: ['px-4', 'py-2', 'rounded-lg'],
+        inlineStyles: {},
+      });
+    });
+
+    expect(shadowRoot.querySelector('[data-hawk-eye-ui="badge"]')?.textContent).toBe('tailwind');
     cleanup();
   });
 
-  it('supports unit-aware sizing controls and keeps invalid text visible without replacing the last valid preview', () => {
+  it('supports unit-aware focused number controls and keeps invalid text visible without replacing the last valid preview', () => {
     const target = document.createElement('div');
     applyBaselineStyles(target, 'demo/src/App.tsx:8:7');
     mockRect(target, { height: 48, left: 24, top: 40, width: 120 });
@@ -340,25 +370,21 @@ describe('DesignTool', () => {
 
     const { cleanup, shadowRoot } = renderDesignTool();
     const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
-    const widthInput = () => getControl(shadowRoot, 'width');
-    const widthUnit = () => getControl(shadowRoot, 'width-unit');
+    const fontSizeInput = () => getControl(shadowRoot, 'fontSize');
+    const fontSizeUnit = () => getControl(shadowRoot, 'fontSize-unit');
 
     click(trigger);
     click(document);
 
-    updateSelect(widthUnit() as InstanceType<typeof window.HTMLSelectElement>, '%');
-    updateInput(widthInput() as InstanceType<typeof window.HTMLInputElement>, '80');
-    expect(target.style.width).toBe('80%');
-    expect(shadowRoot.textContent).toContain('120px -> 80%');
+    updateSelect(fontSizeUnit() as InstanceType<typeof window.HTMLSelectElement>, 'rem');
+    updateInput(fontSizeInput() as InstanceType<typeof window.HTMLInputElement>, '1.5');
+    expect(target.style.fontSize).toBe('1.5rem');
+    expect(shadowRoot.textContent).toContain('18px -> 1.5rem');
 
-    updateInput(widthInput() as InstanceType<typeof window.HTMLInputElement>, 'banana');
-    expect(target.style.width).toBe('80%');
-    expect(widthInput().value).toBe('banana');
-    expect(shadowRoot.textContent).toContain('Invalid value. Preview stays at 80%.');
-
-    updateSelect(widthUnit() as InstanceType<typeof window.HTMLSelectElement>, 'auto');
-    expect(target.style.width).toBe('auto');
-    expect((widthInput() as InstanceType<typeof window.HTMLInputElement>).disabled).toBe(true);
+    updateInput(fontSizeInput() as InstanceType<typeof window.HTMLInputElement>, 'banana');
+    expect(target.style.fontSize).toBe('1.5rem');
+    expect(fontSizeInput().value).toBe('banana');
+    expect(shadowRoot.textContent).toContain('Invalid value. Preview stays at 1.5rem.');
     cleanup();
   });
 
@@ -423,15 +449,15 @@ describe('DesignTool', () => {
       '24px'
     );
     updateInput(
-      getControl(shadowRoot, 'opacity-number') as InstanceType<typeof window.HTMLInputElement>,
-      '0.5'
+      getControl(shadowRoot, 'borderRadius') as InstanceType<typeof window.HTMLInputElement>,
+      '20'
     );
 
     setElementFromPoint(host);
     click(getButtonControl(shadowRoot, 'paddingTop-reset'));
 
     expect(target.style.paddingTop).toBe('16px');
-    expect(target.style.opacity).toBe('0.5');
+    expect(target.style.borderRadius).toBe('20px');
 
     const resetAll = shadowRoot.querySelector('[data-hawk-eye-ui="secondary-button"]');
 
@@ -443,8 +469,8 @@ describe('DesignTool', () => {
     click(resetAll);
 
     expect(target.style.paddingTop).toBe('16px');
-    expect(target.style.opacity).toBe('0.8');
-    expect(shadowRoot.textContent).not.toContain('0.8 -> 0.5');
+    expect(target.style.borderRadius).toBe('14px');
+    expect(shadowRoot.textContent).not.toContain('14px -> 20px');
     expect(shadowRoot.textContent).toContain('Live preview changes stay in this session only.');
     cleanup();
   });
@@ -567,53 +593,54 @@ describe('DesignTool', () => {
     cleanup();
   });
 
-  it('supports typography presets and combined layout controls', () => {
+  it('supports focused fill, typography, design, and effects controls', () => {
     const target = document.createElement('div');
     applyBaselineStyles(target, 'demo/src/App.tsx:44:11');
-    target.style.fontFamily = '"Avenir Next", sans-serif';
     mockRect(target, { height: 44, left: 24, top: 40, width: 132 });
     document.body.append(target);
     setElementFromPoint(target);
 
-    const { cleanup, shadowRoot } = renderDesignTool();
+    const { cleanup, host, shadowRoot } = renderDesignTool();
     const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
 
     click(trigger);
     click(document);
 
-    const fontFamily = getControl(
-      shadowRoot,
-      'fontFamily'
-    ) as InstanceType<typeof window.HTMLSelectElement>;
-    expect(fontFamily.value).toBe('"Avenir Next", sans-serif');
-
-    updateSelect(fontFamily, 'Georgia, serif');
-    updateSelect(
-      getControl(shadowRoot, 'display') as InstanceType<typeof window.HTMLSelectElement>,
-      'flex'
+    updateInput(
+      getControl(shadowRoot, 'backgroundColor') as InstanceType<typeof window.HTMLInputElement>,
+      '#112233'
     );
     updateSelect(
-      getControl(shadowRoot, 'positionType') as InstanceType<typeof window.HTMLSelectElement>,
-      'absolute'
-    );
-    updateSelect(
-      getControl(shadowRoot, 'overflow') as InstanceType<typeof window.HTMLSelectElement>,
-      'hidden'
+      getControl(shadowRoot, 'fontWeight') as InstanceType<typeof window.HTMLSelectElement>,
+      '700'
     );
     updateInput(
-      getControl(shadowRoot, 'zIndex') as InstanceType<typeof window.HTMLInputElement>,
-      '12'
+      getControl(shadowRoot, 'fontSize') as InstanceType<typeof window.HTMLInputElement>,
+      '24'
     );
+    setElementFromPoint(host);
+    click(getButtonControl(shadowRoot, 'textAlign-center'));
+    updateInput(
+      getControl(shadowRoot, 'borderRadius') as InstanceType<typeof window.HTMLInputElement>,
+      '22'
+    );
+    updateInput(
+      getControl(shadowRoot, 'boxShadow-blur') as InstanceType<typeof window.HTMLInputElement>,
+      '20px'
+    );
+    click(getButtonControl(shadowRoot, 'boxShadow-inset'));
 
-    expect(target.style.fontFamily).toContain('Georgia');
-    expect(target.style.display).toBe('flex');
-    expect(target.style.position).toBe('absolute');
-    expect(target.style.overflow).toBe('hidden');
-    expect(target.style.zIndex).toBe('12');
+    expect(target.style.backgroundColor).toBe('rgb(17, 34, 51)');
+    expect(target.style.fontWeight).toBe('700');
+    expect(target.style.fontSize).toBe('24px');
+    expect(target.style.textAlign).toBe('center');
+    expect(target.style.borderRadius).toBe('22px');
+    expect(target.style.boxShadow).toContain('20px');
+    expect(target.style.boxShadow).toContain('inset');
     cleanup();
   });
 
-  it('filters controls with property search and reveals matching fallback groups', () => {
+  it('keeps non-focused controls out of the panel UI', () => {
     const target = document.createElement('div');
     applyBaselineStyles(target, 'demo/src/App.tsx:57:13');
     mockRect(target, { height: 48, left: 24, top: 40, width: 144 });
@@ -626,20 +653,18 @@ describe('DesignTool', () => {
     click(trigger);
     click(document);
 
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="property-search"]')).toBeNull();
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="opacity-number"]')).toBeNull();
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="display"]')).toBeNull();
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="positionType"]')).toBeNull();
     expect(shadowRoot.querySelector('[data-hawk-eye-control="cursor"]')).toBeNull();
-
-    updateInput(
-      getControl(shadowRoot, 'property-search') as InstanceType<typeof window.HTMLInputElement>,
-      'cursor'
-    );
-
-    expect(getControl(shadowRoot, 'cursor')).toBeInstanceOf(window.HTMLSelectElement);
-    expect(shadowRoot.querySelector('[data-hawk-eye-control="fontWeight"]')).toBeNull();
-    expect(shadowRoot.textContent).toContain('1 matching properties');
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="fontFamily"]')).toBeNull();
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="filter"]')).toBeNull();
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="borderTopWidth"]')).toBeNull();
     cleanup();
   });
 
-  it('supports keyboard navigation for grouped controls and the panel resize handle', () => {
+  it('supports keyboard navigation for focused segmented controls and the panel resize handle', () => {
     const target = document.createElement('div');
     applyBaselineStyles(target, 'demo/src/App.tsx:63:17');
     mockRect(target, { height: 52, left: 24, top: 40, width: 144 });
@@ -652,8 +677,7 @@ describe('DesignTool', () => {
     click(trigger);
     click(document);
 
-    const visibilityVisible = getButtonControl(shadowRoot, 'visibility-visible');
-    const flexDirectionRow = getButtonControl(shadowRoot, 'flexDirection-row');
+    const textAlignLeft = getButtonControl(shadowRoot, 'textAlign-left');
     const resizeHandle = getButtonControl(shadowRoot, 'panel-resize');
     const panel = shadowRoot.querySelector('[data-hawk-eye-ui="panel"]');
 
@@ -661,12 +685,9 @@ describe('DesignTool', () => {
       throw new Error('Missing panel');
     }
 
-    keyDown(visibilityVisible, 'ArrowRight');
-    keyDown(flexDirectionRow, 'ArrowRight');
+    keyDown(textAlignLeft, 'ArrowRight');
 
-    expect(target.style.visibility).toBe('hidden');
-    expect(target.style.display).toBe('flex');
-    expect(target.style.flexDirection).toBe('column');
+    expect(target.style.textAlign).toBe('center');
 
     expect(panel.style.getPropertyValue('--hawk-eye-panel-width')).toBe('420px');
     expect(panel.style.getPropertyValue('--hawk-eye-panel-height')).toBe('760px');
@@ -676,111 +697,6 @@ describe('DesignTool', () => {
 
     expect(panel.style.getPropertyValue('--hawk-eye-panel-width')).toBe('444px');
     expect(panel.style.getPropertyValue('--hawk-eye-panel-height')).toBe('648px');
-    cleanup();
-  });
-
-  it('promotes block elements to flex while auto-layout container controls are dirty', () => {
-    const target = document.createElement('div');
-    applyBaselineStyles(target, 'demo/src/App.tsx:68:21');
-    mockRect(target, { height: 52, left: 24, top: 40, width: 144 });
-    document.body.append(target);
-    setElementFromPoint(target);
-
-    const { cleanup, host, shadowRoot } = renderDesignTool();
-    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
-
-    click(trigger);
-    click(document);
-
-    setElementFromPoint(host);
-    click(getButtonControl(shadowRoot, 'flexDirection-column'));
-
-    expect(target.style.display).toBe('flex');
-    expect(target.style.flexDirection).toBe('column');
-
-    setElementFromPoint(host);
-    const resetAll = shadowRoot.querySelector('[data-hawk-eye-ui="secondary-button"]');
-
-    if (!(resetAll instanceof window.HTMLButtonElement)) {
-      throw new Error('Missing reset all button');
-    }
-
-    click(resetAll);
-
-    expect(target.style.display).toBe('block');
-    expect(target.style.flexDirection).toBe('row');
-    cleanup();
-  });
-
-  it('supports advanced stroke, effects, position, and auto-layout controls', () => {
-    const target = document.createElement('div');
-    applyBaselineStyles(target, 'demo/src/App.tsx:61:17');
-    mockRect(target, { height: 52, left: 24, top: 40, width: 144 });
-    document.body.append(target);
-    setElementFromPoint(target);
-
-    const { cleanup, host, shadowRoot } = renderDesignTool();
-    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
-
-    click(trigger);
-    click(document);
-
-    updateInput(
-      getControl(shadowRoot, 'borderTopWidth') as InstanceType<typeof window.HTMLInputElement>,
-      '3px'
-    );
-    expect(target.style.borderTopWidth).toBe('3px');
-    expect(target.style.borderRightWidth).toBe('3px');
-    expect(target.style.borderBottomWidth).toBe('3px');
-    expect(target.style.borderLeftWidth).toBe('3px');
-
-    setElementFromPoint(host);
-    click(getButtonControl(shadowRoot, 'borderTopWidth-reset'));
-    expect(target.style.borderTopWidth).toBe('1px');
-    expect(target.style.borderRightWidth).toBe('3px');
-
-    updateInput(
-      getControl(shadowRoot, 'boxShadow-blur') as InstanceType<typeof window.HTMLInputElement>,
-      '20px'
-    );
-    click(getButtonControl(shadowRoot, 'boxShadow-inset'));
-    updateInput(
-      getControl(shadowRoot, 'filter') as InstanceType<typeof window.HTMLInputElement>,
-      'blur(2px)'
-    );
-
-    expect(target.style.boxShadow).toContain('20px');
-    expect(target.style.boxShadow).toContain('inset');
-    expect(target.style.filter).toBe('blur(2px)');
-
-    updateSelect(
-      getControl(shadowRoot, 'positionType') as InstanceType<typeof window.HTMLSelectElement>,
-      'absolute'
-    );
-    updateInput(
-      getControl(shadowRoot, 'top') as InstanceType<typeof window.HTMLInputElement>,
-      '12'
-    );
-    updateInput(
-      getControl(shadowRoot, 'left') as InstanceType<typeof window.HTMLInputElement>,
-      '18'
-    );
-
-    expect(target.style.position).toBe('absolute');
-    expect(target.style.top).toBe('12px');
-    expect(target.style.left).toBe('18px');
-
-    click(getButtonControl(shadowRoot, 'flexDirection-column'));
-    click(getButtonControl(shadowRoot, 'justifyContent-center'));
-    updateInput(
-      getControl(shadowRoot, 'gap') as InstanceType<typeof window.HTMLInputElement>,
-      '24'
-    );
-
-    expect(target.style.flexDirection).toBe('column');
-    expect(target.style.justifyContent).toBe('center');
-    expect(target.style.gap).toBe('24px');
-    expect(target.style.display).toBe('flex');
     cleanup();
   });
 });

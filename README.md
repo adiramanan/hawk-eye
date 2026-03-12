@@ -6,13 +6,15 @@ Pre-alpha visual inspector and live-preview editor for React + Vite interfaces.
 
 ## Current Status
 
-As of 2026-03-10, this repository has completed Phase 2:
+As of 2026-03-12, this repository has completed Phases 3.1, 3.2, 3.3, and 3.4 and is in progress on the rest of Phase 3:
 
 - The pnpm workspace, TypeScript config, linting, builds, and demo app are wired up.
 - `@hawk-eye/client` renders a floating inspector trigger and Shadow DOM overlay in development.
 - `@hawk-eye/vite-plugin` injects `data-source="file:line:column"` onto intrinsic JSX elements during Vite dev transforms.
 - Clicking a live DOM element locks selection, reveals repo-relative source metadata, and opens a properties panel.
-- The properties panel supports live preview edits for spacing, radius, colors, typography, and opacity.
+- The properties panel now exposes a focused 15-property editor grouped into Layout, Fill, Typography, Design, and Effects.
+- The inspector now requests server-side AST analysis to classify selections as inline, tailwind, mixed, or unknown.
+- The Vite plugin now includes focused-property Tailwind CSS/class mapping utilities and a ts-morph AST writer for source mutations.
 - Preview changes stay in the current browser session, survive switching between selected elements, and can be reset per field or all at once.
 
 This repo is not published to npm yet. The current entrypoint for evaluation is the local demo app.
@@ -39,17 +41,20 @@ pnpm build
 - Library builds for `@hawk-eye/client` and `@hawk-eye/vite-plugin`
 - Demo app startup and production build
 - Dev-only inspector trigger, hover outline, click-to-lock selection, and repo-relative source info
-- Guided property controls for spacing, radius, colors, typography, and opacity
+- Guided focused controls for layout spacing, fill, typography, radius, and box shadow
+- AST-backed style strategy detection over the Vite HMR channel
+- Tailwind CSS-to-class mapping utilities for the focused property set
+- AST source mutation primitives for Tailwind swaps, inline style writes, mixed-mode fallback, and detached writes
 - DOM-only live preview with session-scoped pending changes, per-field reset, and global reset
 - Automated coverage for source injection, HMR payload validation, and the client runtime
 
 ## What Does Not Work Yet
 
-- Writing preview changes back to source files
-- Tailwind-aware token mutation or class rewriting
-- Rich diff review and apply workflows
+- Detach and save-to-branch workflows
+- A user-facing save flow that sends draft mutations through the writer
+- Dynamic `className` and dynamic `style` expressions still fall back or warn instead of being rewritten structurally
 
-Those capabilities start in Phase 3 and later.
+Those capabilities are the remaining Phase 3 work.
 
 ## Repository Layout
 
