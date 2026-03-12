@@ -176,6 +176,19 @@ function pressEscape() {
   });
 }
 
+function keyDown(node: Element | Window | Document, key: string) {
+  act(() => {
+    node.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        key,
+      })
+    );
+  });
+}
+
 function updateInput(input: InstanceType<typeof window.HTMLInputElement>, value: string) {
   const prototype = Object.getPrototypeOf(input);
   const setValue =
@@ -600,6 +613,105 @@ describe('DesignTool', () => {
     cleanup();
   });
 
+  it('filters controls with property search and reveals matching fallback groups', () => {
+    const target = document.createElement('div');
+    applyBaselineStyles(target, 'demo/src/App.tsx:57:13');
+    mockRect(target, { height: 48, left: 24, top: 40, width: 144 });
+    document.body.append(target);
+    setElementFromPoint(target);
+
+    const { cleanup, shadowRoot } = renderDesignTool();
+    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+
+    click(trigger);
+    click(document);
+
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="cursor"]')).toBeNull();
+
+    updateInput(
+      getControl(shadowRoot, 'property-search') as InstanceType<typeof window.HTMLInputElement>,
+      'cursor'
+    );
+
+    expect(getControl(shadowRoot, 'cursor')).toBeInstanceOf(window.HTMLSelectElement);
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="fontWeight"]')).toBeNull();
+    expect(shadowRoot.textContent).toContain('1 matching properties');
+    cleanup();
+  });
+
+  it('supports keyboard navigation for grouped controls and the panel resize handle', () => {
+    const target = document.createElement('div');
+    applyBaselineStyles(target, 'demo/src/App.tsx:63:17');
+    mockRect(target, { height: 52, left: 24, top: 40, width: 144 });
+    document.body.append(target);
+    setElementFromPoint(target);
+
+    const { cleanup, shadowRoot } = renderDesignTool();
+    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+
+    click(trigger);
+    click(document);
+
+    const visibilityVisible = getButtonControl(shadowRoot, 'visibility-visible');
+    const flexDirectionRow = getButtonControl(shadowRoot, 'flexDirection-row');
+    const resizeHandle = getButtonControl(shadowRoot, 'panel-resize');
+    const panel = shadowRoot.querySelector('[data-hawk-eye-ui="panel"]');
+
+    if (!(panel instanceof window.HTMLElement)) {
+      throw new Error('Missing panel');
+    }
+
+    keyDown(visibilityVisible, 'ArrowRight');
+    keyDown(flexDirectionRow, 'ArrowRight');
+
+    expect(target.style.visibility).toBe('hidden');
+    expect(target.style.display).toBe('flex');
+    expect(target.style.flexDirection).toBe('column');
+
+    expect(panel.style.getPropertyValue('--hawk-eye-panel-width')).toBe('420px');
+    expect(panel.style.getPropertyValue('--hawk-eye-panel-height')).toBe('760px');
+
+    keyDown(resizeHandle, 'ArrowLeft');
+    keyDown(resizeHandle, 'ArrowUp');
+
+    expect(panel.style.getPropertyValue('--hawk-eye-panel-width')).toBe('444px');
+    expect(panel.style.getPropertyValue('--hawk-eye-panel-height')).toBe('648px');
+    cleanup();
+  });
+
+  it('promotes block elements to flex while auto-layout container controls are dirty', () => {
+    const target = document.createElement('div');
+    applyBaselineStyles(target, 'demo/src/App.tsx:68:21');
+    mockRect(target, { height: 52, left: 24, top: 40, width: 144 });
+    document.body.append(target);
+    setElementFromPoint(target);
+
+    const { cleanup, host, shadowRoot } = renderDesignTool();
+    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+
+    click(trigger);
+    click(document);
+
+    setElementFromPoint(host);
+    click(getButtonControl(shadowRoot, 'flexDirection-column'));
+
+    expect(target.style.display).toBe('flex');
+    expect(target.style.flexDirection).toBe('column');
+
+    setElementFromPoint(host);
+    const resetAll = shadowRoot.querySelector('[data-hawk-eye-ui="secondary-button"]');
+
+    if (!(resetAll instanceof window.HTMLButtonElement)) {
+      throw new Error('Missing reset all button');
+    }
+
+    click(resetAll);
+
+    expect(target.style.display).toBe('block');
+    expect(target.style.flexDirection).toBe('row');
+    cleanup();
+  });
+
   it('supports advanced stroke, effects, position, and auto-layout controls', () => {
     const target = document.createElement('div');
     applyBaselineStyles(target, 'demo/src/App.tsx:61:17');
@@ -668,6 +780,7 @@ describe('DesignTool', () => {
     expect(target.style.flexDirection).toBe('column');
     expect(target.style.justifyContent).toBe('center');
     expect(target.style.gap).toBe('24px');
+    expect(target.style.display).toBe('flex');
     cleanup();
   });
 });

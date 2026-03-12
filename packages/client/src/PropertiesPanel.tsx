@@ -1,3 +1,4 @@
+import { useDeferredValue, useState, type ReactNode } from 'react';
 import {
   BoxShadowInput,
   ColorInput,
@@ -89,6 +90,15 @@ const HIGH_PRIORITY_PROPERTY_IDS = new Set<EditablePropertyId>([
   'rowGap',
   'columnGap',
 ]);
+const AUTO_LAYOUT_CONTAINER_PROPERTY_IDS = new Set<EditablePropertyId>([
+  'flexDirection',
+  'flexWrap',
+  'justifyContent',
+  'alignItems',
+  'gap',
+  'rowGap',
+  'columnGap',
+]);
 
 interface PropertiesPanelProps {
   pendingDrafts: SelectionDraft[];
@@ -108,6 +118,11 @@ interface PerSidePropertyIds {
   right: EditablePropertyId;
   bottom: EditablePropertyId;
   left: EditablePropertyId;
+}
+
+interface SectionContent {
+  count: number;
+  node: ReactNode | null;
 }
 
 function renderValue(value: string) {
@@ -151,9 +166,7 @@ function renderControl(
   }
 }
 
-function getPerSideMeta(
-  entries: Array<{ label: string; snapshot: PropertySnapshot }>
-) {
+function getPerSideMeta(entries: Array<{ label: string; snapshot: PropertySnapshot }>) {
   const invalidEntries = entries.filter((entry) => entry.snapshot.invalid);
 
   if (invalidEntries.length > 0) {
@@ -178,6 +191,12 @@ function getPerSideMeta(
     .join(' | ');
 }
 
+function isFlexDisplayValue(value: string) {
+  const trimmed = value.trim();
+
+  return trimmed === 'flex' || trimmed === 'inline-flex';
+}
+
 export function PropertiesPanel({
   pendingDrafts,
   selectedDraft,
@@ -185,9 +204,83 @@ export function PropertiesPanel({
   onResetAll,
   onResetProperty,
 }: PropertiesPanelProps) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const deferredSearchQuery = useDeferredValue(searchQuery.trim().toLowerCase());
+  const searchActive = deferredSearchQuery.length > 0;
   const dirtyDrafts = pendingDrafts.filter((draft) => getDirtyPropertyIds(draft).length > 0);
 
-  function renderPropertyCard(propertyId: EditablePropertyId, options: PropertyCardOptions = {}) {
+  function matchesSearch(tokens: Array<string | undefined>) {
+    if (!searchActive) {
+      return true;
+    }
+
+    return tokens.some((token) => token?.toLowerCase().includes(deferredSearchQuery));
+  }
+
+  function getPropertySearchTokens(propertyId: EditablePropertyId) {
+    const definition = editablePropertyDefinitionMap[propertyId];
+    const snapshot = selectedDraft.properties[propertyId];
+
+    return [
+      definition.label,
+      definition.shortLabel,
+      definition.id,
+      definition.cssProperty,
+      snapshot.inputValue,
+      snapshot.value,
+      snapshot.baseline,
+    ];
+  }
+
+  function matchesPropertySearch(propertyId: EditablePropertyId) {
+    return matchesSearch(getPropertySearchTokens(propertyId));
+  }
+
+  function matchesCompoundSearch(label: string, propertyIds: EditablePropertyId[]) {
+    return matchesSearch([
+      label,
+      ...propertyIds.flatMap((propertyId) => getPropertySearchTokens(propertyId)),
+    ]);
+  }
+
+  function renderSection(
+    sectionId: string,
+    title: string,
+    subtitle: string,
+    count: number,
+    layout: ReactNode,
+    defaultExpanded = true
+  ): SectionContent {
+    if (count === 0) {
+      return {
+        count,
+        node: null,
+      };
+    }
+
+    return {
+      count,
+      node: (
+        <CollapsibleSection
+          action={<span data-hawk-eye-ui="section-count">{count}</span>}
+          defaultExpanded={defaultExpanded}
+          forceExpanded={searchActive}
+          key={sectionId}
+          sectionId={sectionId}
+          subtitle={subtitle}
+          title={title}
+        >
+          {layout}
+        </CollapsibleSection>
+      ),
+    };
+  }
+
+  function renderPropertyCard(
+    propertyId: EditablePropertyId,
+    options: PropertyCardOptions = {},
+    onValueChange?: (propertyId: EditablePropertyId, value: string) => void
+  ) {
     const definition = editablePropertyDefinitionMap[propertyId];
     const snapshot = selectedDraft.properties[propertyId];
     const dirty = snapshot.value !== snapshot.baseline;
@@ -214,7 +307,9 @@ export function PropertiesPanel({
         propertyId={propertyId}
         span={options.span}
       >
-        {renderControl(definition, snapshot, (value) => onChange(propertyId, value))}
+        {renderControl(definition, snapshot, (value) =>
+          (onValueChange ?? onChange)(propertyId, value)
+        )}
       </PropertyCard>
     );
   }
@@ -331,142 +426,325 @@ export function PropertiesPanel({
 
   function renderFallbackGroup(group: EditablePropertyGroupId) {
     const definitions = editablePropertyDefinitions.filter(
-      (definition) => definition.group === group && !HIGH_PRIORITY_PROPERTY_IDS.has(definition.id)
+      (definition) =>
+        definition.group === group &&
+        !HIGH_PRIORITY_PROPERTY_IDS.has(definition.id) &&
+        matchesPropertySearch(definition.id)
     );
 
-    if (definitions.length === 0) {
-      return null;
-    }
-
-    return (
-      <CollapsibleSection
-        defaultExpanded={DEFAULT_EXPANDED_GROUPS.includes(group)}
-        key={group}
-        sectionId={group}
-        title={editablePropertyGroupLabels[group]}
-      >
-        <div data-hawk-eye-ui="control-grid">
-          {definitions.map((definition) => renderPropertyCard(definition.id))}
-        </div>
-      </CollapsibleSection>
+    return renderSection(
+      group,
+      editablePropertyGroupLabels[group],
+      'Lower-priority controls still participate in live preview.',
+      definitions.length,
+      <div data-hawk-eye-ui="control-grid">{definitions.map((definition) => renderPropertyCard(definition.id))}</div>,
+      DEFAULT_EXPANDED_GROUPS.includes(group)
     );
   }
 
+  function renderSpacingSection() {
+    const cards = [
+      matchesCompoundSearch('Padding', [
+        'paddingTop',
+        'paddingRight',
+        'paddingBottom',
+        'paddingLeft',
+      ])
+        ? renderPerSideCard('padding', 'Padding', {
+            top: 'paddingTop',
+            right: 'paddingRight',
+            bottom: 'paddingBottom',
+            left: 'paddingLeft',
+          })
+        : null,
+      matchesCompoundSearch('Margin', ['marginTop', 'marginRight', 'marginBottom', 'marginLeft'])
+        ? renderPerSideCard('margin', 'Margin', {
+            top: 'marginTop',
+            right: 'marginRight',
+            bottom: 'marginBottom',
+            left: 'marginLeft',
+          })
+        : null,
+    ].filter(Boolean) as ReactNode[];
+
+    return renderSection(
+      'spacing',
+      'Spacing',
+      'Padding and margin, grouped for quick balance changes.',
+      cards.length,
+      <div data-hawk-eye-ui="section-stack">{cards}</div>
+    );
+  }
+
+  function renderFillAppearanceSection() {
+    const cards = [
+      matchesPropertySearch('backgroundColor') ? renderPropertyCard('backgroundColor') : null,
+      matchesPropertySearch('color') ? renderPropertyCard('color') : null,
+      matchesPropertySearch('opacity') ? renderPropertyCard('opacity') : null,
+      matchesCompoundSearch('Corner radius', [
+        'borderTopLeftRadius',
+        'borderTopRightRadius',
+        'borderBottomRightRadius',
+        'borderBottomLeftRadius',
+      ])
+        ? renderPerSideCard('cornerRadius', 'Corner radius', {
+            top: 'borderTopLeftRadius',
+            right: 'borderTopRightRadius',
+            bottom: 'borderBottomRightRadius',
+            left: 'borderBottomLeftRadius',
+          })
+        : null,
+    ].filter(Boolean) as ReactNode[];
+
+    return renderSection(
+      'fill-appearance',
+      'Fill & Appearance',
+      'Color, opacity, and surface shape in one place.',
+      cards.length,
+      <div data-hawk-eye-ui="section-grid">{cards}</div>
+    );
+  }
+
+  function renderTypographySection() {
+    const cards = [
+      matchesPropertySearch('fontFamily') ? renderPropertyCard('fontFamily', { span: 'full' }) : null,
+      matchesPropertySearch('fontSize') ? renderPropertyCard('fontSize') : null,
+      matchesPropertySearch('fontWeight') ? renderPropertyCard('fontWeight') : null,
+      matchesPropertySearch('lineHeight') ? renderPropertyCard('lineHeight') : null,
+      matchesPropertySearch('letterSpacing') ? renderPropertyCard('letterSpacing') : null,
+      matchesPropertySearch('textAlign') ? renderPropertyCard('textAlign', { span: 'full' }) : null,
+      matchesPropertySearch('textDecoration') ? renderPropertyCard('textDecoration') : null,
+      matchesPropertySearch('textTransform') ? renderPropertyCard('textTransform') : null,
+    ].filter(Boolean) as ReactNode[];
+
+    return renderSection(
+      'typography',
+      'Typography',
+      'Type system controls, from family and scale to alignment.',
+      cards.length,
+      <div data-hawk-eye-ui="section-grid">{cards}</div>
+    );
+  }
+
+  function renderSizeSection() {
+    const cards = [
+      matchesPropertySearch('width') ? renderPropertyCard('width') : null,
+      matchesPropertySearch('height') ? renderPropertyCard('height') : null,
+      matchesPropertySearch('minWidth') ? renderPropertyCard('minWidth', { compact: true }) : null,
+      matchesPropertySearch('maxWidth') ? renderPropertyCard('maxWidth', { compact: true }) : null,
+      matchesPropertySearch('minHeight')
+        ? renderPropertyCard('minHeight', { compact: true })
+        : null,
+      matchesPropertySearch('maxHeight')
+        ? renderPropertyCard('maxHeight', { compact: true })
+        : null,
+    ].filter(Boolean) as ReactNode[];
+
+    return renderSection(
+      'size',
+      'Size',
+      'Primary dimensions plus guardrails for responsive bounds.',
+      cards.length,
+      <div data-hawk-eye-ui="section-grid">{cards}</div>
+    );
+  }
+
+  function renderLayoutSection() {
+    const cards = [
+      matchesPropertySearch('display') ? renderPropertyCard('display') : null,
+      matchesPropertySearch('overflow') ? renderPropertyCard('overflow') : null,
+    ].filter(Boolean) as ReactNode[];
+
+    return renderSection(
+      'layout-priority',
+      'Layout',
+      'Broad layout behavior before moving into position or auto layout.',
+      cards.length,
+      <div data-hawk-eye-ui="section-grid">{cards}</div>
+    );
+  }
+
+  function renderStrokeSection() {
+    const cards = [
+      matchesPropertySearch('borderColor') ? renderPropertyCard('borderColor') : null,
+      matchesPropertySearch('borderStyle') ? renderPropertyCard('borderStyle') : null,
+      matchesCompoundSearch('Border width', [
+        'borderTopWidth',
+        'borderRightWidth',
+        'borderBottomWidth',
+        'borderLeftWidth',
+      ])
+        ? renderPerSideCard('borderWidth', 'Border width', {
+            top: 'borderTopWidth',
+            right: 'borderRightWidth',
+            bottom: 'borderBottomWidth',
+            left: 'borderLeftWidth',
+          })
+        : null,
+    ].filter(Boolean) as ReactNode[];
+
+    return renderSection(
+      'stroke',
+      'Stroke & Border',
+      'Edge treatment, color, and per-side widths.',
+      cards.length,
+      <div data-hawk-eye-ui="section-grid">{cards}</div>
+    );
+  }
+
+  function renderEffectsSection() {
+    const cards = [
+      matchesPropertySearch('boxShadow') ? renderBoxShadowCard() : null,
+      matchesPropertySearch('filter') ? renderPropertyCard('filter') : null,
+      matchesPropertySearch('backdropFilter') ? renderPropertyCard('backdropFilter') : null,
+    ].filter(Boolean) as ReactNode[];
+
+    return renderSection(
+      'effects',
+      'Effects',
+      'Shadow, filter, and backdrop treatment for depth.',
+      cards.length,
+      <div data-hawk-eye-ui="section-grid">{cards}</div>
+    );
+  }
+
+  function renderPositionSection() {
+    const cards = [
+      matchesPropertySearch('positionType') ? renderPropertyCard('positionType') : null,
+      matchesPropertySearch('zIndex') ? renderPropertyCard('zIndex') : null,
+      matchesPropertySearch('top') ? renderPropertyCard('top', { compact: true }) : null,
+      matchesPropertySearch('right') ? renderPropertyCard('right', { compact: true }) : null,
+      matchesPropertySearch('bottom') ? renderPropertyCard('bottom', { compact: true }) : null,
+      matchesPropertySearch('left') ? renderPropertyCard('left', { compact: true }) : null,
+    ].filter(Boolean) as ReactNode[];
+
+    return renderSection(
+      'position',
+      'Position',
+      'Layering and offsets for precise placement.',
+      cards.length,
+      <div data-hawk-eye-ui="section-grid">{cards}</div>
+    );
+  }
+
+  function renderAutoLayoutSection() {
+    const autoLayoutDisplaySnapshot = selectedDraft.properties.display;
+    const updateAutoLayoutProperty = (propertyId: EditablePropertyId, value: string) => {
+      if (
+        AUTO_LAYOUT_CONTAINER_PROPERTY_IDS.has(propertyId) &&
+        autoLayoutDisplaySnapshot.value === autoLayoutDisplaySnapshot.baseline &&
+        !isFlexDisplayValue(autoLayoutDisplaySnapshot.baseline)
+      ) {
+        onChange('display', 'flex');
+      }
+
+      onChange(propertyId, value);
+    };
+    const cards = [
+      matchesPropertySearch('flexDirection')
+        ? renderPropertyCard('flexDirection', { span: 'full' }, updateAutoLayoutProperty)
+        : null,
+      matchesPropertySearch('flexWrap')
+        ? renderPropertyCard('flexWrap', {}, updateAutoLayoutProperty)
+        : null,
+      matchesPropertySearch('justifyContent')
+        ? renderPropertyCard('justifyContent', { span: 'full' }, updateAutoLayoutProperty)
+        : null,
+      matchesPropertySearch('alignItems')
+        ? renderPropertyCard('alignItems', { span: 'full' }, updateAutoLayoutProperty)
+        : null,
+      matchesPropertySearch('alignSelf') ? renderPropertyCard('alignSelf') : null,
+      matchesPropertySearch('gap') ? renderPropertyCard('gap', {}, updateAutoLayoutProperty) : null,
+      matchesPropertySearch('rowGap')
+        ? renderPropertyCard('rowGap', { compact: true }, updateAutoLayoutProperty)
+        : null,
+      matchesPropertySearch('columnGap')
+        ? renderPropertyCard('columnGap', { compact: true }, updateAutoLayoutProperty)
+        : null,
+    ].filter(Boolean) as ReactNode[];
+
+    return renderSection(
+      'auto-layout',
+      'Auto Layout',
+      'Flow, alignment, and spacing for flex containers. Preview promotes non-flex containers to flex.',
+      cards.length,
+      <div data-hawk-eye-ui="section-grid">{cards}</div>
+    );
+  }
+
+  const renderedSections = [
+    renderSpacingSection().node,
+    renderFillAppearanceSection().node,
+    renderTypographySection().node,
+    renderSizeSection().node,
+    renderLayoutSection().node,
+    renderStrokeSection().node,
+    renderEffectsSection().node,
+    renderPositionSection().node,
+    renderAutoLayoutSection().node,
+    ...editablePropertyGroupOrder
+      .map((group) => renderFallbackGroup(group).node)
+      .filter(Boolean),
+  ].filter(Boolean) as ReactNode[];
+
+  const matchingPropertyCount = editablePropertyDefinitions.filter((definition) =>
+    matchesPropertySearch(definition.id)
+  ).length;
+
   return (
     <>
+      <section data-hawk-eye-ui="panel-toolbar">
+        <label data-hawk-eye-ui="search-shell">
+          <span data-hawk-eye-ui="search-label">Find property</span>
+          <div data-hawk-eye-ui="search-row">
+            <span aria-hidden="true" data-hawk-eye-ui="search-icon">
+              /
+            </span>
+            <input
+              aria-label="Search properties"
+              data-hawk-eye-control="property-search"
+              data-hawk-eye-ui="text-input"
+              onChange={(event) => setSearchQuery(event.currentTarget.value)}
+              placeholder="Search label, CSS property, or current value"
+              type="text"
+              value={searchQuery}
+            />
+            {searchActive ? (
+              <button
+                data-hawk-eye-control="property-search-clear"
+                data-hawk-eye-ui="pill-button"
+                onClick={() => setSearchQuery('')}
+                type="button"
+              >
+                Clear
+              </button>
+            ) : null}
+          </div>
+        </label>
+        <p data-hawk-eye-ui="search-meta">
+          {searchActive
+            ? `${matchingPropertyCount} matching properties`
+            : `${editablePropertyDefinitions.length} editable properties`}
+        </p>
+      </section>
+
       <section data-hawk-eye-ui="property-stack">
-        <CollapsibleSection defaultExpanded sectionId="spacing" title="Spacing">
-          <div data-hawk-eye-ui="section-stack">
-            {renderPerSideCard('padding', 'Padding', {
-              top: 'paddingTop',
-              right: 'paddingRight',
-              bottom: 'paddingBottom',
-              left: 'paddingLeft',
-            })}
-            {renderPerSideCard('margin', 'Margin', {
-              top: 'marginTop',
-              right: 'marginRight',
-              bottom: 'marginBottom',
-              left: 'marginLeft',
-            })}
+        {renderedSections.length > 0 ? (
+          renderedSections
+        ) : (
+          <div data-hawk-eye-ui="search-empty">
+            <p data-hawk-eye-ui="hint">
+              No editable properties match &quot;{searchQuery.trim()}&quot;.
+            </p>
+            <button
+              data-hawk-eye-ui="secondary-button"
+              onClick={() => setSearchQuery('')}
+              type="button"
+            >
+              Clear search
+            </button>
           </div>
-        </CollapsibleSection>
-
-        <CollapsibleSection
-          defaultExpanded
-          sectionId="fill-appearance"
-          title="Fill & Appearance"
-        >
-          <div data-hawk-eye-ui="section-grid">
-            {renderPropertyCard('backgroundColor')}
-            {renderPropertyCard('color')}
-            {renderPropertyCard('opacity')}
-            {renderPerSideCard('cornerRadius', 'Corner radius', {
-              top: 'borderTopLeftRadius',
-              right: 'borderTopRightRadius',
-              bottom: 'borderBottomRightRadius',
-              left: 'borderBottomLeftRadius',
-            })}
-          </div>
-        </CollapsibleSection>
-
-        <CollapsibleSection defaultExpanded sectionId="typography" title="Typography">
-          <div data-hawk-eye-ui="section-grid">
-            {renderPropertyCard('fontFamily', { span: 'full' })}
-            {renderPropertyCard('fontSize')}
-            {renderPropertyCard('fontWeight')}
-            {renderPropertyCard('lineHeight')}
-            {renderPropertyCard('letterSpacing')}
-            {renderPropertyCard('textAlign', { span: 'full' })}
-            {renderPropertyCard('textDecoration')}
-            {renderPropertyCard('textTransform')}
-          </div>
-        </CollapsibleSection>
-
-        <CollapsibleSection defaultExpanded sectionId="size" title="Size">
-          <div data-hawk-eye-ui="section-grid">
-            {renderPropertyCard('width')}
-            {renderPropertyCard('height')}
-            {renderPropertyCard('minWidth', { compact: true })}
-            {renderPropertyCard('maxWidth', { compact: true })}
-            {renderPropertyCard('minHeight', { compact: true })}
-            {renderPropertyCard('maxHeight', { compact: true })}
-          </div>
-        </CollapsibleSection>
-
-        <CollapsibleSection defaultExpanded sectionId="layout-priority" title="Layout">
-          <div data-hawk-eye-ui="section-grid">
-            {renderPropertyCard('display')}
-            {renderPropertyCard('overflow')}
-          </div>
-        </CollapsibleSection>
-
-        <CollapsibleSection defaultExpanded sectionId="stroke" title="Stroke & Border">
-          <div data-hawk-eye-ui="section-grid">
-            {renderPropertyCard('borderColor')}
-            {renderPropertyCard('borderStyle')}
-            {renderPerSideCard('borderWidth', 'Border width', {
-              top: 'borderTopWidth',
-              right: 'borderRightWidth',
-              bottom: 'borderBottomWidth',
-              left: 'borderLeftWidth',
-            })}
-          </div>
-        </CollapsibleSection>
-
-        <CollapsibleSection defaultExpanded sectionId="effects" title="Effects">
-          <div data-hawk-eye-ui="section-grid">
-            {renderBoxShadowCard()}
-            {renderPropertyCard('filter')}
-            {renderPropertyCard('backdropFilter')}
-          </div>
-        </CollapsibleSection>
-
-        <CollapsibleSection defaultExpanded sectionId="position" title="Position">
-          <div data-hawk-eye-ui="section-grid">
-            {renderPropertyCard('positionType')}
-            {renderPropertyCard('zIndex')}
-            {renderPropertyCard('top', { compact: true })}
-            {renderPropertyCard('right', { compact: true })}
-            {renderPropertyCard('bottom', { compact: true })}
-            {renderPropertyCard('left', { compact: true })}
-          </div>
-        </CollapsibleSection>
-
-        <CollapsibleSection defaultExpanded sectionId="auto-layout" title="Auto Layout">
-          <div data-hawk-eye-ui="section-grid">
-            {renderPropertyCard('flexDirection', { span: 'full' })}
-            {renderPropertyCard('flexWrap')}
-            {renderPropertyCard('justifyContent', { span: 'full' })}
-            {renderPropertyCard('alignItems', { span: 'full' })}
-            {renderPropertyCard('alignSelf')}
-            {renderPropertyCard('gap')}
-            {renderPropertyCard('rowGap', { compact: true })}
-            {renderPropertyCard('columnGap', { compact: true })}
-          </div>
-        </CollapsibleSection>
-
-        {editablePropertyGroupOrder.map((group) => renderFallbackGroup(group))}
+        )}
       </section>
 
       <section data-hawk-eye-ui="changes-section">

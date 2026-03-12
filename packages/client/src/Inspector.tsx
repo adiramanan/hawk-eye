@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import { PropertiesPanel } from './PropertiesPanel';
 import type { EditablePropertyId, MeasuredElement, SelectionDraft } from './types';
 
@@ -14,8 +14,46 @@ interface InspectorProps {
   onToggle(): void;
 }
 
+interface ResizeState {
+  startHeight: number;
+  startWidth: number;
+  startX: number;
+  startY: number;
+}
+
+const PANEL_DEFAULT_SIZE = {
+  height: 760,
+  width: 420,
+};
+
+const PANEL_MIN_HEIGHT = 420;
+const PANEL_MIN_WIDTH = 360;
+const PANEL_RESIZE_STEP = 24;
+const PANEL_VIEWPORT_GUTTER = 32;
+const PANEL_VERTICAL_GUTTER = 120;
+
 function formatMeasurement(value: number) {
   return Math.max(0, Math.round(value));
+}
+
+function clampPanelSize(width: number, height: number) {
+  if (typeof window === 'undefined') {
+    return {
+      height: Math.max(PANEL_MIN_HEIGHT, height),
+      width: Math.max(PANEL_MIN_WIDTH, width),
+    };
+  }
+
+  return {
+    height: Math.min(
+      Math.max(PANEL_MIN_HEIGHT, height),
+      Math.max(PANEL_MIN_HEIGHT, window.innerHeight - PANEL_VERTICAL_GUTTER)
+    ),
+    width: Math.min(
+      Math.max(PANEL_MIN_WIDTH, width),
+      Math.max(PANEL_MIN_WIDTH, window.innerWidth - PANEL_VIEWPORT_GUTTER)
+    ),
+  };
 }
 
 function toOutlineStyle(measured: MeasuredElement): CSSProperties {
@@ -45,7 +83,76 @@ export function Inspector({
   onResetProperty,
   onToggle,
 }: InspectorProps) {
+  const [panelSize, setPanelSize] = useState(PANEL_DEFAULT_SIZE);
+  const resizeStateRef = useRef<ResizeState | null>(null);
   const activeMeasurement = selected ?? hovered;
+  const panelStyle = {
+    '--hawk-eye-panel-height': `${panelSize.height}px`,
+    '--hawk-eye-panel-width': `${panelSize.width}px`,
+  } as CSSProperties;
+
+  useEffect(() => {
+    if (!enabled) {
+      resizeStateRef.current = null;
+      return;
+    }
+
+    function handlePointerMove(event: globalThis.PointerEvent) {
+      const state = resizeStateRef.current;
+
+      if (!state) {
+        return;
+      }
+
+      setPanelSize(
+        clampPanelSize(
+          state.startWidth + (state.startX - event.clientX),
+          state.startHeight + (state.startY - event.clientY)
+        )
+      );
+    }
+
+    function handlePointerUp() {
+      resizeStateRef.current = null;
+    }
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+  }, [enabled]);
+
+  function handleResizeKeyDown(event: KeyboardEvent<globalThis.HTMLButtonElement>) {
+    let widthDelta = 0;
+    let heightDelta = 0;
+
+    switch (event.key) {
+      case 'ArrowLeft':
+        widthDelta = PANEL_RESIZE_STEP;
+        break;
+      case 'ArrowRight':
+        widthDelta = -PANEL_RESIZE_STEP;
+        break;
+      case 'ArrowUp':
+        heightDelta = PANEL_RESIZE_STEP;
+        break;
+      case 'ArrowDown':
+        heightDelta = -PANEL_RESIZE_STEP;
+        break;
+      case 'Home':
+        event.preventDefault();
+        setPanelSize(PANEL_DEFAULT_SIZE);
+        return;
+      default:
+        return;
+    }
+
+    event.preventDefault();
+    setPanelSize((current) => clampPanelSize(current.width + widthDelta, current.height + heightDelta));
+  }
 
   return (
     <div data-testid="hawk-eye-design-tool" data-hawk-eye-ui="root">
@@ -61,7 +168,7 @@ export function Inspector({
         ) : null}
 
         {enabled ? (
-          <aside data-hawk-eye-ui="panel">
+          <aside data-hawk-eye-ui="panel" style={panelStyle}>
             <p data-hawk-eye-ui="eyebrow">
               {selectedDraft ? 'Locked selection' : 'Inspector active'}
             </p>
@@ -100,6 +207,26 @@ export function Inspector({
                 <strong>Escape</strong> or toggle the trigger to exit.
               </p>
             )}
+
+            <button
+              aria-label="Resize panel"
+              data-hawk-eye-control="panel-resize"
+              data-hawk-eye-ui="panel-resize"
+              onKeyDown={handleResizeKeyDown}
+              onPointerDown={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                resizeStateRef.current = {
+                  startHeight: panelSize.height,
+                  startWidth: panelSize.width,
+                  startX: event.clientX,
+                  startY: event.clientY,
+                };
+              }}
+              type="button"
+            >
+              <span data-hawk-eye-ui="panel-resize-grip" />
+            </button>
           </aside>
         ) : null}
 
