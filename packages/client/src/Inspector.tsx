@@ -197,72 +197,74 @@ export function Inspector({
 
         {enabled ? (
           <aside data-hawk-eye-ui="panel" style={panelStyle}>
-            <p data-hawk-eye-ui="eyebrow">
-              {selectedDraft ? 'Locked selection' : 'Inspector active'}
-            </p>
-
             {selectedDraft ? (
               <>
-                <div data-hawk-eye-ui="title-row">
-                  <h2 data-hawk-eye-ui="title">{selectedDraft.tagName}</h2>
-                  <span data-hawk-eye-ui="badge">{selectedDraft.styleMode}</span>
-                </div>
+                <div data-hawk-eye-ui="panel-header">
+                  <p data-hawk-eye-ui="eyebrow">
+                    {selectedDraft ? 'Locked selection' : 'Inspector active'}
+                  </p>
 
-                <dl data-hawk-eye-ui="detail-list">
-                  <div data-hawk-eye-ui="detail">
-                    <dt data-hawk-eye-ui="label">Source</dt>
-                    <dd data-hawk-eye-ui="value">
-                      {selectedDraft.file}:{selectedDraft.line}:{selectedDraft.column}
-                    </dd>
+                  <div data-hawk-eye-ui="title-row">
+                    <h2 data-hawk-eye-ui="title">{selectedDraft.tagName}</h2>
+                    <span data-hawk-eye-ui="badge">{selectedDraft.styleMode}</span>
                   </div>
-                  <div data-hawk-eye-ui="detail">
-                    <dt data-hawk-eye-ui="label">Token</dt>
-                    <dd data-hawk-eye-ui="value">{selectedDraft.source}</dd>
-                  </div>
-                </dl>
 
-                {selectedDraft.detached ||
-                selectedDraft.styleMode === 'tailwind' ||
-                selectedDraft.styleMode === 'mixed' ||
-                pendingDrafts.length > 0 ||
-                saveStatusMessage ? (
-                  <div data-hawk-eye-ui="inspector-actions">
-                    {!selectedDraft.detached ? (
-                      <button
-                        data-hawk-eye-control="detach"
-                        data-hawk-eye-ui="pill-button"
-                        onClick={onDetach}
-                        type="button"
-                      >
-                        Detach from classes
-                      </button>
-                    ) : null}
-                    {pendingDrafts.length > 0 ? (
-                      <button
-                        data-hawk-eye-control="save"
-                        data-hawk-eye-ui="primary-button"
-                        disabled={savePending}
-                        onClick={onSave}
-                        type="button"
-                      >
-                        {savePending ? 'Saving…' : 'Save to branch'}
-                      </button>
-                    ) : null}
-                    <p data-hawk-eye-ui="status-note">
-                      {selectedDraft.detached
-                        ? 'Detached preview active. Focused properties will save as inline styles.'
-                        : 'Detach copies the focused properties into inline preview styles.'}
-                    </p>
-                    {saveStatusMessage ? (
-                      <p
-                        data-hawk-eye-ui="status-note"
-                        data-state={savePending ? 'pending' : saveResult?.success ? 'success' : 'error'}
-                      >
-                        {saveStatusMessage}
+                  <dl data-hawk-eye-ui="detail-list">
+                    <div data-hawk-eye-ui="detail">
+                      <dt data-hawk-eye-ui="label">Source</dt>
+                      <dd data-hawk-eye-ui="value">
+                        {selectedDraft.file}:{selectedDraft.line}:{selectedDraft.column}
+                      </dd>
+                    </div>
+                    <div data-hawk-eye-ui="detail">
+                      <dt data-hawk-eye-ui="label">Token</dt>
+                      <dd data-hawk-eye-ui="value">{selectedDraft.source}</dd>
+                    </div>
+                  </dl>
+
+                  {selectedDraft.detached ||
+                  selectedDraft.styleMode === 'tailwind' ||
+                  selectedDraft.styleMode === 'mixed' ||
+                  pendingDrafts.length > 0 ||
+                  saveStatusMessage ? (
+                    <div data-hawk-eye-ui="inspector-actions">
+                      {!selectedDraft.detached ? (
+                        <button
+                          data-hawk-eye-control="detach"
+                          data-hawk-eye-ui="pill-button"
+                          onClick={onDetach}
+                          type="button"
+                        >
+                          Detach from classes
+                        </button>
+                      ) : null}
+                      {pendingDrafts.length > 0 ? (
+                        <button
+                          data-hawk-eye-control="save"
+                          data-hawk-eye-ui="primary-button"
+                          disabled={savePending}
+                          onClick={onSave}
+                          type="button"
+                        >
+                          {savePending ? 'Saving…' : 'Save to branch'}
+                        </button>
+                      ) : null}
+                      <p data-hawk-eye-ui="status-note">
+                        {selectedDraft.detached
+                          ? 'Detached preview active. Focused properties will save as inline styles.'
+                          : 'Detach copies the focused properties into inline preview styles.'}
                       </p>
-                    ) : null}
-                  </div>
-                ) : null}
+                      {saveStatusMessage ? (
+                        <p
+                          data-hawk-eye-ui="status-note"
+                          data-state={savePending ? 'pending' : saveResult?.success ? 'success' : 'error'}
+                        >
+                          {saveStatusMessage}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
 
                 <PropertiesPanel
                   onChange={onChange}
@@ -274,6 +276,7 @@ export function Inspector({
               </>
             ) : (
               <>
+                <p data-hawk-eye-ui="eyebrow">Inspector active</p>
                 {saveStatusMessage ? (
                   <p
                     data-hawk-eye-ui="status-note"

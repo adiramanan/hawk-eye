@@ -3,7 +3,13 @@
   "compilerOptions": {
     "jsx": "react-jsx",
     "noEmit": true,
-    "types": ["vite/client"]
+    "types": ["vite/client"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@hawk-eye/client": ["../packages/client/src/index.ts"],
+      "@hawk-eye/vite-plugin": ["../packages/vite-plugin/src/index.ts"]
+    }
   },
   "include": ["src", "vite-env.d.ts"],
   "exclude": ["node_modules", "dist"]
