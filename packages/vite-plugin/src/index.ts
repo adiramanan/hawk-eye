@@ -1,4 +1,5 @@
 import type { Plugin } from 'vite';
+import { registerSaveHandler } from './save-handler';
 import { injectSourceMetadata } from './source-injector';
 import { registerInspectHandler } from './ws-server';
 
@@ -28,6 +29,7 @@ export default function hawkeyePlugin(): Plugin {
     },
     configureServer(server) {
       registerInspectHandler(server, root);
+      registerSaveHandler(server, root);
     },
   };
 }

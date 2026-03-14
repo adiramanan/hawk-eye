@@ -1,4 +1,8 @@
-import { editablePropertyDefinitionMap, editablePropertyDefinitions } from './editable-properties';
+import {
+  FOCUSED_PROPERTY_IDS,
+  editablePropertyDefinitionMap,
+  editablePropertyDefinitions,
+} from './editable-properties';
 import type {
   EditablePropertyId,
   PropertySnapshot,
@@ -97,6 +101,7 @@ export function createSelectionDraft(
 
   return {
     ...details,
+    detached: false,
     properties,
   };
 }
@@ -107,13 +112,14 @@ export function mergeSelectionDraft(
 ): SelectionDraft {
   return {
     ...draft,
+    detached: draft.detached,
     file: details.file,
     instanceKey: details.instanceKey,
     line: details.line,
     column: details.column,
     tagName: details.tagName,
     // Preserve the original detected strategy even after preview adds inline overrides.
-    styleMode: draft.styleMode,
+    styleMode: draft.detached ? 'detached' : draft.styleMode,
     classNames: draft.classNames,
     inlineStyles: draft.inlineStyles,
   };
@@ -149,8 +155,9 @@ export function getInspectableElementByKey(instanceKey: string) {
 export function applyDraftToElement(element: HTMLElement, draft: SelectionDraft) {
   for (const definition of editablePropertyDefinitions) {
     const snapshot = draft.properties[definition.id];
+    const forceInline = draft.detached && FOCUSED_PROPERTY_IDS.has(definition.id);
 
-    if (snapshot.value === snapshot.baseline) {
+    if (!forceInline && snapshot.value === snapshot.baseline) {
       restoreOriginalInlineValue(element, definition.id, snapshot);
       continue;
     }
@@ -236,7 +243,12 @@ export function resetDraftProperty(
   const snapshot = draft.properties[propertyId];
 
   if (element) {
-    restoreOriginalInlineValue(element, propertyId, snapshot);
+    if (draft.detached && FOCUSED_PROPERTY_IDS.has(propertyId)) {
+      const definition = editablePropertyDefinitionMap[propertyId];
+      element.style.setProperty(definition.cssProperty, snapshot.baseline);
+    } else {
+      restoreOriginalInlineValue(element, propertyId, snapshot);
+    }
   }
 
   return {
@@ -247,7 +259,41 @@ export function resetDraftProperty(
   };
 }
 
+export function detachDraft(draft: SelectionDraft, element: HTMLElement): SelectionDraft {
+  const computedStyle = window.getComputedStyle(element);
+  const properties = { ...draft.properties };
+
+  for (const definition of editablePropertyDefinitions) {
+    if (!FOCUSED_PROPERTY_IDS.has(definition.id)) {
+      continue;
+    }
+
+    const computedValue =
+      computedStyle.getPropertyValue(definition.cssProperty).trim() ||
+      element.style.getPropertyValue(definition.cssProperty).trim() ||
+      draft.properties[definition.id].value;
+
+    properties[definition.id] = {
+      ...draft.properties[definition.id],
+      inputValue: computedValue,
+      invalid: false,
+      value: computedValue,
+    };
+  }
+
+  return {
+    ...draft,
+    detached: true,
+    properties,
+    styleMode: 'detached',
+  };
+}
+
 export function hasDraftChanges(draft: SelectionDraft) {
+  if (draft.detached) {
+    return true;
+  }
+
   return editablePropertyDefinitions.some(
     (definition) =>
       draft.properties[definition.id].value !== draft.properties[definition.id].baseline

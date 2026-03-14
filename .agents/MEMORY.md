@@ -158,10 +158,17 @@ packages/vite-plugin/src/
 - Handles Tailwind class swaps, inline style object upserts, mixed-mode fallback, and detached writes
 - Returns structured warnings for unsupported dynamic `className` and dynamic `style` cases
 
+### Detach Flow
+- `SelectionDraft` now includes `detached: boolean`
+- `detachDraft(draft, element)` snapshots the focused property set into inline preview values and flips `styleMode` to `'detached'`
+- Detached drafts survive later style-analysis hydration during the same session
+
 ### Save Workflow
 - Creates branch `hawk-eye/design-tweaks-{YYYYMMDD-HHmmss}` from HEAD
 - Writes mutations → commits → switches back to original branch
 - Aborts if working tree is dirty (uncommitted changes)
+- Resolves the actual git root even when the Vite root is nested inside it
+- Returns the branch name, commit SHA, and any writer warnings back to the inspector
 
 ### Dependencies Already Available
 - `ts-morph ^21.0.0` — in `@hawk-eye/vite-plugin` package.json (for style analysis + source writing)
@@ -174,4 +181,4 @@ Phases 3.1, 3.2, 3.3 can run fully in parallel (no dependencies between them). P
 ---
 
 ## Last Updated
-2026-03-12 (Phase 3.4 complete)
+2026-03-12 (Phase 3 complete)

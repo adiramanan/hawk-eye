@@ -6,7 +6,7 @@ Pre-alpha visual inspector and live-preview editor for React + Vite interfaces.
 
 ## Current Status
 
-As of 2026-03-12, this repository has completed Phases 3.1, 3.2, 3.3, and 3.4 and is in progress on the rest of Phase 3:
+As of 2026-03-12, this repository has completed Phase 3:
 
 - The pnpm workspace, TypeScript config, linting, builds, and demo app are wired up.
 - `@hawk-eye/client` renders a floating inspector trigger and Shadow DOM overlay in development.
@@ -15,6 +15,8 @@ As of 2026-03-12, this repository has completed Phases 3.1, 3.2, 3.3, and 3.4 an
 - The properties panel now exposes a focused 15-property editor grouped into Layout, Fill, Typography, Design, and Effects.
 - The inspector now requests server-side AST analysis to classify selections as inline, tailwind, mixed, or unknown.
 - The Vite plugin now includes focused-property Tailwind CSS/class mapping utilities and a ts-morph AST writer for source mutations.
+- Tailwind and mixed selections can now be detached into focused inline preview styles from the inspector.
+- Dirty drafts can now be saved to a review branch, committed server-side, and reported back to the inspector.
 - Preview changes stay in the current browser session, survive switching between selected elements, and can be reset per field or all at once.
 
 This repo is not published to npm yet. The current entrypoint for evaluation is the local demo app.
@@ -45,16 +47,17 @@ pnpm build
 - AST-backed style strategy detection over the Vite HMR channel
 - Tailwind CSS-to-class mapping utilities for the focused property set
 - AST source mutation primitives for Tailwind swaps, inline style writes, mixed-mode fallback, and detached writes
+- A detach-from-classes preview flow that keeps focused properties inline and marks the draft as `detached`
+- A save-to-branch workflow with dirty-worktree guards, automatic review-branch creation, commit generation, and inspector feedback
 - DOM-only live preview with session-scoped pending changes, per-field reset, and global reset
 - Automated coverage for source injection, HMR payload validation, and the client runtime
 
 ## What Does Not Work Yet
 
-- Detach and save-to-branch workflows
-- A user-facing save flow that sends draft mutations through the writer
 - Dynamic `className` and dynamic `style` expressions still fall back or warn instead of being rewritten structurally
+- No built-in diff/PR review surface yet; the save flow returns a branch name and commit SHA only
 
-Those capabilities are the remaining Phase 3 work.
+Those are the main remaining limitations before broader polish.
 
 ## Repository Layout
 
@@ -71,8 +74,8 @@ hawk-eye/
 
 ## Roadmap
 
-1. Phase 3: Code mutation and file persistence
-2. Phase 4: Hardening, documentation, and release prep
+1. Phase 4: Hardening, documentation, and release prep
+2. Future: broader framework support and deeper design-tool parity
 
 Detailed status lives in [`.agents/PHASE_STATUS.md`](./.agents/PHASE_STATUS.md).
 

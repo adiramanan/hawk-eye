@@ -1,16 +1,20 @@
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import { PropertiesPanel } from './PropertiesPanel';
-import type { EditablePropertyId, MeasuredElement, SelectionDraft } from './types';
+import type { EditablePropertyId, MeasuredElement, SaveResult, SelectionDraft } from './types';
 
 interface InspectorProps {
   enabled: boolean;
   hovered: MeasuredElement | null;
   pendingDrafts: SelectionDraft[];
+  savePending: boolean;
+  saveResult: SaveResult | null;
   selected: MeasuredElement | null;
   selectedDraft: SelectionDraft | null;
   onChange(propertyId: EditablePropertyId, value: string): void;
+  onDetach(): void;
   onResetAll(): void;
   onResetProperty(instanceKey: string, propertyId: EditablePropertyId): void;
+  onSave(): void;
   onToggle(): void;
 }
 
@@ -72,20 +76,44 @@ function toMeasureStyle(measured: MeasuredElement): CSSProperties {
   };
 }
 
+function getSaveStatusMessage(savePending: boolean, saveResult: SaveResult | null) {
+  if (savePending) {
+    return 'Saving preview changes to a new branch.';
+  }
+
+  if (!saveResult) {
+    return null;
+  }
+
+  if (saveResult.success) {
+    const warningSuffix =
+      saveResult.warnings.length > 0 ? ` ${saveResult.warnings.length} warning(s) returned.` : '';
+
+    return `Saved to ${saveResult.branch} @ ${saveResult.commitSha.slice(0, 7)}.${warningSuffix}`;
+  }
+
+  return saveResult.branch ? `${saveResult.error} (${saveResult.branch})` : saveResult.error;
+}
+
 export function Inspector({
   enabled,
   hovered,
   pendingDrafts,
+  savePending,
+  saveResult,
   selected,
   selectedDraft,
   onChange,
+  onDetach,
   onResetAll,
   onResetProperty,
+  onSave,
   onToggle,
 }: InspectorProps) {
   const [panelSize, setPanelSize] = useState(PANEL_DEFAULT_SIZE);
   const resizeStateRef = useRef<ResizeState | null>(null);
   const activeMeasurement = selected ?? hovered;
+  const saveStatusMessage = getSaveStatusMessage(savePending, saveResult);
   const panelStyle = {
     '--hawk-eye-panel-height': `${panelSize.height}px`,
     '--hawk-eye-panel-width': `${panelSize.width}px`,
@@ -193,6 +221,49 @@ export function Inspector({
                   </div>
                 </dl>
 
+                {selectedDraft.detached ||
+                selectedDraft.styleMode === 'tailwind' ||
+                selectedDraft.styleMode === 'mixed' ||
+                pendingDrafts.length > 0 ||
+                saveStatusMessage ? (
+                  <div data-hawk-eye-ui="inspector-actions">
+                    {!selectedDraft.detached ? (
+                      <button
+                        data-hawk-eye-control="detach"
+                        data-hawk-eye-ui="pill-button"
+                        onClick={onDetach}
+                        type="button"
+                      >
+                        Detach from classes
+                      </button>
+                    ) : null}
+                    {pendingDrafts.length > 0 ? (
+                      <button
+                        data-hawk-eye-control="save"
+                        data-hawk-eye-ui="primary-button"
+                        disabled={savePending}
+                        onClick={onSave}
+                        type="button"
+                      >
+                        {savePending ? 'Saving…' : 'Save to branch'}
+                      </button>
+                    ) : null}
+                    <p data-hawk-eye-ui="status-note">
+                      {selectedDraft.detached
+                        ? 'Detached preview active. Focused properties will save as inline styles.'
+                        : 'Detach copies the focused properties into inline preview styles.'}
+                    </p>
+                    {saveStatusMessage ? (
+                      <p
+                        data-hawk-eye-ui="status-note"
+                        data-state={savePending ? 'pending' : saveResult?.success ? 'success' : 'error'}
+                      >
+                        {saveStatusMessage}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+
                 <PropertiesPanel
                   onChange={onChange}
                   onResetAll={onResetAll}
@@ -202,10 +273,20 @@ export function Inspector({
                 />
               </>
             ) : (
-              <p data-hawk-eye-ui="hint">
-                Hover any intrinsic DOM element, click to lock it, then press{' '}
-                <strong>Escape</strong> or toggle the trigger to exit.
-              </p>
+              <>
+                {saveStatusMessage ? (
+                  <p
+                    data-hawk-eye-ui="status-note"
+                    data-state={savePending ? 'pending' : saveResult?.success ? 'success' : 'error'}
+                  >
+                    {saveStatusMessage}
+                  </p>
+                ) : null}
+                <p data-hawk-eye-ui="hint">
+                  Hover any intrinsic DOM element, click to lock it, then press{' '}
+                  <strong>Escape</strong> or toggle the trigger to exit.
+                </p>
+              </>
             )}
 
             <button

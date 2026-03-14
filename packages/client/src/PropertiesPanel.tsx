@@ -133,7 +133,7 @@ export function PropertiesPanel({
       draft,
       dirtyProperties: getFocusedDirtyPropertyIds(draft),
     }))
-    .filter((entry) => entry.dirtyProperties.length > 0);
+    .filter((entry) => entry.draft.detached || entry.dirtyProperties.length > 0);
 
   function renderSection(
     sectionId: FocusedGroupId,
@@ -409,10 +409,26 @@ export function PropertiesPanel({
                     <p data-hawk-eye-ui="change-title">{draft.tagName}</p>
                     <p data-hawk-eye-ui="change-source">{draft.source}</p>
                   </div>
-                  <span data-hawk-eye-ui="change-count">{dirtyProperties.length} edits</span>
+                  <span data-hawk-eye-ui="change-count">
+                    {draft.detached
+                      ? dirtyProperties.length > 0
+                        ? `${dirtyProperties.length} edits + detached`
+                        : 'detached'
+                      : `${dirtyProperties.length} edits`}
+                  </span>
                 </div>
 
                 <div data-hawk-eye-ui="change-items">
+                  {draft.detached ? (
+                    <div data-hawk-eye-ui="change-item">
+                      <div data-hawk-eye-ui="change-copy">
+                        <span data-hawk-eye-ui="change-label">Detach</span>
+                        <span data-hawk-eye-ui="change-values">
+                          Focused properties will be written inline when this draft is saved.
+                        </span>
+                      </div>
+                    </div>
+                  ) : null}
                   {dirtyProperties.map((propertyId) => {
                     const definition = editablePropertyDefinitionMap[propertyId];
                     const snapshot = draft.properties[propertyId];

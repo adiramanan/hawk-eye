@@ -42,3 +42,18 @@ export interface SourceWriteResult {
   modifiedFiles: string[];
   warnings: MutationWarning[];
 }
+
+export type SaveResult =
+  | {
+      success: true;
+      branch: string;
+      commitSha: string;
+      modifiedFiles: string[];
+      warnings: MutationWarning[];
+    }
+  | {
+      success: false;
+      error: string;
+      branch?: string;
+      warnings: MutationWarning[];
+    };

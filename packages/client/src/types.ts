@@ -18,6 +18,50 @@ export interface StyleAnalysisPayload {
   inlineStyles: Record<string, string>;
 }
 
+export interface PropertyMutationPayload {
+  propertyId: EditablePropertyId;
+  cssProperty: string;
+  oldValue: string;
+  newValue: string;
+}
+
+export interface ElementMutationPayload {
+  file: string;
+  line: number;
+  column: number;
+  styleMode: StyleMode;
+  detached: boolean;
+  properties: PropertyMutationPayload[];
+}
+
+export interface SavePayload {
+  mutations: ElementMutationPayload[];
+}
+
+export interface MutationWarningPayload {
+  code: string;
+  file: string;
+  line: number;
+  column: number;
+  propertyId?: string;
+  message: string;
+}
+
+export type SaveResult =
+  | {
+      success: true;
+      branch: string;
+      commitSha: string;
+      modifiedFiles: string[];
+      warnings: MutationWarningPayload[];
+    }
+  | {
+      success: false;
+      error: string;
+      branch?: string;
+      warnings: MutationWarningPayload[];
+    };
+
 export interface SelectionDetails extends SelectionPayload {
   instanceKey: string;
   styleMode: StyleMode;
@@ -166,5 +210,6 @@ export interface PropertySnapshot {
 }
 
 export interface SelectionDraft extends SelectionDetails {
+  detached: boolean;
   properties: Record<EditablePropertyId, PropertySnapshot>;
 }

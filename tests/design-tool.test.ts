@@ -5,10 +5,15 @@ import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DesignTool } from '../packages/client/src';
-import type { SelectionPayload, StyleAnalysisPayload } from '../packages/client/src/types';
+import type {
+  SaveResult,
+  SelectionPayload,
+  StyleAnalysisPayload,
+} from '../packages/client/src/types';
 import {
   HAWK_EYE_ANALYZE_STYLE_EVENT,
   HAWK_EYE_INSPECT_EVENT,
+  HAWK_EYE_SAVE_EVENT,
 } from '../packages/client/src/ws-client';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -16,14 +21,14 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const mountedCleanups = new Set<() => void>();
 
 interface HotStub {
-  emit(event: string, payload: SelectionPayload | StyleAnalysisPayload): void;
+  emit(event: string, payload: SelectionPayload | StyleAnalysisPayload | SaveResult): void;
   off(
     event: string,
-    cb: (payload: SelectionPayload | StyleAnalysisPayload) => void
+    cb: (payload: SelectionPayload | StyleAnalysisPayload | SaveResult) => void
   ): void;
   on(
     event: string,
-    cb: (payload: SelectionPayload | StyleAnalysisPayload) => void
+    cb: (payload: SelectionPayload | StyleAnalysisPayload | SaveResult) => void
   ): void;
   send: ReturnType<typeof vi.fn>;
 }
@@ -31,7 +36,7 @@ interface HotStub {
 function createHotStub(): HotStub {
   const handlers = new Map<
     string,
-    Set<(payload: SelectionPayload | StyleAnalysisPayload) => void>
+    Set<(payload: SelectionPayload | StyleAnalysisPayload | SaveResult) => void>
   >();
 
   return {
@@ -44,7 +49,7 @@ function createHotStub(): HotStub {
     on(event, cb) {
       const callbacks =
         handlers.get(event) ??
-        new Set<(payload: SelectionPayload | StyleAnalysisPayload) => void>();
+        new Set<(payload: SelectionPayload | StyleAnalysisPayload | SaveResult) => void>();
       callbacks.add(cb);
       handlers.set(event, callbacks);
     },
@@ -358,6 +363,121 @@ describe('DesignTool', () => {
     });
 
     expect(shadowRoot.querySelector('[data-hawk-eye-ui="badge"]')?.textContent).toBe('tailwind');
+    cleanup();
+  });
+
+  it('detaches class-based selections and preserves detached mode across later style-analysis events', () => {
+    const hot = createHotStub();
+    globalThis.__HAWK_EYE_HOT__ = hot;
+
+    const target = document.createElement('button');
+    applyBaselineStyles(target, 'demo/src/App.tsx:34:9');
+    mockRect(target, { height: 44, left: 36, top: 72, width: 148 });
+    document.body.append(target);
+    setElementFromPoint(target);
+
+    const { cleanup, host, shadowRoot } = renderDesignTool();
+    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+
+    click(trigger);
+    click(document);
+
+    act(() => {
+      hot.emit('hawk-eye:selection', {
+        source: 'demo/src/App.tsx:34:9',
+        file: 'demo/src/App.tsx',
+        line: 34,
+        column: 9,
+      });
+      hot.emit('hawk-eye:style-analysis', {
+        source: 'demo/src/App.tsx:34:9',
+        mode: 'tailwind',
+        classNames: ['px-4', 'py-2', 'rounded-lg'],
+        inlineStyles: {},
+      });
+    });
+
+    setElementFromPoint(host);
+    click(getButtonControl(shadowRoot, 'detach'));
+
+    expect(shadowRoot.querySelector('[data-hawk-eye-ui="badge"]')?.textContent).toBe('detached');
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="detach"]')).toBeNull();
+    expect(shadowRoot.textContent).toContain(
+      'Detached preview active. Focused properties will save as inline styles.'
+    );
+    expect(shadowRoot.textContent).toContain(
+      'Focused properties will be written inline when this draft is saved.'
+    );
+
+    act(() => {
+      hot.emit('hawk-eye:style-analysis', {
+        source: 'demo/src/App.tsx:34:9',
+        mode: 'tailwind',
+        classNames: ['px-4', 'py-2', 'rounded-lg'],
+        inlineStyles: {},
+      });
+    });
+
+    expect(shadowRoot.querySelector('[data-hawk-eye-ui="badge"]')?.textContent).toBe('detached');
+    cleanup();
+  });
+
+  it('sends save payloads for dirty drafts and clears previews after a successful save result', () => {
+    const hot = createHotStub();
+    globalThis.__HAWK_EYE_HOT__ = hot;
+
+    const target = document.createElement('div');
+    applyBaselineStyles(target, 'demo/src/App.tsx:52:11');
+    mockRect(target, { height: 52, left: 28, top: 56, width: 164 });
+    document.body.append(target);
+    setElementFromPoint(target);
+
+    const { cleanup, host, shadowRoot } = renderDesignTool();
+    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+
+    click(trigger);
+    click(document);
+    updateInput(
+      getControl(shadowRoot, 'paddingTop') as InstanceType<typeof window.HTMLInputElement>,
+      '24px'
+    );
+
+    setElementFromPoint(host);
+    click(getButtonControl(shadowRoot, 'save'));
+
+    expect(hot.send).toHaveBeenCalledWith(HAWK_EYE_SAVE_EVENT, {
+      mutations: [
+        {
+          file: 'demo/src/App.tsx',
+          line: 52,
+          column: 11,
+          styleMode: 'unknown',
+          detached: false,
+          properties: [
+            {
+              propertyId: 'paddingTop',
+              cssProperty: 'padding-top',
+              oldValue: '16px',
+              newValue: '24px',
+            },
+          ],
+        },
+      ],
+    });
+
+    act(() => {
+      hot.emit('hawk-eye:save-result', {
+        success: true,
+        branch: 'hawk-eye/design-tweaks-20260312-230000',
+        commitSha: 'abcdef1234567890',
+        modifiedFiles: ['demo/src/App.tsx'],
+        warnings: [],
+      });
+    });
+
+    expect(target.style.paddingTop).toBe('16px');
+    expect(shadowRoot.textContent).toContain('Saved to hawk-eye/design-tweaks-20260312-230000');
+    expect(shadowRoot.textContent).toContain('Hover any intrinsic DOM element');
     cleanup();
   });
 

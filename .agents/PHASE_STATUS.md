@@ -185,8 +185,9 @@
 
 ## Phase 3: Designer-Friendly Editor + Code Writers + Save-to-Branch
 
-**Status:** IN PROGRESS (67%)
+**Status:** COMPLETE (100%)
 **Start Date:** 2026-03-12
+**Completion Date:** 2026-03-12
 
 ### Overview
 Delivers a focused designer-friendly property panel with Figma-style sections, smart style detection (Tailwind vs inline), detach-from-classes feature, AST-based code mutation, and save-to-branch workflow.
@@ -359,22 +360,24 @@ interface SavePayload {
 
 ## Phase 3.5: Detach Toggle
 
-**Status:** NOT STARTED
+**Status:** COMPLETE (100%)
+**Completion Date:** 2026-03-12
 **Depends on:** Phase 3.1 (focused property IDs) — preview works standalone; Phase 3.4 (writer) for save behavior
 
 ### Checklist
-- [ ] Add `detached: boolean` to `SelectionDraft` in `packages/client/src/types.ts`
-- [ ] Add `detachDraft(draft, element)` function to `packages/client/src/drafts.ts` — reads `getComputedStyle` for all focused properties, populates draft values, marks as dirty, sets `detached = true`
-- [ ] Add "Detach from classes" button to `packages/client/src/Inspector.tsx` (visible when `styleMode === 'tailwind'` or `'mixed'`)
-- [ ] Add `handleDetach(instanceKey)` callback in `packages/client/src/DesignTool.tsx`
-- [ ] Apply inline styles immediately for live preview after detach (existing `applyDraftToElement` handles this)
-- [ ] Verify type-check, lint, test, build pass
+- [x] Add `detached: boolean` to `SelectionDraft` in `packages/client/src/types.ts`
+- [x] Add `detachDraft(draft, element)` function to `packages/client/src/drafts.ts` — reads `getComputedStyle` for all focused properties, populates draft values, marks as dirty, sets `detached = true`
+- [x] Add "Detach from classes" button to `packages/client/src/Inspector.tsx` (visible when `styleMode === 'tailwind'` or `'mixed'`)
+- [x] Add `handleDetach(instanceKey)` callback in `packages/client/src/DesignTool.tsx`
+- [x] Apply inline styles immediately for live preview after detach (existing `applyDraftToElement` handles this)
+- [x] Verify type-check, lint, test, build pass
 
 ### Behavior
 - When user clicks "Detach", `detachDraft` iterates the focused 15 properties, reads `getComputedStyle` for each, and writes them as draft values (making them dirty)
 - The draft's `styleMode` changes to `'detached'`
 - On save, the writer removes `className` attribute entirely and writes all properties as inline `style`
 - Like Figma's "detach instance" — a clean break from the class system
+- Subsequent style-analysis events no longer overwrite detached drafts during the same inspector session
 
 ### Key Files
 - `packages/client/src/types.ts` — add `detached` flag
@@ -382,24 +385,26 @@ interface SavePayload {
 - `packages/client/src/Inspector.tsx` — add detach button
 - `packages/client/src/DesignTool.tsx` — add detach handler
 - `packages/client/src/editable-properties.ts` — reference for `FOCUSED_PROPERTY_IDS`
+- `tests/design-tool.test.ts` — detach interaction and persistence coverage
 
 ---
 
 ## Phase 3.6: Save-to-Branch Workflow
 
-**Status:** NOT STARTED
+**Status:** COMPLETE (100%)
+**Completion Date:** 2026-03-12
 **Depends on:** Phase 3.4 (source writer)
 
 ### Checklist
-- [ ] Create `packages/vite-plugin/src/git-ops.ts` — `getCurrentBranch`, `hasUncommittedChanges`, `createBranch`, `commitChanges`, `restoreOriginalBranch`
-- [ ] Create `packages/vite-plugin/src/save-handler.ts` — WS handler for `hawk-eye:save` event
-- [ ] Register save handler in `packages/vite-plugin/src/index.ts` `configureServer`
-- [ ] Add `requestSave(payload)` + `onSaveResult(cb)` to `packages/client/src/ws-client.ts`
-- [ ] Add "Save to branch" button to `packages/client/src/Inspector.tsx` (visible when dirty drafts exist)
-- [ ] Add `handleSave()` to `packages/client/src/DesignTool.tsx` — collects dirty drafts into `SavePayload`
-- [ ] After save succeeds, clear all drafts
-- [ ] Show save result to user (branch name, commit SHA, or error)
-- [ ] Verify type-check, lint, test, build pass
+- [x] Create `packages/vite-plugin/src/git-ops.ts` — `getCurrentBranch`, `hasUncommittedChanges`, `createBranch`, `commitChanges`, `restoreOriginalBranch`
+- [x] Create `packages/vite-plugin/src/save-handler.ts` — WS handler for `hawk-eye:save` event
+- [x] Register save handler in `packages/vite-plugin/src/index.ts` `configureServer`
+- [x] Add `requestSave(payload)` + `onSaveResult(cb)` to `packages/client/src/ws-client.ts`
+- [x] Add "Save to branch" button to `packages/client/src/Inspector.tsx` (visible when dirty drafts exist)
+- [x] Add `handleSave()` to `packages/client/src/DesignTool.tsx` — collects dirty drafts into `SavePayload`
+- [x] After save succeeds, clear all drafts
+- [x] Show save result to user (branch name, commit SHA, or error)
+- [x] Verify type-check, lint, test, build pass
 
 ### Save Flow
 1. Check for uncommitted changes (abort with error if working tree is dirty)
@@ -410,6 +415,12 @@ interface SavePayload {
 6. Switch back to original branch
 7. Send result to client: `{ success, branch, commitSha, error? }`
 
+### Key Implementation Notes
+- Git operations resolve the actual repository root even when the Vite root is nested inside it (important for the local demo app)
+- Save payloads include all focused properties for detached drafts so the writer can remove `className` and materialize inline styles deterministically
+- The inspector clears session previews after a successful save and keeps the save result visible so the branch and commit can be copied
+- Dirty working trees abort before branch creation to avoid mixing user changes with generated edits
+
 ### Key Files
 - `packages/vite-plugin/src/git-ops.ts` — NEW
 - `packages/vite-plugin/src/save-handler.ts` — NEW
@@ -417,6 +428,8 @@ interface SavePayload {
 - `packages/client/src/ws-client.ts` — add save events
 - `packages/client/src/Inspector.tsx` — add save button
 - `packages/client/src/DesignTool.tsx` — add save handler
+- `tests/save-handler.test.ts` — git-backed branch/commit coverage
+- `tests/design-tool.test.ts` — client save request/result coverage
 
 ---
 
@@ -448,4 +461,4 @@ interface SavePayload {
 
 ---
 
-Current: 2026-03-12 (Phase 2.6 complete, Phase 3 in progress)
+Current: 2026-03-12 (Phase 3 complete, Phase 4 not started)

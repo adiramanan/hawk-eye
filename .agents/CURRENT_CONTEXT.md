@@ -4,12 +4,12 @@
 Codex (GPT-5)
 
 ## Last Session
-2026-03-12 - Phase 3.4 AST writer implementation
+2026-03-12 - Phase 3.6 save-to-branch implementation
 
 ## Current Status
-**Phase:** 3 (Designer-Friendly Editor + Code Writers + Save-to-Branch) - IN PROGRESS
+**Phase:** 4 (Polish, Docs & Public Release) - NOT STARTED
 
-Phases 0–2.6, 3.1, 3.2, 3.3, and 3.4 are COMPLETE. The inspector now opens a focused-only 15-property editor with Figma-style sections, live DOM preview, keyboard navigation, a resizable panel, server-backed style strategy detection, a pure Tailwind CSS/class mapping layer, and a ts-morph AST writer for source mutations.
+Phases 0–3.6 are COMPLETE. The inspector now opens a focused-only 15-property editor with Figma-style sections, live DOM preview, keyboard navigation, a resizable panel, server-backed style strategy detection, a pure Tailwind CSS/class mapping layer, a ts-morph AST writer for source mutations, a detach-from-classes preview flow, and a git-backed save-to-branch workflow.
 
 ### What was completed:
 
@@ -25,6 +25,14 @@ Phases 0–2.6, 3.1, 3.2, 3.3, and 3.4 are COMPLETE. The inspector now opens a f
 - Added `mutations.ts` and `source-writer.ts` in the Vite plugin:
   `writeSourceMutations()` now performs AST-based class swaps, inline style upserts, detached writes, and mixed-mode fallback by file/line/column
 - Added writer warnings for unsupported dynamic `className` and dynamic `style` expressions instead of attempting unsafe rewrites
+- Added `detached: boolean` to `SelectionDraft` plus `detachDraft()` in `drafts.ts`
+- Added a detach action in the inspector for `tailwind` and `mixed` selections, along with detached-state status copy in the panel
+- Updated draft application and dirty-state logic so detached drafts stay pending and keep focused properties inline during preview
+- Preserved detached mode when later style-analysis events arrive for the same source token
+- Added save payload/result types and new HMR events for `hawk-eye:save` and `hawk-eye:save-result`
+- Added git-root-aware save handling in the Vite plugin: dirty-worktree guard, review-branch creation, AST mutation write, commit, and restore-original-branch behavior
+- Added a save action plus save-result feedback in the inspector, and cleared session previews automatically after successful saves
+- Added temp git repo coverage for save-to-branch and client-side coverage for save request/result handling
 - Added roundtrip-heavy unit coverage for spacing, colors, typography, radius, and shadow utilities
 - Added temp-file mutation coverage for coordinate matching, Tailwind rewriting, inline object updates, mixed mode, detached mode, and warning paths
 - Kept the broader property/draft infrastructure intact under the hood
@@ -34,16 +42,12 @@ Phases 0–2.6, 3.1, 3.2, 3.3, and 3.4 are COMPLETE. The inspector now opens a f
 
 ## Next Steps
 
-### Immediate (can run in parallel):
-1. **Phase 3.5**: Detach Toggle (depends on 3.1 + 3.4)
-2. **Phase 3.6**: Save-to-Branch Workflow (depends on 3.4)
-
-### After 3.5 and 3.6:
-3. **Phase 4**: Polish, edge cases, and public release prep
+### Immediate:
+1. **Phase 4**: Edge cases, error boundaries, release docs, and demo refinement
 
 ## Execution Order
 ```
-[DONE] Phase 0 → [DONE] 1 → [DONE] 2 → [DONE] 2.1–2.6 → [DONE] 3.1 → [DONE] 3.2 → [DONE] 3.3 → [DONE] 3.4 → 3.5 + 3.6
+[DONE] Phase 0 → [DONE] 1 → [DONE] 2 → [DONE] 2.1–2.6 → [DONE] 3.1 → [DONE] 3.2 → [DONE] 3.3 → [DONE] 3.4 → [DONE] 3.5 → [DONE] 3.6 → 4
 ```
 
 ## Known Blockers
@@ -69,8 +73,9 @@ None.
 - WebSocket events follow the pattern `hawk-eye:{event-name}` — see `ws-server.ts` and `ws-client.ts`
 - The panel is now focused-only: no search bar, no full-property toggle, no advanced controls in the user-facing UI
 - `SelectionDraft` now carries analyzed `classNames` and `inlineStyles` from the server
+- `SelectionDraft` now also carries `detached`; detached drafts are pending even when property values equal their computed baseline
 - `tailwind-map.ts` is intentionally pure and side-effect free so the writer can call it directly
-- `source-writer.ts` is server-only and intentionally independent from save/git concerns so Phase 3.6 can wrap it cleanly
+- `source-writer.ts` remains server-only; `save-handler.ts` wraps it with git operations instead of mixing AST and git concerns
 
 ### Focused Property Set (15 properties, 5 Figma-style groups)
 | Section      | Properties | Count |
@@ -85,7 +90,8 @@ None.
 - Babel injects `data-source` with 1-indexed line:column (see `source-injector.ts`)
 - ts-morph uses 1-indexed lines but 0-indexed character positions internally
 - The `findJsxElementAtPosition()` utility in `source-writer.ts` is now covered by targeted temp-file tests
-- Dynamic `className` and dynamic `style` expressions are still the main unresolved writer edge cases
+- Dynamic `className` and dynamic `style` expressions are still the main unresolved writer/save edge cases
+- Save-to-branch currently reports only branch/commit/warnings; there is still no in-product diff browser or PR automation
 
 ### Testing
 - Run `pnpm type-check && pnpm lint && pnpm test && pnpm build` after each sub-phase

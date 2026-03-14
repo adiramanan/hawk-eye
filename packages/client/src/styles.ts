@@ -118,6 +118,30 @@ export const hawkEyeStyles = `
     border: 1px solid rgba(251, 146, 60, 0.14);
   }
 
+  [data-hawk-eye-ui="inspector-actions"] {
+    display: grid;
+    gap: 8px;
+  }
+
+  [data-hawk-eye-ui="status-note"] {
+    margin: 0;
+    color: rgba(124, 45, 18, 0.84);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  [data-hawk-eye-ui="status-note"][data-state="success"] {
+    color: #166534;
+  }
+
+  [data-hawk-eye-ui="status-note"][data-state="error"] {
+    color: #b91c1c;
+  }
+
+  [data-hawk-eye-ui="status-note"][data-state="pending"] {
+    color: #9a3412;
+  }
+
   [data-hawk-eye-ui="panel-toolbar"] {
     display: grid;
     gap: 8px;
@@ -347,6 +371,7 @@ export const hawkEyeStyles = `
   }
 
   [data-hawk-eye-ui="control-reset"],
+  [data-hawk-eye-ui="primary-button"],
   [data-hawk-eye-ui="secondary-button"],
   [data-hawk-eye-ui="pill-button"] {
     border: 0;
@@ -365,11 +390,26 @@ export const hawkEyeStyles = `
     color: #9a3412;
   }
 
+  [data-hawk-eye-ui="primary-button"],
   [data-hawk-eye-ui="secondary-button"] {
     min-height: 34px;
     padding: 0 12px;
+  }
+
+  [data-hawk-eye-ui="primary-button"] {
+    background: linear-gradient(180deg, #c2410c, #9a3412);
+    color: #fff7ed;
+  }
+
+  [data-hawk-eye-ui="secondary-button"] {
     background: #9a3412;
     color: #fff7ed;
+  }
+
+  [data-hawk-eye-ui="primary-button"]:disabled,
+  [data-hawk-eye-ui="secondary-button"]:disabled {
+    cursor: progress;
+    opacity: 0.72;
   }
 
   [data-hawk-eye-ui="changes-list"] {

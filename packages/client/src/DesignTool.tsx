@@ -1,11 +1,14 @@
 import React, { startTransition, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { FOCUSED_PROPERTY_IDS, editablePropertyDefinitionMap } from './editable-properties';
 import {
   applyDraftInputValue,
   applyDraftToElement,
   clearDraftOverrides,
   createInspectableElementKey,
   createSelectionDraft,
+  detachDraft,
+  getDirtyPropertyIds,
   getDirtyDrafts,
   getInspectableElementByKey,
   hasDraftChanges,
@@ -17,20 +20,55 @@ import { hawkEyeStyles } from './styles';
 import type {
   EditablePropertyId,
   MeasuredElement,
+  SavePayload,
+  SaveResult,
   SelectionDetails,
   SelectionDraft,
   SelectionPayload,
   StyleAnalysisPayload,
 } from './types';
 import {
+  requestSave,
   requestSelection,
   requestStyleAnalysis,
+  subscribeToSaveResult,
   subscribeToSelection,
   subscribeToStyleAnalysis,
 } from './ws-client';
 
 export interface DesignToolProps {
   // Phase 2 keeps the public API zero-config.
+}
+
+function buildSavePayload(drafts: SelectionDraft[]): SavePayload {
+  return {
+    mutations: drafts
+      .map((draft) => {
+        const propertyIds = draft.detached
+          ? Array.from(FOCUSED_PROPERTY_IDS)
+          : getDirtyPropertyIds(draft);
+        const properties = propertyIds.map((propertyId) => ({
+          propertyId,
+          cssProperty: editablePropertyDefinitionMap[propertyId].cssProperty,
+          oldValue: draft.properties[propertyId].baseline,
+          newValue: draft.properties[propertyId].value,
+        }));
+
+        if (properties.length === 0) {
+          return null;
+        }
+
+        return {
+          file: draft.file,
+          line: draft.line,
+          column: draft.column,
+          styleMode: draft.styleMode,
+          detached: draft.detached,
+          properties,
+        };
+      })
+      .filter((mutation): mutation is SavePayload['mutations'][number] => mutation !== null),
+  };
 }
 
 function parseSourceToken(source: string): SelectionPayload | null {
@@ -159,6 +197,8 @@ function DesignToolRuntime() {
   const [enabled, setEnabled] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, SelectionDraft>>({});
   const [hovered, setHovered] = useState<MeasuredElement | null>(null);
+  const [savePending, setSavePending] = useState(false);
+  const [saveResult, setSaveResult] = useState<SaveResult | null>(null);
   const [selected, setSelected] = useState<MeasuredElement | null>(null);
   const [selectedInstanceKey, setSelectedInstanceKey] = useState<string | null>(null);
   const draftsRef = useRef<Record<string, SelectionDraft>>({});
@@ -181,6 +221,10 @@ function DesignToolRuntime() {
     setHovered(null);
     setSelected(null);
     setSelectedInstanceKey(null);
+  }
+
+  function clearSaveFeedback() {
+    setSaveResult(null);
   }
 
   function refreshSelectedMeasurement(instanceKey: string, draftOverride?: SelectionDraft) {
@@ -219,6 +263,7 @@ function DesignToolRuntime() {
   }
 
   function resetAllChanges() {
+    clearSaveFeedback();
     const currentDrafts = Object.values(draftsRef.current);
 
     for (const draft of currentDrafts) {
@@ -257,6 +302,7 @@ function DesignToolRuntime() {
   }
 
   function updateDraftProperty(propertyId: EditablePropertyId, inputValue: string) {
+    clearSaveFeedback();
     const instanceKey = selectedInstanceKey;
 
     if (!instanceKey) {
@@ -305,7 +351,45 @@ function DesignToolRuntime() {
     }
   }
 
+  function detachSelectedDraft() {
+    clearSaveFeedback();
+    const instanceKey = selectedInstanceKey;
+
+    if (!instanceKey) {
+      return;
+    }
+
+    const element = getInspectableElementByKey(instanceKey) ?? selected?.element ?? null;
+
+    if (!element) {
+      return;
+    }
+
+    let nextDraft: SelectionDraft | null = null;
+
+    setDrafts((current) => {
+      const currentDraft = current[instanceKey];
+
+      if (!currentDraft) {
+        return current;
+      }
+
+      const updatedDraft = detachDraft(currentDraft, element);
+      nextDraft = updatedDraft;
+
+      return {
+        ...current,
+        [instanceKey]: updatedDraft,
+      };
+    });
+
+    if (nextDraft) {
+      refreshSelectedMeasurement(instanceKey, nextDraft);
+    }
+  }
+
   function resetProperty(instanceKey: string, propertyId: EditablePropertyId) {
+    clearSaveFeedback();
     const element = getInspectableElementByKey(instanceKey);
     let nextDraft: SelectionDraft | null = null;
     let removedDraft = false;
@@ -390,12 +474,17 @@ function DesignToolRuntime() {
               return [instanceKey, draft] as const;
             }
 
+            if (draft.detached) {
+              return [instanceKey, draft] as const;
+            }
+
             changed = true;
 
             return [
               instanceKey,
               {
                 ...draft,
+                detached: draft.detached,
                 styleMode: payload.mode,
                 classNames: payload.classNames,
                 inlineStyles: payload.inlineStyles,
@@ -412,9 +501,21 @@ function DesignToolRuntime() {
       });
     });
 
+    const unsubscribeSaveResult = subscribeToSaveResult((payload: SaveResult) => {
+      startTransition(() => {
+        setSavePending(false);
+        setSaveResult(payload);
+
+        if (payload.success) {
+          clearSessionDrafts();
+        }
+      });
+    });
+
     return () => {
       unsubscribeSelection();
       unsubscribeStyleAnalysis();
+      unsubscribeSaveResult();
     };
   }, []);
 
@@ -429,6 +530,8 @@ function DesignToolRuntime() {
   useEffect(() => {
     if (!enabled) {
       clearSessionDrafts();
+      setSavePending(false);
+      setSaveResult(null);
       return;
     }
 
@@ -471,6 +574,7 @@ function DesignToolRuntime() {
       event.preventDefault();
       event.stopPropagation();
 
+      clearSaveFeedback();
       ensureDraftForMeasurement(nextMeasurement);
       setSelectedInstanceKey(nextMeasurement.instanceKey);
       setSelected(nextMeasurement);
@@ -562,15 +666,35 @@ function DesignToolRuntime() {
     return left.source.localeCompare(right.source) || left.instanceKey.localeCompare(right.instanceKey);
   });
 
+  function savePendingDrafts() {
+    if (savePending) {
+      return;
+    }
+
+    const payload = buildSavePayload(getDirtyDrafts(draftsRef.current));
+
+    if (payload.mutations.length === 0) {
+      return;
+    }
+
+    setSavePending(true);
+    setSaveResult(null);
+    requestSave(payload);
+  }
+
   return (
     <Inspector
       enabled={enabled}
       hovered={hovered}
       onChange={updateDraftProperty}
+      onDetach={detachSelectedDraft}
       onResetAll={resetAllChanges}
       onResetProperty={resetProperty}
+      onSave={savePendingDrafts}
       onToggle={() => setEnabled((current) => !current)}
       pendingDrafts={pendingDrafts}
+      savePending={savePending}
+      saveResult={saveResult}
       selected={selected}
       selectedDraft={selectedDraft}
     />
