@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { PropertiesPanel } from './PropertiesPanel';
 import type { EditablePropertyId, MeasuredElement, SaveResult, SelectionDraft } from './types';
 
@@ -11,53 +11,32 @@ interface InspectorProps {
   selected: MeasuredElement | null;
   selectedDraft: SelectionDraft | null;
   onChange(propertyId: EditablePropertyId, value: string): void;
-  onDetach(): void;
   onResetAll(): void;
   onResetProperty(instanceKey: string, propertyId: EditablePropertyId): void;
   onSave(): void;
   onToggle(): void;
 }
 
-interface ResizeState {
-  startHeight: number;
-  startWidth: number;
+interface DragState {
   startX: number;
   startY: number;
+  startPanelX: number;
+  startPanelY: number;
 }
 
-const PANEL_DEFAULT_SIZE = {
-  height: 760,
-  width: 420,
-};
+const PANEL_WIDTH = 280;
+const PANEL_VIEWPORT_GUTTER = 24;
 
-const PANEL_MIN_HEIGHT = 420;
-const PANEL_MIN_WIDTH = 360;
-const PANEL_RESIZE_STEP = 24;
-const PANEL_VIEWPORT_GUTTER = 32;
-const PANEL_VERTICAL_GUTTER = 120;
+function getDefaultPanelPos() {
+  if (typeof window === 'undefined') return { x: 24, y: 24 };
+  return {
+    x: Math.max(PANEL_VIEWPORT_GUTTER, window.innerWidth - PANEL_WIDTH - PANEL_VIEWPORT_GUTTER),
+    y: PANEL_VIEWPORT_GUTTER,
+  };
+}
 
 function formatMeasurement(value: number) {
   return Math.max(0, Math.round(value));
-}
-
-function clampPanelSize(width: number, height: number) {
-  if (typeof window === 'undefined') {
-    return {
-      height: Math.max(PANEL_MIN_HEIGHT, height),
-      width: Math.max(PANEL_MIN_WIDTH, width),
-    };
-  }
-
-  return {
-    height: Math.min(
-      Math.max(PANEL_MIN_HEIGHT, height),
-      Math.max(PANEL_MIN_HEIGHT, window.innerHeight - PANEL_VERTICAL_GUTTER)
-    ),
-    width: Math.min(
-      Math.max(PANEL_MIN_WIDTH, width),
-      Math.max(PANEL_MIN_WIDTH, window.innerWidth - PANEL_VIEWPORT_GUTTER)
-    ),
-  };
 }
 
 function toOutlineStyle(measured: MeasuredElement): CSSProperties {
@@ -78,7 +57,7 @@ function toMeasureStyle(measured: MeasuredElement): CSSProperties {
 
 function getSaveStatusMessage(savePending: boolean, saveResult: SaveResult | null) {
   if (savePending) {
-    return 'Saving preview changes to a new branch.';
+    return 'Saving…';
   }
 
   if (!saveResult) {
@@ -87,12 +66,17 @@ function getSaveStatusMessage(savePending: boolean, saveResult: SaveResult | nul
 
   if (saveResult.success) {
     const warningSuffix =
-      saveResult.warnings.length > 0 ? ` ${saveResult.warnings.length} warning(s) returned.` : '';
-
+      saveResult.warnings.length > 0 ? ` ${saveResult.warnings.length} warning(s).` : '';
     return `Saved to ${saveResult.branch} @ ${saveResult.commitSha.slice(0, 7)}.${warningSuffix}`;
   }
 
   return saveResult.branch ? `${saveResult.error} (${saveResult.branch})` : saveResult.error;
+}
+
+function getDirtyProperties(draft: SelectionDraft): Array<{ id: EditablePropertyId; from: string; to: string }> {
+  return (Object.entries(draft.properties) as Array<[EditablePropertyId, (typeof draft.properties)[EditablePropertyId]]>)
+    .filter(([, snap]) => snap.inputValue !== '' && snap.inputValue !== snap.baseline)
+    .map(([id, snap]) => ({ id, from: snap.baseline, to: snap.inputValue }));
 }
 
 export function Inspector({
@@ -104,44 +88,47 @@ export function Inspector({
   selected,
   selectedDraft,
   onChange,
-  onDetach,
   onResetAll,
   onResetProperty,
   onSave,
   onToggle,
 }: InspectorProps) {
-  const [panelSize, setPanelSize] = useState(PANEL_DEFAULT_SIZE);
-  const resizeStateRef = useRef<ResizeState | null>(null);
+  const [panelPos, setPanelPos] = useState(getDefaultPanelPos);
+  const [view, setView] = useState<'properties' | 'changes'>('properties');
+  const dragStateRef = useRef<DragState | null>(null);
   const activeMeasurement = selected ?? hovered;
   const saveStatusMessage = getSaveStatusMessage(savePending, saveResult);
-  const panelStyle = {
-    '--hawk-eye-panel-height': `${panelSize.height}px`,
-    '--hawk-eye-panel-width': `${panelSize.width}px`,
-  } as CSSProperties;
+  const totalChanges = pendingDrafts.reduce(
+    (sum, d) => sum + getDirtyProperties(d).length,
+    0,
+  );
+
+  useEffect(() => {
+    if (pendingDrafts.length === 0) setView('properties');
+  }, [pendingDrafts.length]);
 
   useEffect(() => {
     if (!enabled) {
-      resizeStateRef.current = null;
+      dragStateRef.current = null;
       return;
     }
 
     function handlePointerMove(event: globalThis.PointerEvent) {
-      const state = resizeStateRef.current;
+      const state = dragStateRef.current;
+      if (!state) return;
 
-      if (!state) {
-        return;
-      }
-
-      setPanelSize(
-        clampPanelSize(
-          state.startWidth + (state.startX - event.clientX),
-          state.startHeight + (state.startY - event.clientY)
-        )
-      );
+      const x = state.startPanelX + (event.clientX - state.startX);
+      const y = state.startPanelY + (event.clientY - state.startY);
+      const clampedX = Math.max(0, Math.min(window.innerWidth - PANEL_WIDTH, x));
+      const clampedY = Math.max(0, Math.min(window.innerHeight - 56, y));
+      setPanelPos({ x: clampedX, y: clampedY });
     }
 
     function handlePointerUp() {
-      resizeStateRef.current = null;
+      if (dragStateRef.current) {
+        dragStateRef.current = null;
+        document.body.style.cursor = '';
+      }
     }
 
     window.addEventListener('pointermove', handlePointerMove);
@@ -150,37 +137,14 @@ export function Inspector({
     return () => {
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
+      document.body.style.cursor = '';
     };
   }, [enabled]);
 
-  function handleResizeKeyDown(event: KeyboardEvent<globalThis.HTMLButtonElement>) {
-    let widthDelta = 0;
-    let heightDelta = 0;
-
-    switch (event.key) {
-      case 'ArrowLeft':
-        widthDelta = PANEL_RESIZE_STEP;
-        break;
-      case 'ArrowRight':
-        widthDelta = -PANEL_RESIZE_STEP;
-        break;
-      case 'ArrowUp':
-        heightDelta = PANEL_RESIZE_STEP;
-        break;
-      case 'ArrowDown':
-        heightDelta = -PANEL_RESIZE_STEP;
-        break;
-      case 'Home':
-        event.preventDefault();
-        setPanelSize(PANEL_DEFAULT_SIZE);
-        return;
-      default:
-        return;
-    }
-
-    event.preventDefault();
-    setPanelSize((current) => clampPanelSize(current.width + widthDelta, current.height + heightDelta));
-  }
+  const panelStyle = {
+    left: `${panelPos.x}px`,
+    top: `${panelPos.y}px`,
+  } as CSSProperties;
 
   return (
     <div data-testid="hawk-eye-design-tool" data-hawk-eye-ui="root">
@@ -197,75 +161,117 @@ export function Inspector({
 
         {enabled ? (
           <aside data-hawk-eye-ui="panel" style={panelStyle}>
-            {selectedDraft ? (
-              <>
-                <div data-hawk-eye-ui="panel-header">
-                  <p data-hawk-eye-ui="eyebrow">
-                    {selectedDraft ? 'Locked selection' : 'Inspector active'}
-                  </p>
+            {/* ── Drag header ─────────────────────────────────────── */}
+            <div
+              data-hawk-eye-ui="panel-drag-header"
+              onPointerDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                document.body.style.cursor = 'grabbing';
+                dragStateRef.current = {
+                  startX: e.clientX,
+                  startY: e.clientY,
+                  startPanelX: panelPos.x,
+                  startPanelY: panelPos.y,
+                };
+              }}
+            >
+              {view === 'changes' ? (
+                <button
+                  aria-label="Back to properties"
+                  data-hawk-eye-ui="panel-back-btn"
+                  onClick={(e) => { e.stopPropagation(); setView('properties'); }}
+                  type="button"
+                >
+                  <svg fill="none" height="10" viewBox="0 0 10 16" width="7" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M8 1L1 8L8 15" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" />
+                  </svg>
+                </button>
+              ) : (
+                <svg
+                  data-hawk-eye-ui="drag-icon"
+                  fill="none"
+                  height="14"
+                  viewBox="0 0 14 14"
+                  width="14"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.25" />
+                  <path
+                    d="M7 3.5V10.5M3.5 7H10.5"
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeWidth="1.25"
+                  />
+                </svg>
+              )}
 
-                  <div data-hawk-eye-ui="title-row">
-                    <h2 data-hawk-eye-ui="title">{selectedDraft.tagName}</h2>
-                    <span data-hawk-eye-ui="badge">{selectedDraft.styleMode}</span>
-                  </div>
+              <span data-hawk-eye-ui="panel-title">
+                {view === 'changes' ? 'Preview Changes' : 'Hawk-Eye'}
+              </span>
 
-                  <dl data-hawk-eye-ui="detail-list">
-                    <div data-hawk-eye-ui="detail">
-                      <dt data-hawk-eye-ui="label">Source</dt>
-                      <dd data-hawk-eye-ui="value">
-                        {selectedDraft.file}:{selectedDraft.line}:{selectedDraft.column}
-                      </dd>
-                    </div>
-                    <div data-hawk-eye-ui="detail">
-                      <dt data-hawk-eye-ui="label">Token</dt>
-                      <dd data-hawk-eye-ui="value">{selectedDraft.source}</dd>
-                    </div>
-                  </dl>
+              {view === 'properties' ? (
+                <button
+                  aria-label="Close panel"
+                  data-hawk-eye-ui="panel-close-btn"
+                  onClick={onToggle}
+                  type="button"
+                >
+                  <svg fill="none" height="10" viewBox="0 0 10 10" width="10" xmlns="http://www.w3.org/2000/svg">
+                    <path
+                      d="M1.5 1.5L8.5 8.5M8.5 1.5L1.5 8.5"
+                      stroke="currentColor"
+                      strokeLinecap="round"
+                      strokeWidth="1.5"
+                    />
+                  </svg>
+                </button>
+              ) : null}
+            </div>
 
-                  {selectedDraft.detached ||
-                  selectedDraft.styleMode === 'tailwind' ||
-                  selectedDraft.styleMode === 'mixed' ||
-                  pendingDrafts.length > 0 ||
-                  saveStatusMessage ? (
-                    <div data-hawk-eye-ui="inspector-actions">
-                      {!selectedDraft.detached ? (
-                        <button
-                          data-hawk-eye-control="detach"
-                          data-hawk-eye-ui="pill-button"
-                          onClick={onDetach}
-                          type="button"
-                        >
-                          Detach from classes
-                        </button>
-                      ) : null}
-                      {pendingDrafts.length > 0 ? (
-                        <button
-                          data-hawk-eye-control="save"
-                          data-hawk-eye-ui="primary-button"
-                          disabled={savePending}
-                          onClick={onSave}
-                          type="button"
-                        >
-                          {savePending ? 'Saving…' : 'Save to branch'}
-                        </button>
-                      ) : null}
-                      <p data-hawk-eye-ui="status-note">
-                        {selectedDraft.detached
-                          ? 'Detached preview active. Focused properties will save as inline styles.'
-                          : 'Detach copies the focused properties into inline preview styles.'}
-                      </p>
-                      {saveStatusMessage ? (
-                        <p
-                          data-hawk-eye-ui="status-note"
-                          data-state={savePending ? 'pending' : saveResult?.success ? 'success' : 'error'}
-                        >
-                          {saveStatusMessage}
-                        </p>
-                      ) : null}
-                    </div>
-                  ) : null}
+            {/* ── Panel body ───────────────────────────────────────── */}
+            <div data-hawk-eye-ui="panel-body">
+              {view === 'changes' ? (
+                <div data-hawk-eye-ui="changes-view">
+                  {pendingDrafts.map((draft) => {
+                    const dirty = getDirtyProperties(draft);
+                    if (dirty.length === 0) return null;
+                    return (
+                      <div data-hawk-eye-ui="change-card" key={draft.instanceKey}>
+                        <div data-hawk-eye-ui="change-card-head">
+                          <div data-hawk-eye-ui="change-copy">
+                            <p data-hawk-eye-ui="change-title">{draft.tagName}</p>
+                            <p data-hawk-eye-ui="change-source">
+                              {draft.file}:{draft.line}:{draft.column}
+                            </p>
+                          </div>
+                          <span data-hawk-eye-ui="change-count">{dirty.length}</span>
+                        </div>
+                        <div data-hawk-eye-ui="change-items">
+                          {dirty.map(({ id, from, to }) => (
+                            <div data-hawk-eye-ui="change-item" key={id}>
+                              <div data-hawk-eye-ui="change-copy">
+                                <span data-hawk-eye-ui="change-label">{id}</span>
+                                <span data-hawk-eye-ui="change-values">
+                                  {from || '—'} → {to}
+                                </span>
+                              </div>
+                              <button
+                                aria-label={`Reset ${id}`}
+                                data-hawk-eye-ui="control-reset"
+                                onClick={() => onResetProperty(draft.instanceKey, id)}
+                                type="button"
+                              >
+                                ↺
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-
+              ) : selectedDraft ? (
                 <PropertiesPanel
                   onChange={onChange}
                   onResetAll={onResetAll}
@@ -273,51 +279,115 @@ export function Inspector({
                   pendingDrafts={pendingDrafts}
                   selectedDraft={selectedDraft}
                 />
-              </>
-            ) : (
-              <>
-                <p data-hawk-eye-ui="eyebrow">Inspector active</p>
+              ) : (
+                <div data-hawk-eye-ui="empty-state">
+                  <svg
+                    data-hawk-eye-ui="empty-state-icon"
+                    fill="none"
+                    height="32"
+                    viewBox="0 0 32 32"
+                    width="32"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <rect height="20" rx="3" stroke="currentColor" strokeWidth="1.5" width="20" x="6" y="6" />
+                    <path d="M6 12h20M12 12v14" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
+                  </svg>
+                  <p data-hawk-eye-ui="empty-state-title">No element selected</p>
+                  <p data-hawk-eye-ui="empty-state-body">
+                    Hover any element on the page and click to lock it. Properties will appear here.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* ── Panel footer (only when there are pending changes) ── */}
+            {totalChanges > 0 ? (
+              <div data-hawk-eye-ui="panel-footer">
+                {view === 'changes' ? (
+                  <>
+                    <button
+                      data-hawk-eye-control="save"
+                      data-hawk-eye-ui="footer-apply-btn"
+                      disabled={savePending}
+                      onClick={onSave}
+                      type="button"
+                    >
+                      {savePending ? 'Applying…' : 'Apply changes'}
+                    </button>
+                    <button
+                      data-hawk-eye-ui="footer-revert-btn"
+                      onClick={onResetAll}
+                      type="button"
+                    >
+                      Revert
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      data-hawk-eye-ui="footer-changes-btn"
+                      onClick={() => setView('changes')}
+                      type="button"
+                    >
+                      {totalChanges} {totalChanges === 1 ? 'Change' : 'Changes'} ›
+                    </button>
+                    <div data-hawk-eye-ui="footer-actions">
+                      <button
+                        data-hawk-eye-control="save"
+                        data-hawk-eye-ui="footer-apply-btn"
+                        disabled={savePending}
+                        onClick={onSave}
+                        type="button"
+                      >
+                        {savePending ? '…' : 'Apply'}
+                      </button>
+                      <button
+                        aria-label="Revert all changes"
+                        data-hawk-eye-ui="footer-reset-btn"
+                        onClick={onResetAll}
+                        type="button"
+                      >
+                        <svg fill="none" height="12" viewBox="0 0 14 14" width="12" xmlns="http://www.w3.org/2000/svg">
+                          <path
+                            d="M2 7a5 5 0 1 0 1.5-3.5L2 2v3h3L3.5 3.5"
+                            stroke="currentColor"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="1.4"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  </>
+                )}
                 {saveStatusMessage ? (
                   <p
-                    data-hawk-eye-ui="status-note"
+                    data-hawk-eye-ui="footer-status"
                     data-state={savePending ? 'pending' : saveResult?.success ? 'success' : 'error'}
                   >
                     {saveStatusMessage}
                   </p>
                 ) : null}
-                <p data-hawk-eye-ui="hint">
-                  Hover any intrinsic DOM element, click to lock it, then press{' '}
-                  <strong>Escape</strong> or toggle the trigger to exit.
+              </div>
+            ) : saveStatusMessage ? (
+              <div data-hawk-eye-ui="panel-footer">
+                <p
+                  data-hawk-eye-ui="footer-status"
+                  data-state={saveResult?.success ? 'success' : 'error'}
+                >
+                  {saveStatusMessage}
                 </p>
-              </>
-            )}
-
-            <button
-              aria-label="Resize panel"
-              data-hawk-eye-control="panel-resize"
-              data-hawk-eye-ui="panel-resize"
-              onKeyDown={handleResizeKeyDown}
-              onPointerDown={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                resizeStateRef.current = {
-                  startHeight: panelSize.height,
-                  startWidth: panelSize.width,
-                  startX: event.clientX,
-                  startY: event.clientY,
-                };
-              }}
-              type="button"
-            >
-              <span data-hawk-eye-ui="panel-resize-grip" />
-            </button>
+              </div>
+            ) : null}
           </aside>
         ) : null}
 
-        <button data-hawk-eye-ui="trigger" onClick={onToggle} type="button">
-          <span data-hawk-eye-ui="trigger-dot" />
-          {enabled ? 'Exit Hawk-Eye' : 'Inspect with Hawk-Eye'}
-        </button>
+        {!enabled ? (
+          <button data-hawk-eye-ui="trigger" onClick={onToggle} type="button">
+            <span data-hawk-eye-ui="trigger-dot" />
+            Inspect with Hawk-Eye
+          </button>
+        ) : null}
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import type { PropertySnapshot } from '../types';
+import { ColorInput } from './ColorInput';
 
 interface ParsedBoxShadow {
   x: string;
@@ -152,18 +153,13 @@ export function BoxShadowInput({ snapshot, onChange }: BoxShadowInputProps) {
       </div>
 
       <div data-hawk-eye-ui="shadow-color-row">
-        <span
-          data-hawk-eye-ui="color-swatch"
-          style={{ backgroundColor: parsed.color || 'transparent' }}
-        />
-        <input
-          aria-label="Box shadow color"
-          data-hawk-eye-control="boxShadow-color"
-          data-hawk-eye-ui="text-input"
-          onChange={(event) => updateField('color', event.currentTarget.value)}
-          type="text"
-          value={parsed.color}
-        />
+        <div data-hawk-eye-ui="shadow-color-input">
+          <ColorInput
+            definition={{ id: 'boxShadow', label: 'Shadow color', shortLabel: 'Color', cssProperty: 'box-shadow', group: 'effects', control: 'color', placeholder: 'rgba(15,23,42,0.18)' }}
+            onChange={(v) => updateField('color', v)}
+            snapshot={{ baseline: parsed.color, inlineValue: parsed.color, inputValue: parsed.color, invalid: false, value: parsed.color }}
+          />
+        </div>
         <button
           aria-label={parsed.inset ? 'Disable inset shadow' : 'Enable inset shadow'}
           data-active={parsed.inset ? 'true' : 'false'}

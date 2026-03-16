@@ -9,13 +9,14 @@ interface ToggleSwitchProps {
 
 export function ToggleSwitch({ definition, snapshot, onChange }: ToggleSwitchProps) {
   const options = definition.options ?? [];
+  const effectiveValue = snapshot.inputValue || snapshot.baseline;
 
   return (
     <div data-hawk-eye-ui="toggle-row">
       {options.map((opt, index) => (
         <button
           aria-label={opt.label}
-          data-active={snapshot.inputValue === opt.value ? 'true' : 'false'}
+          data-active={effectiveValue === opt.value ? 'true' : 'false'}
           data-hawk-eye-control={`${definition.id}-${opt.value}`}
           data-hawk-eye-ui="toggle-button"
           key={opt.value}

@@ -836,6 +836,21 @@ export const editablePropertyGroupLabels: Record<EditablePropertyGroupId, string
 };
 
 export const FOCUSED_PROPERTY_IDS = new Set<EditablePropertyId>([
+  // Position & Size
+  'positionType',
+  'top',
+  'left',
+  'width',
+  'height',
+  // Auto Layout
+  'display',
+  'flexDirection',
+  'flexWrap',
+  'justifyContent',
+  'alignItems',
+  'alignSelf',
+  'gap',
+  // Spacing
   'paddingTop',
   'paddingRight',
   'paddingBottom',
@@ -844,33 +859,58 @@ export const FOCUSED_PROPERTY_IDS = new Set<EditablePropertyId>([
   'marginRight',
   'marginBottom',
   'marginLeft',
+  // Fill & Opacity
   'backgroundColor',
   'color',
+  'opacity',
+  // Border
+  'borderColor',
+  'borderStyle',
+  'borderTopWidth',
+  'borderRightWidth',
+  'borderBottomWidth',
+  'borderLeftWidth',
+  'borderRadius',
+  'borderTopLeftRadius',
+  'borderTopRightRadius',
+  'borderBottomRightRadius',
+  'borderBottomLeftRadius',
+  // Typography
+  'fontFamily',
   'fontSize',
   'fontWeight',
+  'lineHeight',
+  'letterSpacing',
   'textAlign',
-  'borderRadius',
+  // Effects
   'boxShadow',
+  'filter',
+  'backdropFilter',
 ]);
 
 export const focusedGroupOrder = [
-  'layout',
-  'fill',
+  'positionSize',
+  'autoLayout',
+  'spacing',
+  'fillOpacity',
+  'border',
   'typography',
-  'design',
-  'effects',
 ] as const satisfies FocusedGroupId[];
 
 export const focusedGroupLabels: Record<FocusedGroupId, string> = {
-  layout: 'Layout',
-  fill: 'Fill',
+  positionSize: 'Frame',
+  autoLayout: 'Layout',
+  spacing: 'Spacing',
+  fillOpacity: 'Fill',
+  border: 'Border',
   typography: 'Typography',
-  design: 'Design',
   effects: 'Effects',
 };
 
 export const focusedGroupMembers: Record<FocusedGroupId, EditablePropertyId[]> = {
-  layout: [
+  positionSize: ['positionType', 'top', 'left', 'width', 'height'],
+  autoLayout: ['display', 'flexDirection', 'flexWrap', 'justifyContent', 'alignItems', 'alignSelf', 'gap'],
+  spacing: [
     'paddingTop',
     'paddingRight',
     'paddingBottom',
@@ -880,8 +920,8 @@ export const focusedGroupMembers: Record<FocusedGroupId, EditablePropertyId[]> =
     'marginBottom',
     'marginLeft',
   ],
-  fill: ['backgroundColor', 'color'],
-  typography: ['fontSize', 'fontWeight', 'textAlign'],
-  design: ['borderRadius'],
-  effects: ['boxShadow'],
+  fillOpacity: ['backgroundColor', 'opacity'],
+  border: ['borderColor', 'borderStyle', 'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth', 'borderRadius', 'borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomRightRadius', 'borderBottomLeftRadius'],
+  typography: ['fontFamily', 'fontSize', 'fontWeight', 'color', 'lineHeight', 'letterSpacing', 'textAlign'],
+  effects: ['boxShadow', 'filter', 'backdropFilter'],
 };

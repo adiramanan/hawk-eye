@@ -1,14 +1,14 @@
-import type { ReactNode } from 'react';
+import type { JSX, ReactNode } from 'react';
 import {
   BoxShadowInput,
   ColorInput,
   NumberInput,
+  PerCornerControl,
   PerSideControl,
   SegmentedControl,
   SelectInput,
   SliderInput,
   TextInput,
-  ToggleSwitch,
 } from './controls';
 import {
   FOCUSED_PROPERTY_IDS,
@@ -18,12 +18,20 @@ import {
   focusedGroupOrder,
 } from './editable-properties';
 import { getDirtyPropertyIds } from './drafts';
-import { CollapsibleSection, PropertyCard } from './sections';
+// CollapsibleSection replaced by a static section — no collapse toggle
+function CollapsibleSection({ title, sectionId, children }: { title: string; sectionId?: string; children: ReactNode; defaultExpanded?: boolean; key?: string }) {
+  return (
+    <section data-hawk-eye-section={sectionId} data-hawk-eye-ui="static-section">
+      <div data-hawk-eye-ui="static-section-header">
+        <h3 data-hawk-eye-ui="group-title">{title}</h3>
+      </div>
+      <div data-hawk-eye-ui="static-section-body">{children}</div>
+    </section>
+  );
+}
 import type {
-  EditablePropertyDefinition,
   EditablePropertyId,
   FocusedGroupId,
-  PropertySnapshot,
   SelectionDraft,
 } from './types';
 
@@ -35,91 +43,541 @@ interface PropertiesPanelProps {
   onResetProperty(instanceKey: string, propertyId: EditablePropertyId): void;
 }
 
-interface PropertyCardOptions {
-  compact?: boolean;
-  span?: 'default' | 'full';
-}
-
-interface PerSidePropertyIds {
-  top: EditablePropertyId;
-  right: EditablePropertyId;
-  bottom: EditablePropertyId;
-  left: EditablePropertyId;
-}
-
-interface SectionContent {
-  node: ReactNode;
-}
-
 function renderValue(value: string) {
   return value || 'none';
-}
-
-function getSnapshotMeta(snapshot: PropertySnapshot) {
-  if (snapshot.invalid) {
-    return `Invalid value. Preview stays at ${renderValue(snapshot.value)}.`;
-  }
-
-  if (snapshot.value !== snapshot.baseline) {
-    return `${renderValue(snapshot.baseline)} -> ${renderValue(snapshot.value)}`;
-  }
-
-  return `Baseline ${renderValue(snapshot.baseline)}`;
-}
-
-function renderControl(
-  definition: EditablePropertyDefinition,
-  snapshot: PropertySnapshot,
-  onChange: (value: string) => void
-) {
-  switch (definition.control) {
-    case 'slider':
-      return <SliderInput definition={definition} onChange={onChange} snapshot={snapshot} />;
-    case 'color':
-      return <ColorInput definition={definition} onChange={onChange} snapshot={snapshot} />;
-    case 'select':
-      return <SelectInput definition={definition} onChange={onChange} snapshot={snapshot} />;
-    case 'segmented':
-      return <SegmentedControl definition={definition} onChange={onChange} snapshot={snapshot} />;
-    case 'toggle':
-      return <ToggleSwitch definition={definition} onChange={onChange} snapshot={snapshot} />;
-    case 'number':
-      return <NumberInput definition={definition} onChange={onChange} snapshot={snapshot} />;
-    case 'text':
-    case 'per-side':
-    default:
-      return <TextInput definition={definition} onChange={onChange} snapshot={snapshot} />;
-  }
-}
-
-function getPerSideMeta(entries: Array<{ label: string; snapshot: PropertySnapshot }>) {
-  const invalidEntries = entries.filter((entry) => entry.snapshot.invalid);
-
-  if (invalidEntries.length > 0) {
-    return invalidEntries
-      .map((entry) => `${entry.label}: preview stays at ${renderValue(entry.snapshot.value)}`)
-      .join(' | ');
-  }
-
-  const dirtyEntries = entries.filter((entry) => entry.snapshot.value !== entry.snapshot.baseline);
-
-  if (dirtyEntries.length > 0) {
-    return dirtyEntries
-      .map(
-        (entry) =>
-          `${entry.label}: ${renderValue(entry.snapshot.baseline)} -> ${renderValue(entry.snapshot.value)}`
-      )
-      .join(' | ');
-  }
-
-  return entries
-    .map((entry) => `${entry.label}: ${renderValue(entry.snapshot.baseline)}`)
-    .join(' | ');
 }
 
 function getFocusedDirtyPropertyIds(draft: SelectionDraft) {
   return getDirtyPropertyIds(draft).filter((propertyId) => FOCUSED_PROPERTY_IDS.has(propertyId));
 }
+
+// ── Property card helpers ──────────────────────────────────────────────────
+
+interface CompactCardProps {
+  propertyId: EditablePropertyId;
+  selectedDraft: SelectionDraft;
+  onChange(propertyId: EditablePropertyId, value: string): void;
+  onResetProperty(instanceKey: string, propertyId: EditablePropertyId): void;
+  scrubLabel?: string;
+}
+
+function CompactCard({
+  propertyId,
+  selectedDraft,
+  onChange,
+  onResetProperty,
+  scrubLabel,
+}: CompactCardProps) {
+  const definition = editablePropertyDefinitionMap[propertyId];
+  const snapshot = selectedDraft.properties[propertyId];
+  const dirty = snapshot.value !== snapshot.baseline;
+
+  let control: ReactNode;
+  if (definition.control === 'number') {
+    control = (
+      <NumberInput
+        definition={definition}
+        onChange={(v) => onChange(propertyId, v)}
+        scrubLabel={scrubLabel}
+        snapshot={snapshot}
+      />
+    );
+  } else if (definition.control === 'color') {
+    control = (
+      <ColorInput
+        definition={definition}
+        onChange={(v) => onChange(propertyId, v)}
+        snapshot={snapshot}
+      />
+    );
+  } else if (definition.control === 'select') {
+    control = (
+      <SelectInput
+        definition={definition}
+        onChange={(v) => onChange(propertyId, v)}
+        snapshot={snapshot}
+      />
+    );
+  } else if (definition.control === 'segmented') {
+    control = (
+      <SegmentedControl
+        definition={definition}
+        onChange={(v) => onChange(propertyId, v)}
+        snapshot={snapshot}
+      />
+    );
+  } else if (definition.control === 'slider') {
+    control = (
+      <SliderInput
+        definition={definition}
+        onChange={(v) => onChange(propertyId, v)}
+        snapshot={snapshot}
+      />
+    );
+  } else {
+    control = (
+      <TextInput
+        definition={definition}
+        onChange={(v) => onChange(propertyId, v)}
+        snapshot={snapshot}
+      />
+    );
+  }
+
+  return (
+    <div
+      data-dirty={dirty ? 'true' : 'false'}
+      data-hawk-eye-ui="compact-card"
+      data-invalid={snapshot.invalid ? 'true' : 'false'}
+      data-property-id={propertyId}
+    >
+      {control}
+      {dirty && (
+        <button
+          data-hawk-eye-ui="control-reset-mini"
+          onClick={() => onResetProperty(selectedDraft.instanceKey, propertyId)}
+          type="button"
+        >
+          ↺
+        </button>
+      )}
+    </div>
+  );
+}
+
+interface PerSideCardProps {
+  cardId: string;
+  label: string;
+  propertyIds: { top: EditablePropertyId; right: EditablePropertyId; bottom: EditablePropertyId; left: EditablePropertyId };
+  selectedDraft: SelectionDraft;
+  onChange(propertyId: EditablePropertyId, value: string): void;
+  onResetProperty(instanceKey: string, propertyId: EditablePropertyId): void;
+}
+
+function PerSideCard({
+  cardId,
+  label,
+  propertyIds,
+  selectedDraft,
+  onChange,
+  onResetProperty,
+}: PerSideCardProps) {
+  const entries = [
+    { id: propertyIds.top, snapshot: selectedDraft.properties[propertyIds.top] },
+    { id: propertyIds.right, snapshot: selectedDraft.properties[propertyIds.right] },
+    { id: propertyIds.bottom, snapshot: selectedDraft.properties[propertyIds.bottom] },
+    { id: propertyIds.left, snapshot: selectedDraft.properties[propertyIds.left] },
+  ];
+  const dirtyEntries = entries.filter((e) => e.snapshot.value !== e.snapshot.baseline);
+
+  return (
+    <div
+      data-dirty={dirtyEntries.length > 0 ? 'true' : 'false'}
+      data-hawk-eye-ui="per-side-wrap"
+      data-property-id={cardId}
+    >
+      <PerSideControl
+        key={`${selectedDraft.instanceKey}-${cardId}`}
+        label={label}
+        onChange={onChange}
+        onReset={(propertyId) => onResetProperty(selectedDraft.instanceKey, propertyId)}
+        sides={{
+          top: { id: propertyIds.top, snapshot: selectedDraft.properties[propertyIds.top] },
+          right: { id: propertyIds.right, snapshot: selectedDraft.properties[propertyIds.right] },
+          bottom: { id: propertyIds.bottom, snapshot: selectedDraft.properties[propertyIds.bottom] },
+          left: { id: propertyIds.left, snapshot: selectedDraft.properties[propertyIds.left] },
+        }}
+      />
+    </div>
+  );
+}
+
+interface PerCornerCardProps {
+  cardId: string;
+  label: string;
+  propertyIds: { topLeft: EditablePropertyId; topRight: EditablePropertyId; bottomRight: EditablePropertyId; bottomLeft: EditablePropertyId };
+  selectedDraft: SelectionDraft;
+  onChange(propertyId: EditablePropertyId, value: string): void;
+  onResetProperty(instanceKey: string, propertyId: EditablePropertyId): void;
+}
+
+function PerCornerCard({
+  cardId,
+  label,
+  propertyIds,
+  selectedDraft,
+  onChange,
+  onResetProperty,
+}: PerCornerCardProps) {
+  const entries = [
+    { id: propertyIds.topLeft, snapshot: selectedDraft.properties[propertyIds.topLeft] },
+    { id: propertyIds.topRight, snapshot: selectedDraft.properties[propertyIds.topRight] },
+    { id: propertyIds.bottomRight, snapshot: selectedDraft.properties[propertyIds.bottomRight] },
+    { id: propertyIds.bottomLeft, snapshot: selectedDraft.properties[propertyIds.bottomLeft] },
+  ];
+  const dirtyEntries = entries.filter((e) => e.snapshot.value !== e.snapshot.baseline);
+
+  return (
+    <div
+      data-dirty={dirtyEntries.length > 0 ? 'true' : 'false'}
+      data-hawk-eye-ui="per-side-wrap"
+      data-property-id={cardId}
+    >
+      <PerCornerControl
+        key={`${selectedDraft.instanceKey}-${cardId}`}
+        corners={{
+          topLeft: { id: propertyIds.topLeft, snapshot: selectedDraft.properties[propertyIds.topLeft] },
+          topRight: { id: propertyIds.topRight, snapshot: selectedDraft.properties[propertyIds.topRight] },
+          bottomRight: { id: propertyIds.bottomRight, snapshot: selectedDraft.properties[propertyIds.bottomRight] },
+          bottomLeft: { id: propertyIds.bottomLeft, snapshot: selectedDraft.properties[propertyIds.bottomLeft] },
+        }}
+        label={label}
+        onChange={onChange}
+        onReset={(propertyId) => onResetProperty(selectedDraft.instanceKey, propertyId)}
+      />
+    </div>
+  );
+}
+
+// ── Section renderers ──────────────────────────────────────────────────────
+
+interface SectionProps {
+  selectedDraft: SelectionDraft;
+  onChange(propertyId: EditablePropertyId, value: string): void;
+  onResetProperty(instanceKey: string, propertyId: EditablePropertyId): void;
+}
+
+function card(
+  propertyId: EditablePropertyId,
+  props: SectionProps,
+  scrubLabel?: string
+) {
+  return (
+    <CompactCard
+      key={propertyId}
+      onChange={props.onChange}
+      onResetProperty={props.onResetProperty}
+      propertyId={propertyId}
+      scrubLabel={scrubLabel}
+      selectedDraft={props.selectedDraft}
+    />
+  );
+}
+
+function PositionSizeSection(props: SectionProps) {
+  const positionValue = props.selectedDraft.properties.positionType?.value ?? '';
+  const isPositioned = positionValue === 'absolute' || positionValue === 'fixed' || positionValue === 'relative';
+
+  return (
+    <CollapsibleSection
+      defaultExpanded
+      key="positionSize"
+      sectionId="positionSize"
+      title={focusedGroupLabels.positionSize}
+    >
+      <div data-hawk-eye-ui="section-stack">
+        {/* W / H row */}
+        <div data-hawk-eye-ui="compact-row">
+          {card('width', props, 'W')}
+          {card('height', props, 'H')}
+        </div>
+        {/* X / Y row — only when positioned */}
+        {isPositioned && (
+          <div data-hawk-eye-ui="compact-row">
+            {card('left', props, 'X')}
+            {card('top', props, 'Y')}
+          </div>
+        )}
+        {/* Position type full width */}
+        <div data-hawk-eye-ui="compact-row-full">
+          {card('positionType', props)}
+        </div>
+      </div>
+    </CollapsibleSection>
+  );
+}
+
+function AutoLayoutSection(props: SectionProps) {
+  const displayValue = props.selectedDraft.properties.display?.value ?? '';
+  const isFlex = displayValue === 'flex' || displayValue === 'inline-flex';
+
+  return (
+    <CollapsibleSection
+      defaultExpanded
+      key="autoLayout"
+      sectionId="autoLayout"
+      title={focusedGroupLabels.autoLayout}
+    >
+      <div data-hawk-eye-ui="section-stack">
+        <div data-hawk-eye-ui="compact-row-full">
+          {card('display', props)}
+        </div>
+        {isFlex && (
+          <>
+            <div data-hawk-eye-ui="compact-row-full">
+              {card('flexDirection', props)}
+            </div>
+            <div data-hawk-eye-ui="compact-row">
+              {card('justifyContent', props)}
+              {card('alignItems', props)}
+            </div>
+            <div data-hawk-eye-ui="compact-row">
+              {card('flexWrap', props)}
+              {card('alignSelf', props)}
+            </div>
+            <div data-hawk-eye-ui="compact-row">
+              {card('gap', props, 'Gap')}
+            </div>
+          </>
+        )}
+      </div>
+    </CollapsibleSection>
+  );
+}
+
+function SpacingSection(props: SectionProps) {
+  return (
+    <CollapsibleSection
+      defaultExpanded
+      key="spacing"
+      sectionId="spacing"
+      title={focusedGroupLabels.spacing}
+    >
+      <div data-hawk-eye-ui="section-stack">
+        <PerSideCard
+          cardId="padding"
+          label="Padding"
+          onChange={props.onChange}
+          onResetProperty={props.onResetProperty}
+          propertyIds={{ top: 'paddingTop', right: 'paddingRight', bottom: 'paddingBottom', left: 'paddingLeft' }}
+          selectedDraft={props.selectedDraft}
+        />
+        <PerSideCard
+          cardId="margin"
+          label="Margin"
+          onChange={props.onChange}
+          onResetProperty={props.onResetProperty}
+          propertyIds={{ top: 'marginTop', right: 'marginRight', bottom: 'marginBottom', left: 'marginLeft' }}
+          selectedDraft={props.selectedDraft}
+        />
+      </div>
+    </CollapsibleSection>
+  );
+}
+
+function FillOpacitySection(props: SectionProps) {
+  return (
+    <CollapsibleSection
+      defaultExpanded
+      key="fillOpacity"
+      sectionId="fillOpacity"
+      title={focusedGroupLabels.fillOpacity}
+    >
+      <div data-hawk-eye-ui="section-stack">
+        <div data-hawk-eye-ui="compact-row-full">
+          {card('backgroundColor', props)}
+        </div>
+        <div data-hawk-eye-ui="compact-row-full">
+          {card('opacity', props)}
+        </div>
+      </div>
+    </CollapsibleSection>
+  );
+}
+
+function BorderSection(props: SectionProps) {
+  return (
+    <CollapsibleSection
+      defaultExpanded
+      key="border"
+      sectionId="border"
+      title={focusedGroupLabels.border}
+    >
+      <div data-hawk-eye-ui="section-stack">
+        <div data-hawk-eye-ui="compact-row">
+          {card('borderColor', props)}
+          {card('borderStyle', props)}
+        </div>
+        <PerSideCard
+          cardId="borderWidth"
+          label="Width"
+          onChange={props.onChange}
+          onResetProperty={props.onResetProperty}
+          propertyIds={{ top: 'borderTopWidth', right: 'borderRightWidth', bottom: 'borderBottomWidth', left: 'borderLeftWidth' }}
+          selectedDraft={props.selectedDraft}
+        />
+        <PerCornerCard
+          cardId="borderRadius"
+          label="Radius"
+          onChange={props.onChange}
+          onResetProperty={props.onResetProperty}
+          propertyIds={{ topLeft: 'borderTopLeftRadius', topRight: 'borderTopRightRadius', bottomRight: 'borderBottomRightRadius', bottomLeft: 'borderBottomLeftRadius' }}
+          selectedDraft={props.selectedDraft}
+        />
+      </div>
+    </CollapsibleSection>
+  );
+}
+
+const TEXT_ALIGN_OPTIONS: Array<{ value: string; label: string; icon: JSX.Element }> = [
+  {
+    value: 'left',
+    label: 'Left',
+    icon: (
+      <svg fill="none" height="14" viewBox="0 0 14 14" width="14" xmlns="http://www.w3.org/2000/svg">
+        <path d="M1 3h12M1 7h8M1 11h10" stroke="currentColor" strokeLinecap="round" strokeWidth="1.4" />
+      </svg>
+    ),
+  },
+  {
+    value: 'center',
+    label: 'Center',
+    icon: (
+      <svg fill="none" height="14" viewBox="0 0 14 14" width="14" xmlns="http://www.w3.org/2000/svg">
+        <path d="M1 3h12M3 7h8M2 11h10" stroke="currentColor" strokeLinecap="round" strokeWidth="1.4" />
+      </svg>
+    ),
+  },
+  {
+    value: 'right',
+    label: 'Right',
+    icon: (
+      <svg fill="none" height="14" viewBox="0 0 14 14" width="14" xmlns="http://www.w3.org/2000/svg">
+        <path d="M1 3h12M5 7h8M3 11h10" stroke="currentColor" strokeLinecap="round" strokeWidth="1.4" />
+      </svg>
+    ),
+  },
+  {
+    value: 'justify',
+    label: 'Justify',
+    icon: (
+      <svg fill="none" height="14" viewBox="0 0 14 14" width="14" xmlns="http://www.w3.org/2000/svg">
+        <path d="M1 3h12M1 7h12M1 11h12" stroke="currentColor" strokeLinecap="round" strokeWidth="1.4" />
+      </svg>
+    ),
+  },
+];
+
+function TypographySection(props: SectionProps) {
+  const alignSnapshot = props.selectedDraft.properties.textAlign;
+  const alignDirty = alignSnapshot.value !== alignSnapshot.baseline;
+  const effectiveAlign = alignSnapshot.inputValue || alignSnapshot.baseline;
+
+  return (
+    <CollapsibleSection
+      defaultExpanded
+      key="typography"
+      sectionId="typography"
+      title={focusedGroupLabels.typography}
+    >
+      <div data-hawk-eye-ui="section-stack">
+        {/* Row 1: Font family */}
+        <div data-hawk-eye-ui="compact-row-full">
+          {card('fontFamily', props)}
+        </div>
+
+        {/* Row 2: Weight (wider) | Size (narrower) — matches Figma order */}
+        <div data-hawk-eye-ui="compact-row typo-weight-size">
+          {card('fontWeight', props)}
+          {card('fontSize', props)}
+        </div>
+
+        {/* Row 3: Sub-labels above LH / LS */}
+        <div data-hawk-eye-ui="typo-label-row">
+          <span>Line height</span>
+          <span>Letter spacing</span>
+        </div>
+
+        {/* Row 4: LH | LS inputs */}
+        <div data-hawk-eye-ui="compact-row">
+          {card('lineHeight', props)}
+          {card('letterSpacing', props)}
+        </div>
+
+        {/* Row 5: Text colour */}
+        <div data-hawk-eye-ui="compact-row-full">
+          {card('color', props)}
+        </div>
+
+        {/* Row 6: Alignment label + icon buttons */}
+        <div data-hawk-eye-ui="typo-align-header">
+          <span data-hawk-eye-ui="typo-section-label">Alignment</span>
+          {alignDirty ? (
+            <button
+              data-hawk-eye-ui="control-reset-mini"
+              onClick={() => props.onResetProperty(props.selectedDraft.instanceKey, 'textAlign')}
+              type="button"
+            >
+              ↺
+            </button>
+          ) : null}
+        </div>
+        <div data-hawk-eye-ui="icon-segmented">
+          {TEXT_ALIGN_OPTIONS.map(({ value, label, icon }) => (
+            <button
+              aria-label={label}
+              aria-pressed={effectiveAlign === value}
+              data-active={effectiveAlign === value ? 'true' : 'false'}
+              data-hawk-eye-ui="icon-seg-btn"
+              key={value}
+              onClick={() => props.onChange('textAlign', value)}
+              title={label}
+              type="button"
+            >
+              {icon}
+            </button>
+          ))}
+        </div>
+      </div>
+    </CollapsibleSection>
+  );
+}
+
+function EffectsSection(props: SectionProps) {
+  const { selectedDraft, onChange, onResetProperty } = props;
+  const shadowSnapshot = selectedDraft.properties.boxShadow;
+  const shadowDirty = shadowSnapshot.value !== shadowSnapshot.baseline;
+
+  return (
+    <CollapsibleSection
+      defaultExpanded
+      key="effects"
+      sectionId="effects"
+      title={focusedGroupLabels.effects}
+    >
+      <div data-hawk-eye-ui="section-stack">
+        <div
+          data-dirty={shadowDirty ? 'true' : 'false'}
+          data-hawk-eye-ui="compact-card"
+          data-invalid={shadowSnapshot.invalid ? 'true' : 'false'}
+          data-property-id="boxShadow"
+        >
+          <BoxShadowInput
+            onChange={(value) => onChange('boxShadow', value)}
+            snapshot={shadowSnapshot}
+          />
+          {shadowDirty && (
+            <button
+              data-hawk-eye-ui="control-reset-mini"
+              onClick={() => onResetProperty(selectedDraft.instanceKey, 'boxShadow')}
+              type="button"
+            >
+              ↺
+            </button>
+          )}
+        </div>
+        <div data-hawk-eye-ui="compact-row-full">
+          {card('filter', props)}
+        </div>
+        <div data-hawk-eye-ui="compact-row-full">
+          {card('backdropFilter', props)}
+        </div>
+      </div>
+    </CollapsibleSection>
+  );
+}
+
+// ── Main panel ─────────────────────────────────────────────────────────────
 
 export function PropertiesPanel({
   pendingDrafts,
@@ -135,259 +593,25 @@ export function PropertiesPanel({
     }))
     .filter((entry) => entry.draft.detached || entry.dirtyProperties.length > 0);
 
-  function renderSection(
-    sectionId: FocusedGroupId,
-    title: string,
-    subtitle: string,
-    count: number,
-    layout: ReactNode
-  ): SectionContent {
-    return {
-      node: (
-        <CollapsibleSection
-          action={<span data-hawk-eye-ui="section-count">{count}</span>}
-          defaultExpanded
-          key={sectionId}
-          sectionId={sectionId}
-          subtitle={subtitle}
-          title={title}
-        >
-          {layout}
-        </CollapsibleSection>
-      ),
-    };
-  }
+  const sectionProps: SectionProps = { selectedDraft, onChange, onResetProperty };
 
-  function renderPropertyCard(
-    propertyId: EditablePropertyId,
-    options: PropertyCardOptions = {},
-    onValueChange?: (propertyId: EditablePropertyId, value: string) => void
-  ) {
-    const definition = editablePropertyDefinitionMap[propertyId];
-    const snapshot = selectedDraft.properties[propertyId];
-    const dirty = snapshot.value !== snapshot.baseline;
+  const sectionRenderers: Record<FocusedGroupId, ReactNode> = {
+    positionSize: <PositionSizeSection key="positionSize" {...sectionProps} />,
+    autoLayout: <AutoLayoutSection key="autoLayout" {...sectionProps} />,
+    spacing: <SpacingSection key="spacing" {...sectionProps} />,
+    fillOpacity: <FillOpacitySection key="fillOpacity" {...sectionProps} />,
+    border: <BorderSection key="border" {...sectionProps} />,
+    typography: <TypographySection key="typography" {...sectionProps} />,
+    effects: <EffectsSection key="effects" {...sectionProps} />,
+  };
 
-    return (
-      <PropertyCard
-        action={
-          dirty ? (
-            <button
-              data-hawk-eye-ui="control-reset"
-              onClick={() => onResetProperty(selectedDraft.instanceKey, propertyId)}
-              type="button"
-            >
-              Reset
-            </button>
-          ) : null
-        }
-        compact={options.compact}
-        dirty={dirty}
-        invalid={snapshot.invalid}
-        key={propertyId}
-        label={definition.label}
-        meta={getSnapshotMeta(snapshot)}
-        propertyId={propertyId}
-        span={options.span}
-      >
-        {renderControl(definition, snapshot, (value) =>
-          (onValueChange ?? onChange)(propertyId, value)
-        )}
-      </PropertyCard>
-    );
-  }
-
-  function renderPerSideCard(
-    cardId: string,
-    label: string,
-    propertyIds: PerSidePropertyIds
-  ) {
-    const entries = [
-      {
-        id: propertyIds.top,
-        key: 'top',
-        label: 'T',
-        snapshot: selectedDraft.properties[propertyIds.top],
-      },
-      {
-        id: propertyIds.right,
-        key: 'right',
-        label: 'R',
-        snapshot: selectedDraft.properties[propertyIds.right],
-      },
-      {
-        id: propertyIds.bottom,
-        key: 'bottom',
-        label: 'B',
-        snapshot: selectedDraft.properties[propertyIds.bottom],
-      },
-      {
-        id: propertyIds.left,
-        key: 'left',
-        label: 'L',
-        snapshot: selectedDraft.properties[propertyIds.left],
-      },
-    ];
-    const dirtyEntries = entries.filter((entry) => entry.snapshot.value !== entry.snapshot.baseline);
-    const invalid = entries.some((entry) => entry.snapshot.invalid);
-
-    return (
-      <PropertyCard
-        action={
-          dirtyEntries.length > 0 ? (
-            <button
-              data-hawk-eye-ui="control-reset"
-              onClick={() => {
-                for (const entry of dirtyEntries) {
-                  onResetProperty(selectedDraft.instanceKey, entry.id);
-                }
-              }}
-              type="button"
-            >
-              Reset
-            </button>
-          ) : null
-        }
-        dirty={dirtyEntries.length > 0}
-        invalid={invalid}
-        key={cardId}
-        label={label}
-        meta={getPerSideMeta(entries)}
-        propertyId={cardId}
-        span="full"
-      >
-        <PerSideControl
-          key={`${selectedDraft.instanceKey}-${cardId}`}
-          label={label}
-          onChange={onChange}
-          onReset={(propertyId) => onResetProperty(selectedDraft.instanceKey, propertyId)}
-          sides={{
-            top: { id: propertyIds.top, snapshot: selectedDraft.properties[propertyIds.top] },
-            right: { id: propertyIds.right, snapshot: selectedDraft.properties[propertyIds.right] },
-            bottom: {
-              id: propertyIds.bottom,
-              snapshot: selectedDraft.properties[propertyIds.bottom],
-            },
-            left: { id: propertyIds.left, snapshot: selectedDraft.properties[propertyIds.left] },
-          }}
-        />
-      </PropertyCard>
-    );
-  }
-
-  function renderBoxShadowCard() {
-    const propertyId = 'boxShadow' satisfies EditablePropertyId;
-    const definition = editablePropertyDefinitionMap[propertyId];
-    const snapshot = selectedDraft.properties[propertyId];
-    const dirty = snapshot.value !== snapshot.baseline;
-
-    return (
-      <PropertyCard
-        action={
-          dirty ? (
-            <button
-              data-hawk-eye-ui="control-reset"
-              onClick={() => onResetProperty(selectedDraft.instanceKey, propertyId)}
-              type="button"
-            >
-              Reset
-            </button>
-          ) : null
-        }
-        dirty={dirty}
-        invalid={snapshot.invalid}
-        key={propertyId}
-        label={definition.label}
-        meta={getSnapshotMeta(snapshot)}
-        propertyId={propertyId}
-        span="full"
-      >
-        <BoxShadowInput snapshot={snapshot} onChange={(value) => onChange(propertyId, value)} />
-      </PropertyCard>
-    );
-  }
-
-  function renderLayoutSection() {
-    return renderSection(
-      'layout',
-      focusedGroupLabels.layout,
-      'Padding and margin for fast spacing balance.',
-      focusedGroupMembers.layout.length,
-      <div data-hawk-eye-ui="section-stack">
-        {renderPerSideCard('padding', 'Padding', {
-          top: 'paddingTop',
-          right: 'paddingRight',
-          bottom: 'paddingBottom',
-          left: 'paddingLeft',
-        })}
-        {renderPerSideCard('margin', 'Margin', {
-          top: 'marginTop',
-          right: 'marginRight',
-          bottom: 'marginBottom',
-          left: 'marginLeft',
-        })}
-      </div>
-    );
-  }
-
-  function renderFillSection() {
-    return renderSection(
-      'fill',
-      focusedGroupLabels.fill,
-      'Background and text color for the selected layer.',
-      focusedGroupMembers.fill.length,
-      <div data-hawk-eye-ui="section-grid">
-        {renderPropertyCard('backgroundColor')}
-        {renderPropertyCard('color')}
-      </div>
-    );
-  }
-
-  function renderTypographySection() {
-    return renderSection(
-      'typography',
-      focusedGroupLabels.typography,
-      'Type scale, weight, and alignment only.',
-      focusedGroupMembers.typography.length,
-      <div data-hawk-eye-ui="section-grid">
-        {renderPropertyCard('fontSize')}
-        {renderPropertyCard('fontWeight')}
-        {renderPropertyCard('textAlign', { span: 'full' })}
-      </div>
-    );
-  }
-
-  function renderDesignSection() {
-    return renderSection(
-      'design',
-      focusedGroupLabels.design,
-      'Shape refinement through a single radius control.',
-      focusedGroupMembers.design.length,
-      <div data-hawk-eye-ui="section-grid">{renderPropertyCard('borderRadius', { span: 'full' })}</div>
-    );
-  }
-
-  function renderEffectsSection() {
-    return renderSection(
-      'effects',
-      focusedGroupLabels.effects,
-      'Depth and softness through a single shadow control.',
-      focusedGroupMembers.effects.length,
-      <div data-hawk-eye-ui="section-grid">{renderBoxShadowCard()}</div>
-    );
-  }
-
-  const renderedSections = {
-    layout: renderLayoutSection(),
-    fill: renderFillSection(),
-    typography: renderTypographySection(),
-    design: renderDesignSection(),
-    effects: renderEffectsSection(),
-  } satisfies Record<FocusedGroupId, SectionContent>;
+  // Suppress unused import warnings — keep these for potential future use
+  void focusedGroupMembers;
 
   return (
     <>
       <section data-hawk-eye-ui="property-stack">
-        {focusedGroupOrder.map((group) => renderedSections[group].node)}
+        {focusedGroupOrder.map((group) => sectionRenderers[group])}
       </section>
 
       <section data-hawk-eye-ui="changes-section">
@@ -395,7 +619,7 @@ export function PropertiesPanel({
           <h3 data-hawk-eye-ui="group-title">Pending changes</h3>
           {dirtyDrafts.length > 0 ? (
             <button data-hawk-eye-ui="secondary-button" onClick={onResetAll} type="button">
-              Reset all changes
+              Reset all
             </button>
           ) : null}
         </div>

@@ -9,13 +9,14 @@ interface SegmentedControlProps {
 
 export function SegmentedControl({ definition, snapshot, onChange }: SegmentedControlProps) {
   const options = definition.options ?? [];
+  const effectiveValue = snapshot.inputValue || snapshot.baseline;
 
   return (
     <div data-hawk-eye-ui="segmented-row">
       {options.map((opt, index) => (
         <button
           aria-label={opt.label}
-          data-active={snapshot.inputValue === opt.value ? 'true' : 'false'}
+          data-active={effectiveValue === opt.value ? 'true' : 'false'}
           data-hawk-eye-control={`${definition.id}-${opt.value}`}
           data-hawk-eye-ui="segmented-button"
           key={opt.value}

@@ -687,7 +687,6 @@ function DesignToolRuntime() {
       enabled={enabled}
       hovered={hovered}
       onChange={updateDraftProperty}
-      onDetach={detachSelectedDraft}
       onResetAll={resetAllChanges}
       onResetProperty={resetProperty}
       onSave={savePendingDrafts}

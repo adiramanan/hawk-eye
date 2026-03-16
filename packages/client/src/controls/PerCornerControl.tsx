@@ -3,49 +3,46 @@ import { useState } from 'react';
 import type { EditablePropertyId, PropertySnapshot } from '../types';
 import { formatCssValue, parseCssValue } from '../utils/css-value';
 
-interface PerSideEntry {
+interface PerCornerEntry {
   id: EditablePropertyId;
   snapshot: PropertySnapshot;
 }
 
-interface PerSideProps {
+interface PerCornerProps {
   label: string;
-  sides: {
-    top: PerSideEntry;
-    right: PerSideEntry;
-    bottom: PerSideEntry;
-    left: PerSideEntry;
+  corners: {
+    topLeft: PerCornerEntry;
+    topRight: PerCornerEntry;
+    bottomRight: PerCornerEntry;
+    bottomLeft: PerCornerEntry;
   };
   onChange(propertyId: EditablePropertyId, value: string): void;
   onReset?(propertyId: EditablePropertyId): void;
 }
 
-function areLinked(entries: PerSideEntry[]) {
-  if (entries.length === 0) {
-    return true;
-  }
-
+function areLinked(entries: PerCornerEntry[]) {
+  if (entries.length === 0) return true;
   return entries.every((entry) => entry.snapshot.value === entries[0].snapshot.value);
 }
 
-export function PerSideControl({ label, sides, onChange, onReset }: PerSideProps) {
+export function PerCornerControl({ label, corners, onChange, onReset }: PerCornerProps) {
   const entries = [
-    { key: 'top' as const, label: 'T', ...sides.top },
-    { key: 'right' as const, label: 'R', ...sides.right },
-    { key: 'bottom' as const, label: 'B', ...sides.bottom },
-    { key: 'left' as const, label: 'L', ...sides.left },
+    { key: 'topLeft' as const, label: 'TL', ...corners.topLeft },
+    { key: 'topRight' as const, label: 'TR', ...corners.topRight },
+    { key: 'bottomRight' as const, label: 'BR', ...corners.bottomRight },
+    { key: 'bottomLeft' as const, label: 'BL', ...corners.bottomLeft },
   ];
   const [linked, setLinked] = useState(() =>
-    areLinked(entries.map((entry) => ({ id: entry.id, snapshot: entry.snapshot })))
+    areLinked(entries.map((e) => ({ id: e.id, snapshot: e.snapshot })))
   );
 
-  const allSnapshot = sides.top.snapshot;
+  const allSnapshot = corners.topLeft.snapshot;
 
   function handleAllChange(value: string) {
-    onChange(sides.top.id, value);
-    onChange(sides.right.id, value);
-    onChange(sides.bottom.id, value);
-    onChange(sides.left.id, value);
+    onChange(corners.topLeft.id, value);
+    onChange(corners.topRight.id, value);
+    onChange(corners.bottomRight.id, value);
+    onChange(corners.bottomLeft.id, value);
   }
 
   function handleAllKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -74,7 +71,7 @@ export function PerSideControl({ label, sides, onChange, onReset }: PerSideProps
       <div data-hawk-eye-ui="per-side-header">
         <span data-hawk-eye-ui="per-side-label">{label}</span>
         <button
-          aria-label={linked ? 'Edit sides independently' : 'Link sides together'}
+          aria-label={linked ? 'Edit corners independently' : 'Link corners together'}
           data-active={linked ? 'true' : 'false'}
           data-hawk-eye-ui="per-side-link"
           onClick={() => setLinked(!linked)}
@@ -86,7 +83,7 @@ export function PerSideControl({ label, sides, onChange, onReset }: PerSideProps
 
       {linked ? (
         <input
-          aria-label={`${label} all sides`}
+          aria-label={`${label} all corners`}
           data-hawk-eye-ui="text-input"
           onChange={(e) => handleAllChange(e.currentTarget.value)}
           onFocus={(e) => e.currentTarget.select()}

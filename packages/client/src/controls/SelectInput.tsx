@@ -8,10 +8,17 @@ interface SelectInputProps {
 
 export function SelectInput({ definition, snapshot, onChange }: SelectInputProps) {
   const options = definition.options ?? [];
-  const hasCurrentOption = options.some((option) => option.value === snapshot.inputValue);
+  const effectiveValue = snapshot.inputValue || snapshot.baseline;
+  const hasCurrentOption = options.some((option) => option.value === effectiveValue);
+  const fallbackLabel = (() => {
+    const raw = effectiveValue || definition.placeholder;
+    // CSS font stacks contain commas — show only the primary font name
+    if (raw.includes(',')) return raw.split(',')[0].trim().replace(/["']/g, '');
+    return raw;
+  })();
   const renderedOptions = hasCurrentOption
     ? options
-    : [{ label: snapshot.inputValue || definition.placeholder, value: snapshot.inputValue }, ...options];
+    : [{ label: fallbackLabel, value: effectiveValue }, ...options];
 
   return (
     <select
@@ -19,7 +26,7 @@ export function SelectInput({ definition, snapshot, onChange }: SelectInputProps
       data-hawk-eye-control={definition.id}
       data-hawk-eye-ui="select-input"
       onChange={(event) => onChange(event.currentTarget.value)}
-      value={snapshot.inputValue}
+      value={effectiveValue}
     >
       {renderedOptions.map((opt) => (
         <option key={opt.value} value={opt.value}>

@@ -339,19 +339,22 @@ describe('DesignTool', () => {
     });
     expect(shadowRoot.textContent).toContain('Locked selection');
     expect(shadowRoot.textContent).toContain('demo/src/App.tsx:21:13');
-    expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="layout"]')).toHaveLength(1);
-    expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="fill"]')).toHaveLength(1);
+    expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="positionSize"]')).toHaveLength(1);
+    expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="spacing"]')).toHaveLength(1);
+    expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="fillOpacity"]')).toHaveLength(1);
+    expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="border"]')).toHaveLength(1);
     expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="typography"]')).toHaveLength(1);
-    expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="design"]')).toHaveLength(1);
     expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="effects"]')).toHaveLength(1);
     expect(getControl(shadowRoot, 'paddingTop').value).toBe('16px');
-    expect(getControl(shadowRoot, 'borderRadius').value).toBe('14');
+    expect(getControl(shadowRoot, 'borderTopLeftRadius').value).toBe('14px');
     expect(getControl(shadowRoot, 'fontWeight').value).toBe('600');
     expect(shadowRoot.querySelector('[data-hawk-eye-control="backgroundColor"]')).not.toBeNull();
-    expect(shadowRoot.querySelector('[data-hawk-eye-control="opacity-number"]')).toBeNull();
-    expect(shadowRoot.querySelector('[data-hawk-eye-control="width"]')).toBeNull();
-    expect(shadowRoot.querySelector('[data-hawk-eye-control="positionType"]')).toBeNull();
-    expect(shadowRoot.querySelector('[data-hawk-eye-control="fontFamily"]')).toBeNull();
+    // opacity-number is the text input inside SliderInput for opacity (now in focused panel)
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="opacity-number"]')).not.toBeNull();
+    // width, positionType, fontFamily are now in the focused panel
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="width"]')).not.toBeNull();
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="positionType"]')).not.toBeNull();
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="fontFamily"]')).not.toBeNull();
 
     act(() => {
       hot.emit('hawk-eye:style-analysis', {
@@ -504,7 +507,10 @@ describe('DesignTool', () => {
     updateInput(fontSizeInput() as InstanceType<typeof window.HTMLInputElement>, 'banana');
     expect(target.style.fontSize).toBe('1.5rem');
     expect(fontSizeInput().value).toBe('banana');
-    expect(shadowRoot.textContent).toContain('Invalid value. Preview stays at 1.5rem.');
+    // compact card marks invalid state via data-invalid attribute; no inline text in new panel
+    expect(
+      shadowRoot.querySelector('[data-hawk-eye-control="fontSize"]')?.closest('[data-invalid="true"]')
+    ).not.toBeNull();
     cleanup();
   });
 
@@ -569,15 +575,15 @@ describe('DesignTool', () => {
       '24px'
     );
     updateInput(
-      getControl(shadowRoot, 'borderRadius') as InstanceType<typeof window.HTMLInputElement>,
-      '20'
+      getControl(shadowRoot, 'borderTopLeftRadius') as InstanceType<typeof window.HTMLInputElement>,
+      '20px'
     );
 
     setElementFromPoint(host);
     click(getButtonControl(shadowRoot, 'paddingTop-reset'));
 
     expect(target.style.paddingTop).toBe('16px');
-    expect(target.style.borderRadius).toBe('20px');
+    expect(target.style.borderTopLeftRadius).toBe('20px');
 
     const resetAll = shadowRoot.querySelector('[data-hawk-eye-ui="secondary-button"]');
 
@@ -589,7 +595,7 @@ describe('DesignTool', () => {
     click(resetAll);
 
     expect(target.style.paddingTop).toBe('16px');
-    expect(target.style.borderRadius).toBe('14px');
+    expect(target.style.borderTopLeftRadius).toBe('14px');
     expect(shadowRoot.textContent).not.toContain('14px -> 20px');
     expect(shadowRoot.textContent).toContain('Live preview changes stay in this session only.');
     cleanup();
@@ -741,8 +747,8 @@ describe('DesignTool', () => {
     setElementFromPoint(host);
     click(getButtonControl(shadowRoot, 'textAlign-center'));
     updateInput(
-      getControl(shadowRoot, 'borderRadius') as InstanceType<typeof window.HTMLInputElement>,
-      '22'
+      getControl(shadowRoot, 'borderTopLeftRadius') as InstanceType<typeof window.HTMLInputElement>,
+      '22px'
     );
     updateInput(
       getControl(shadowRoot, 'boxShadow-blur') as InstanceType<typeof window.HTMLInputElement>,
@@ -754,7 +760,7 @@ describe('DesignTool', () => {
     expect(target.style.fontWeight).toBe('700');
     expect(target.style.fontSize).toBe('24px');
     expect(target.style.textAlign).toBe('center');
-    expect(target.style.borderRadius).toBe('22px');
+    expect(target.style.borderTopLeftRadius).toBe('22px');
     expect(target.style.boxShadow).toContain('20px');
     expect(target.style.boxShadow).toContain('inset');
     cleanup();
@@ -773,14 +779,19 @@ describe('DesignTool', () => {
     click(trigger);
     click(document);
 
+    // True non-focused controls still absent
     expect(shadowRoot.querySelector('[data-hawk-eye-control="property-search"]')).toBeNull();
-    expect(shadowRoot.querySelector('[data-hawk-eye-control="opacity-number"]')).toBeNull();
-    expect(shadowRoot.querySelector('[data-hawk-eye-control="display"]')).toBeNull();
-    expect(shadowRoot.querySelector('[data-hawk-eye-control="positionType"]')).toBeNull();
+    // opacity-number is the text input inside SliderInput for opacity (now in focused panel)
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="opacity-number"]')).not.toBeNull();
     expect(shadowRoot.querySelector('[data-hawk-eye-control="cursor"]')).toBeNull();
-    expect(shadowRoot.querySelector('[data-hawk-eye-control="fontFamily"]')).toBeNull();
-    expect(shadowRoot.querySelector('[data-hawk-eye-control="filter"]')).toBeNull();
-    expect(shadowRoot.querySelector('[data-hawk-eye-control="borderTopWidth"]')).toBeNull();
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="userSelect"]')).toBeNull();
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="overflow"]')).toBeNull();
+    // display, positionType, fontFamily, filter, borderTopWidth are now in the focused panel
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="display"]')).not.toBeNull();
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="positionType"]')).not.toBeNull();
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="fontFamily"]')).not.toBeNull();
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="filter"]')).not.toBeNull();
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="borderTopWidth"]')).not.toBeNull();
     cleanup();
   });
 

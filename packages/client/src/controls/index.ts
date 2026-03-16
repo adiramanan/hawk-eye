@@ -1,6 +1,8 @@
 export { BoxShadowInput } from './BoxShadowInput';
 export { ColorInput } from './ColorInput';
+export { ColorPicker } from './ColorPicker';
 export { NumberInput } from './NumberInput';
+export { PerCornerControl } from './PerCornerControl';
 export { PerSideControl } from './PerSideControl';
 export { SegmentedControl } from './SegmentedControl';
 export { SelectInput } from './SelectInput';

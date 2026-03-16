@@ -160,7 +160,14 @@ export type EditablePropertyGroupId =
   | 'effects'
   | 'layout';
 
-export type FocusedGroupId = 'layout' | 'fill' | 'typography' | 'design' | 'effects';
+export type FocusedGroupId =
+  | 'positionSize'
+  | 'autoLayout'
+  | 'spacing'
+  | 'fillOpacity'
+  | 'border'
+  | 'typography'
+  | 'effects';
 
 export type EditablePropertyControl =
   | 'text'

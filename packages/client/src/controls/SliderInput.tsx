@@ -18,7 +18,7 @@ export function SliderInput({ definition, snapshot, onChange }: SliderInputProps
         onChange={(event) => onChange(event.currentTarget.value)}
         step={String(definition.step ?? 0.01)}
         type="range"
-        value={snapshot.invalid ? snapshot.value : snapshot.inputValue || '0'}
+        value={snapshot.invalid ? snapshot.value : snapshot.inputValue || snapshot.baseline || '0'}
       />
       <input
         aria-label={`${definition.label} value`}
@@ -28,7 +28,7 @@ export function SliderInput({ definition, snapshot, onChange }: SliderInputProps
         onChange={(event) => onChange(event.currentTarget.value)}
         placeholder={definition.placeholder}
         type="number"
-        value={snapshot.inputValue}
+        value={snapshot.inputValue || snapshot.baseline}
       />
     </div>
   );

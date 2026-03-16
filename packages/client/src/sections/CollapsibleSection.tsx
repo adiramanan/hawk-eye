@@ -47,9 +47,9 @@ export function CollapsibleSection({
           </span>
         ) : null}
       </button>
-      {isExpanded ? (
-        <div data-hawk-eye-ui="collapsible-body">{children}</div>
-      ) : null}
+      <div data-expanded={isExpanded ? 'true' : 'false'} data-hawk-eye-ui="collapsible-body">
+        <div data-hawk-eye-ui="collapsible-body-inner">{children}</div>
+      </div>
     </section>
   );
 }
