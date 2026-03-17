@@ -46,6 +46,51 @@ function buildValue(raw: string, unit: string): string {
   return raw;
 }
 
+/** Chain-link icon (linked state) */
+function LinkIcon() {
+  return (
+    <svg fill="none" height="20" viewBox="0 0 20 20" width="20" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M8.5 11.5a4 4 0 0 0 5.66 0l2-2a4 4 0 0 0-5.66-5.66l-1.14 1.13"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.4"
+      />
+      <path
+        d="M11.5 8.5a4 4 0 0 0-5.66 0l-2 2a4 4 0 0 0 5.66 5.66l1.13-1.13"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.4"
+      />
+    </svg>
+  );
+}
+
+/** Broken chain-link icon (unlinked state) */
+function BrokenLinkIcon() {
+  return (
+    <svg fill="none" height="20" viewBox="0 0 20 20" width="20" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M9 5.5l.47-.47a4 4 0 0 1 5.66 5.66l-.47.47"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.4"
+      />
+      <path
+        d="M11 14.5l-.47.47a4 4 0 0 1-5.66-5.66l.47-.47"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.4"
+      />
+      <path d="M7 3v2M3 7h2M17 13h-2M13 17v-2" stroke="currentColor" strokeLinecap="round" strokeWidth="1.4" />
+    </svg>
+  );
+}
+
 export function PerSideControl({ label, sides, onChange }: PerSideProps) {
   const entries = [
     { key: 'top' as const, ...sides.top },
@@ -95,16 +140,6 @@ export function PerSideControl({ label, sides, onChange }: PerSideProps) {
     <div data-hawk-eye-ui="per-side-control">
       <span data-hawk-eye-ui="input-label">{label}</span>
       <div data-hawk-eye-ui="per-side-row">
-        <select
-          aria-label="All sides or each side"
-          data-hawk-eye-ui="select-input"
-          onChange={(e) => setLinked(e.currentTarget.value === 'all')}
-          value={linked ? 'all' : 'each'}
-        >
-          <option value="all">All</option>
-          <option value="each">Each</option>
-        </select>
-
         {linked ? (
           <div data-hawk-eye-ui="per-side-all-input">
             <input
@@ -120,12 +155,12 @@ export function PerSideControl({ label, sides, onChange }: PerSideProps) {
             <span data-hawk-eye-ui="input-unit-label">{allUnit}</span>
           </div>
         ) : (
-          <div data-hawk-eye-ui="per-side-each-inputs">
+          <div data-hawk-eye-ui="per-side-each-pills">
             {entries.map((entry) => {
               const unit = getUnit(entry.snapshot);
               const display = getNumericDisplay(entry.snapshot);
               return (
-                <div data-hawk-eye-ui="per-side-each-cell" key={entry.key}>
+                <div data-hawk-eye-ui="per-side-pill" key={entry.key}>
                   <input
                     aria-label={`${label} ${entry.key}`}
                     data-hawk-eye-control={entry.id}
@@ -168,6 +203,16 @@ export function PerSideControl({ label, sides, onChange }: PerSideProps) {
             })}
           </div>
         )}
+
+        <button
+          aria-label={linked ? 'Unlink sides' : 'Link all sides'}
+          data-hawk-eye-ui="link-toggle-btn"
+          data-linked={linked ? 'true' : 'false'}
+          onClick={() => setLinked(!linked)}
+          type="button"
+        >
+          {linked ? <LinkIcon /> : <BrokenLinkIcon />}
+        </button>
       </div>
     </div>
   );

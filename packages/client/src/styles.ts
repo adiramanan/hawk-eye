@@ -9,7 +9,7 @@ export const hawkEyeStyles = `
     --he-fg:              #fcfcfc;
     --he-label:           #bcbcbc;
     --he-muted:           #666;
-    --he-section-title:   #e9e9e9;
+    --he-section-title:   #bcbcbc;
     --he-accent:          #0d87f7;
     --he-dirty:           #f59e0b;
     --he-dirty-bg:        rgba(245, 158, 11, 0.12);
@@ -73,10 +73,10 @@ export const hawkEyeStyles = `
     display: flex;
     flex-direction: column;
     width: min(320px, calc(100vw - 32px));
-    height: min(var(--hawk-eye-panel-height, 792px), calc(100vh - 32px));
+    height: calc(100vh - 64px);
     min-width: min(320px, calc(100vw - 32px));
     max-width: min(320px, calc(100vw - 32px));
-    max-height: calc(100vh - 32px);
+    max-height: calc(100vh - 64px);
     overflow: hidden;
     border-radius: 20px;
     background: var(--he-bg);
@@ -564,7 +564,7 @@ export const hawkEyeStyles = `
     margin: 0;
     color: var(--he-section-title);
     font-family: var(--he-font-ui);
-    font-size: 13px;
+    font-size: 13.5px;
     font-weight: 500;
     letter-spacing: -0.25px;
     text-transform: none;
@@ -1248,11 +1248,11 @@ export const hawkEyeStyles = `
   /* ── Static (non-collapsible) section ───────────────────────────── */
 
   [data-hawk-eye-ui="static-section"] {
-    border-top: 1px solid var(--he-divider);
+    border-bottom: 1px solid var(--he-divider);
   }
 
-  [data-hawk-eye-ui="static-section"]:first-child {
-    border-top: none;
+  [data-hawk-eye-ui="static-section"]:last-child {
+    border-bottom: none;
   }
 
   [data-hawk-eye-ui="static-section-header"] {
@@ -1262,7 +1262,7 @@ export const hawkEyeStyles = `
   }
 
   [data-hawk-eye-ui="static-section-body"] {
-    padding: 0 16px 20px;
+    padding: 0 16px 16px;
   }
 
   /* ── (Legacy) collapsible section ───────────────────────────────── */
@@ -1403,33 +1403,27 @@ export const hawkEyeStyles = `
     box-shadow: none;
   }
 
-  /* "Each" mode: 4 cells in a single pill */
-  [data-hawk-eye-ui="per-side-each-inputs"] {
+  /* "Each" mode: 4 separate rounded pill inputs */
+  [data-hawk-eye-ui="per-side-each-pills"] {
     flex: 1;
     display: flex;
-    align-items: stretch;
-    background: var(--he-input);
-    border-radius: 8px;
-    overflow: hidden;
+    gap: 4px;
     min-width: 0;
-    min-height: 32px;
   }
 
-  [data-hawk-eye-ui="per-side-each-cell"] {
+  [data-hawk-eye-ui="per-side-pill"] {
     flex: 1;
     display: flex;
     align-items: center;
     gap: 4px;
+    background: var(--he-input);
+    border-radius: 8px;
     padding: 8px 6px;
-    border-right: 1px solid #4c4c4c;
     min-width: 0;
+    min-height: 32px;
   }
 
-  [data-hawk-eye-ui="per-side-each-cell"]:last-child {
-    border-right: none;
-  }
-
-  [data-hawk-eye-ui="per-side-each-cell"] [data-hawk-eye-ui="text-input"] {
+  [data-hawk-eye-ui="per-side-pill"] [data-hawk-eye-ui="text-input"] {
     flex: 1;
     min-width: 0;
     background: transparent;
@@ -1439,6 +1433,41 @@ export const hawkEyeStyles = `
     min-height: 0;
     box-shadow: none;
     font-size: 12px;
+  }
+
+  /* Link / Broken-link toggle button for per-side controls */
+  [data-hawk-eye-ui="link-toggle-btn"] {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    padding: 6px;
+    border: none;
+    border-radius: 8px;
+    background: #3b3b3b;
+    color: #bcbcbc;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+
+  [data-hawk-eye-ui="link-toggle-btn"][data-linked="true"] {
+    background: #e1f1ff;
+    color: #0d87f7;
+  }
+
+  [data-hawk-eye-ui="link-toggle-btn"]:hover {
+    background: #4a4a4a;
+  }
+
+  [data-hawk-eye-ui="link-toggle-btn"][data-linked="true"]:hover {
+    background: #c4e4ff;
+  }
+
+  [data-hawk-eye-ui="link-toggle-btn"] svg {
+    width: 20px;
+    height: 20px;
   }
 
   /* Unit label: muted "px" / "em" etc */
@@ -1562,39 +1591,6 @@ export const hawkEyeStyles = `
     height: 100%;
   }
 
-  [data-hawk-eye-ui="corner-radius-section"] {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  [data-hawk-eye-ui="corner-radius-header"] {
-    font-size: 11.5px;
-    color: var(--he-label);
-    font-weight: 400;
-  }
-
-  [data-hawk-eye-ui="corner-radius-controls"] {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  [data-hawk-eye-ui="radius-mode-select"] {
-    padding: 8px 10px;
-    border: none;
-    border-radius: 8px;
-    background: #3b3b3b;
-    color: white;
-    font-size: 13.5px;
-    font-family: var(--he-font-ui);
-    cursor: pointer;
-    min-width: 68px;
-  }
-
-  [data-hawk-eye-ui="radius-mode-select"]:hover {
-    background: #4a4a4a;
-  }
 
   [data-hawk-eye-ui="size-input-wrapper"] {
     display: flex;
@@ -1790,7 +1786,7 @@ export const hawkEyeStyles = `
     background: var(--he-input);
     border-radius: 8px;
     overflow: hidden;
-    padding: 2px;
+    padding: 0;
   }
 
   [data-hawk-eye-ui="icon-seg-btn"] {
@@ -1798,10 +1794,10 @@ export const hawkEyeStyles = `
     flex: 1;
     align-items: center;
     justify-content: center;
-    height: 28px;
-    padding: 0;
+    height: 32px;
+    padding: 6px 4px;
     border: 0;
-    border-radius: 6px;
+    border-radius: 8px;
     background: transparent;
     color: var(--he-label);
     cursor: pointer;
@@ -1816,8 +1812,8 @@ export const hawkEyeStyles = `
   [data-hawk-eye-ui="icon-seg-btn"][data-active="true"] {
     background: #ffffff;
     color: #111111;
-    border: 1px solid #595959;
-    border-radius: 6px;
+    border: none;
+    border-radius: 8px;
   }
 
   /* ── Compact card (individual property in new panel) ──────────── */

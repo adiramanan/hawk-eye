@@ -127,6 +127,7 @@ export type EditablePropertyId =
   | 'borderTopRightRadius'
   | 'borderBottomRightRadius'
   | 'borderBottomLeftRadius'
+  | 'mixBlendMode'
   | 'overflow'
   | 'visibility'
   // Fill
@@ -263,6 +264,7 @@ export interface ElementContext {
   hasDirectText: boolean;           // non-whitespace direct text-node child
   hasNonDefaultTypography: boolean; // computed font/text CSS differs from body defaults
   isReplaced: boolean;              // img, video, canvas, iframe, input, select, textarea
+  parentDisplay: string;            // parent element's computed display value (e.g. 'flex', 'grid', 'block')
 }
 
 export interface SelectionDraft extends SelectionDetails {

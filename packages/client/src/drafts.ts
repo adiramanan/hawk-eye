@@ -108,12 +108,59 @@ function applySizeModeMetadata(
   element.style.setProperty(cssProperty, snapshot.value);
 }
 
+function isFlexFillOnAxis(
+  element: HTMLElement,
+  axis: SizeAxis,
+  properties: SelectionDraft['properties']
+): boolean {
+  const parent = element.parentElement;
+  if (!parent) return false;
+
+  const parentStyle = window.getComputedStyle(parent);
+  const parentDisplay = parentStyle.display;
+  if (parentDisplay !== 'flex' && parentDisplay !== 'inline-flex') return false;
+
+  const parentDirection = parentStyle.flexDirection;
+  const isMainAxis =
+    (axis === 'width' && (parentDirection === 'row' || parentDirection === 'row-reverse')) ||
+    (axis === 'height' && (parentDirection === 'column' || parentDirection === 'column-reverse'));
+
+  if (isMainAxis) {
+    // Main axis fill: flex-grow > 0
+    const grow = parseFloat(properties.flexGrow?.baseline ?? '0');
+    return grow > 0;
+  }
+
+  // Cross axis fill: align-self: stretch (or parent align-items: stretch with self: auto)
+  const selfAlign = properties.alignSelf?.baseline ?? 'auto';
+  if (selfAlign === 'stretch') return true;
+  if (selfAlign === 'auto') {
+    return parentStyle.alignItems === 'stretch';
+  }
+
+  return false;
+}
+
 function buildSizeControlState(element: HTMLElement, properties: SelectionDraft['properties']): SizeControlState {
   const rect = element.getBoundingClientRect();
   const widthInlineMode = readSizeModeMetadataValue(element, 'width');
   const heightInlineMode = readSizeModeMetadataValue(element, 'height');
-  const widthBaselineMode = inferSizeMode('width', properties.width.baseline, widthInlineMode);
-  const heightBaselineMode = inferSizeMode('height', properties.height.baseline, heightInlineMode);
+
+  let widthBaselineMode = inferSizeMode('width', properties.width.baseline, widthInlineMode);
+  let heightBaselineMode = inferSizeMode('height', properties.height.baseline, heightInlineMode);
+
+  // Detect flex-based fill: if parent is flex and this child is growing/stretching,
+  // report size mode as 'fill' even though width/height may be 'auto'
+  try {
+    if (widthBaselineMode === 'fixed' && isFlexFillOnAxis(element, 'width', properties)) {
+      widthBaselineMode = 'fill';
+    }
+    if (heightBaselineMode === 'fixed' && isFlexFillOnAxis(element, 'height', properties)) {
+      heightBaselineMode = 'fill';
+    }
+  } catch {
+    // Ignore — getComputedStyle may fail in some environments
+  }
 
   return {
     aspectRatio: null,
@@ -182,7 +229,17 @@ function buildElementContext(element: HTMLElement): ElementContext {
     // Ignore errors from getComputedStyle (e.g., in jsdom with isolated contexts)
   }
 
-  return { tagName, isTextElement, hasDirectText, hasNonDefaultTypography, isReplaced };
+  // Detect parent display for context-aware child property visibility
+  let parentDisplay = 'block';
+  try {
+    if (typeof window !== 'undefined' && element.parentElement) {
+      parentDisplay = window.getComputedStyle(element.parentElement).display || 'block';
+    }
+  } catch {
+    // Ignore errors
+  }
+
+  return { tagName, isTextElement, hasDirectText, hasNonDefaultTypography, isReplaced, parentDisplay };
 }
 
 export function createSelectionDraft(

@@ -636,17 +636,62 @@ function DesignToolRuntime() {
         );
       }
 
-      const nextValue =
-        mode === 'hug'
-          ? 'fit-content'
-          : mode === 'fill'
-            ? '100%'
-            : getNumericMemoryValue(
-                axis,
-                mode,
-                getSizeModeMemoryState(nextSizeControl, axis),
-                getMeasuredAxisSize(measuredRect, axis)
-              );
+      // Detect parent layout context for smart "fill" behavior
+      const parentDisplay = element.parentElement
+        ? window.getComputedStyle(element.parentElement).display
+        : 'block';
+      const parentIsFlex = parentDisplay === 'flex' || parentDisplay === 'inline-flex';
+      const parentIsGrid = parentDisplay === 'grid' || parentDisplay === 'inline-grid';
+
+      // Determine if this axis is the main axis of the parent flex container
+      const parentFlexDirection = parentIsFlex && element.parentElement
+        ? window.getComputedStyle(element.parentElement).flexDirection
+        : '';
+      const isMainAxis =
+        (parentFlexDirection === 'row' && axis === 'width') ||
+        (parentFlexDirection === 'column' && axis === 'height') ||
+        (parentFlexDirection === 'row-reverse' && axis === 'width') ||
+        (parentFlexDirection === 'column-reverse' && axis === 'height');
+      const isCrossAxis = parentIsFlex && !isMainAxis;
+
+      let nextValue: string;
+      let extraProperties: Record<string, string> = {};
+
+      if (mode === 'hug') {
+        nextValue = 'fit-content';
+        // When switching to hug, reset flex child properties
+        if (parentIsFlex) {
+          extraProperties = { flexGrow: '0', flexShrink: '1', flexBasis: 'auto' };
+          if (isCrossAxis) extraProperties.alignSelf = 'auto';
+        }
+      } else if (mode === 'fill') {
+        if (parentIsFlex && isMainAxis) {
+          // Main-axis fill: use flex-grow instead of width/height: 100%
+          nextValue = 'auto';
+          extraProperties = { flexGrow: '1', flexBasis: '0px' };
+        } else if (parentIsFlex && isCrossAxis) {
+          // Cross-axis fill: use align-self: stretch
+          nextValue = 'auto';
+          extraProperties = { alignSelf: 'stretch' };
+        } else if (parentIsGrid) {
+          // Grid children stretch by default; auto is sufficient
+          nextValue = 'auto';
+        } else {
+          nextValue = '100%';
+        }
+      } else {
+        nextValue = getNumericMemoryValue(
+          axis,
+          mode,
+          getSizeModeMemoryState(nextSizeControl, axis),
+          getMeasuredAxisSize(measuredRect, axis)
+        );
+        // When switching to fixed, reset flex child overrides
+        if (parentIsFlex) {
+          extraProperties = { flexGrow: '0', flexBasis: 'auto' };
+          if (isCrossAxis) extraProperties.alignSelf = 'auto';
+        }
+      }
 
       const nextSnapshot = applyDraftInputValue(
         element,
@@ -654,6 +699,24 @@ function DesignToolRuntime() {
         currentDraft.properties[propertyId],
         nextValue
       );
+
+      // Apply extra flex/grid child properties
+      let nextProperties = {
+        ...currentDraft.properties,
+        [propertyId]: nextSnapshot,
+      };
+      for (const [extraId, extraValue] of Object.entries(extraProperties)) {
+        const extraPropId = extraId as EditablePropertyId;
+        if (currentDraft.properties[extraPropId]) {
+          const extraSnapshot = applyDraftInputValue(
+            element,
+            extraPropId,
+            currentDraft.properties[extraPropId],
+            extraValue
+          );
+          nextProperties = { ...nextProperties, [extraPropId]: extraSnapshot };
+        }
+      }
 
       nextSizeControl = setSizeModeSnapshot(nextSizeControl, axis, {
         ...currentModeSnapshot,
@@ -675,10 +738,7 @@ function DesignToolRuntime() {
 
       const updatedDraft = {
         ...currentDraft,
-        properties: {
-          ...currentDraft.properties,
-          [propertyId]: nextSnapshot,
-        },
+        properties: nextProperties,
         sizeControl: nextSizeControl,
       };
       nextDraft = updatedDraft;

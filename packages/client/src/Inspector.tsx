@@ -43,10 +43,10 @@ const PANEL_WIDTH = 320;
 const PANEL_VIEWPORT_GUTTER = 24;
 
 function getDefaultPanelPos() {
-  if (typeof window === 'undefined') return { x: 24, y: 24 };
+  if (typeof window === 'undefined') return { x: 24, y: 16 };
   return {
     x: Math.max(PANEL_VIEWPORT_GUTTER, window.innerWidth - PANEL_WIDTH - PANEL_VIEWPORT_GUTTER),
-    y: PANEL_VIEWPORT_GUTTER,
+    y: 16,
   };
 }
 
@@ -167,7 +167,10 @@ export function Inspector({
   onToggle,
 }: InspectorProps) {
   const [panelPos, setPanelPos] = useState(getDefaultPanelPos);
-  const [panelSize, setPanelSize] = useState<PanelSize>({ height: PANEL_HEIGHT, width: PANEL_WIDTH });
+  const [panelSize, setPanelSize] = useState<PanelSize>(() => ({
+    height: typeof window !== 'undefined' ? window.innerHeight - 64 : PANEL_HEIGHT,
+    width: PANEL_WIDTH,
+  }));
   const [view, setView] = useState<InspectorView>('properties');
   const dragStateRef = useRef<DragState | null>(null);
   const activeMeasurement = selected ?? hovered;
@@ -366,15 +369,6 @@ export function Inspector({
             {view !== 'changes' && (
               <div data-hawk-eye-ui="panel-tabs">
                 <button
-                  data-active={view === 'properties' ? 'true' : 'false'}
-                  data-hawk-eye-ui="panel-tab"
-                  onClick={() => setView('properties')}
-                  type="button"
-                >
-                  <span data-hawk-eye-ui="panel-tab-icon">{renderTabIcon('properties')}</span>
-                  Properties
-                </button>
-                <button
                   data-active={view === 'layers' ? 'true' : 'false'}
                   data-hawk-eye-ui="panel-tab"
                   onClick={() => setView('layers')}
@@ -382,6 +376,15 @@ export function Inspector({
                 >
                   <span data-hawk-eye-ui="panel-tab-icon">{renderTabIcon('layers')}</span>
                   Layers
+                </button>
+                <button
+                  data-active={view === 'properties' ? 'true' : 'false'}
+                  data-hawk-eye-ui="panel-tab"
+                  onClick={() => setView('properties')}
+                  type="button"
+                >
+                  <span data-hawk-eye-ui="panel-tab-icon">{renderTabIcon('properties')}</span>
+                  Properties
                 </button>
               </div>
             )}
