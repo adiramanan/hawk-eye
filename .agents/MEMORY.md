@@ -112,13 +112,16 @@ packages/vite-plugin/src/
   - Session-scoped draft accumulation and reset behavior
   - Search, keyboard navigation, resizable panel
 
-- **Phase 3 (Designer-Friendly Editor + Code Writers + Save-to-Branch):** IN PROGRESS
+- **Phase 3 (Designer-Friendly Editor + Code Writers + Save-to-Branch):** COMPLETE (3.1–3.6, UI Refinement, 3.9–3.10)
   - 3.1: Focused 15-property subset with Figma-style sections (Layout/Fill/Typography/Design/Effects)
   - 3.2: Server-side style strategy detection (Tailwind vs inline vs mixed)
   - 3.3: Bidirectional Tailwind CSS-to-class mapping
   - 3.4: AST mutation writer using ts-morph
   - 3.5: Detach-from-classes toggle (like Figma's detach instance)
   - 3.6: Save-to-branch workflow (git branch + commit + switch back)
+  - UI Refinement: Figma design parity for PropertiesPanel (2026-03-16)
+  - 3.9: Complete Properties Panel (all 6 MVP sections visible)
+  - 3.10: Size & Spacing section redesign with Fixed/Hug/Fill modes (2026-03-17) — "kind of working" status
 
 - **Phase 4 (Polish):** NOT STARTED
   - Edge case handling
@@ -138,15 +141,42 @@ packages/vite-plugin/src/
 
 ---
 
+## Phase 3.10 Key Learnings
+
+### SizeInput Component (Fixed/Hug/Fill Pattern)
+- **CSS value mapping:** Hug → `fit-content`, Fill → `100%`, Fixed → numeric value (e.g. `200px`, `50%`, `10rem`)
+- **Mode detection:** Check `value === 'fit-content'` for Hug, `value === '100%'` for Fill, else Fixed
+- **Conditional rendering:** Show numeric value + unit inputs **only** when in Fixed mode; Hug/Fill hide these inputs
+- **Native selects are reliable:** Custom absolutely-positioned dropdown menus have event propagation issues (clicks don't register reliably). Switched to native `<select>` elements — more robust, matches browser expectations
+- **Arrow key incrementing:** Support ↑/↓ with optional Shift for 10x multiplier (similar to Figma number inputs)
+- **Unit handling in SizeInput:**
+  - Display: strip unit from value, show just the number in the input
+  - On change: re-append the selected unit to the number
+  - This pattern prevents unit confusion and allows easy unit switching
+
+### Corner Radius All/Each Toggle
+- Simple React `useState('all' | 'each')` for mode tracking
+- All mode: single input applies to all corners
+- Each mode: 4 separate inputs for each corner (topLeft, topRight, bottomRight, bottomLeft)
+- Layout: Each mode shows `[0px|0px|0px|0px]` pill with `#4c4c4c` dividers (borrowed from PerSideControl pattern)
+
+### Size & Spacing Section Merge
+- Combined Frame (positionSize) + Spacing into single "Size & Spacing" section
+- Order: W/H with modes → Corner Radius → Position type → X/Y → Padding → Margin
+- Aspect ratio lock button (32x32px, #e1f1ff background) is a UI placeholder — no constraint enforcement logic yet
+
 ## Phase 3 Key Patterns
 
-### Focused Property Set
-15 properties in 5 Figma-style groups:
-- **Layout** (8): paddingTop/Right/Bottom/Left, marginTop/Right/Bottom/Left
-- **Fill** (2): backgroundColor, color
-- **Typography** (3): fontSize, fontWeight, textAlign
-- **Design** (1): borderRadius
-- **Effects** (1): boxShadow
+### Focused Property Set (as of 2026-03-17)
+3 sections visible in the panel (expanded from the original 5 Figma-style groups):
+
+| Section    | Properties | Count |
+|------------|-----------|-------|
+| Appearance | backgroundColor, opacity, borderRadius + 4 corner radii | 7 |
+| Typography | fontFamily, fontSize, fontWeight, lineHeight, letterSpacing, textAlign | 6 |
+| Border     | borderStyle, borderColor, strokeDasharray, borderTopWidth, borderRightWidth, borderBottomWidth, borderLeftWidth | 7 |
+
+The original Layout/Fill/Typography/Design/Effects groupings still exist in `focusedGroupMembers` for the save/write pipeline — only the UI surface changed.
 
 ### Style Strategy Detection
 - Server-side ts-morph analysis of JSX source at `line:column`
@@ -178,7 +208,27 @@ packages/vite-plugin/src/
 ### Parallelism
 Phases 3.1, 3.2, 3.3 can run fully in parallel (no dependencies between them). Phase 3.4 depends on 3.2 + 3.3. Phase 3.5 depends on 3.1 + 3.4. Phase 3.6 depends on 3.4.
 
+### styles.ts
+Currently a single file (~1750 lines). Decision D14 calls for splitting into `styles/base.ts`, `styles/controls.ts`, `styles/sections.ts`, `styles/index.ts`. This is overdue — treat it as Phase 4 item 1. The combined export `hawkEyeStyles` must not change.
+
 ---
 
+## UI / CSS Gotchas (added 2026-03-16)
+
+### `backdrop-filter` breaks `position: fixed` children
+`backdrop-filter` (non-`none`) on an ancestor creates a containing block for `position: fixed` descendants — children are positioned relative to that ancestor, not the viewport. The ColorPicker uses `position: fixed` for its popover. **Fix:** Move `backdrop-filter` to a `::before` pseudo-element with `position: absolute; inset: 0; z-index: -1`. The visual blur is identical, but fixed children escape correctly.
+
+### CSS `[attr="val"]` is exact-match
+`data-hawk-eye-ui="compact-row typo-weight-size"` will NOT match `[data-hawk-eye-ui="compact-row"]`. Use `[data-hawk-eye-ui~="val"]` for space-separated multi-value, or keep the attribute single-valued. All current `data-hawk-eye-ui` values are single tokens.
+
+### `input-unit-label` token
+A static muted unit suffix (`color: var(--he-label); font-size: 13px; letter-spacing: -0.25px`) used next to transparent number inputs inside a container pill. Used in `PerSideControl` and `DashGapCard`.
+
+### PerSideControl pattern (as of 2026-03-16)
+Renders `[All/Each <select>] [single-value pill OR 4-cell pill]`. Select uses `data-hawk-eye-ui="select-input"` with a `per-side-row > select-input` override for `max-width: 72px`. Each cell in "Each" mode is separated by `border-right: 1px solid #4c4c4c` with `:last-child { border-right: none }`. The inner `text-input` is transparent/borderless; the container provides the background.
+
+### Color input pattern (as of 2026-03-16)
+`color-row` is the styled container (`bg var(--he-input); border-radius: 8px; padding: 8px; border: 1px solid transparent`). Swatch is 16×16px inside. Inner `text-input` is transparent with no border. Dirty/invalid border states target `color-row`, not the inner input. An explicit override resets the inner input back to transparent when its parent `compact-card` is dirty.
+
 ## Last Updated
-2026-03-12 (Phase 3 complete)
+2026-03-17 (Phase 3.10 Size & Spacing redesign complete)

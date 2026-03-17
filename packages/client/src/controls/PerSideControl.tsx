@@ -21,31 +21,53 @@ interface PerSideProps {
 }
 
 function areLinked(entries: PerSideEntry[]) {
-  if (entries.length === 0) {
-    return true;
-  }
-
-  return entries.every((entry) => entry.snapshot.value === entries[0].snapshot.value);
+  if (entries.length === 0) return true;
+  return entries.every((e) => e.snapshot.value === entries[0].snapshot.value);
 }
 
-export function PerSideControl({ label, sides, onChange, onReset }: PerSideProps) {
+function getUnit(snapshot: PropertySnapshot): string {
+  return (
+    parseCssValue(snapshot.inputValue.trim())?.unit ??
+    parseCssValue(snapshot.value.trim())?.unit ??
+    'px'
+  );
+}
+
+function getNumericDisplay(snapshot: PropertySnapshot): string {
+  const trimmed = snapshot.inputValue.trim();
+  const parsed = parseCssValue(trimmed);
+  if (parsed) return String(parsed.number);
+  return snapshot.inputValue;
+}
+
+function buildValue(raw: string, unit: string): string {
+  const trimmed = raw.trim();
+  if (/^-?(?:\d+|\d*\.\d*)$/.test(trimmed)) return `${trimmed}${unit}`;
+  return raw;
+}
+
+export function PerSideControl({ label, sides, onChange }: PerSideProps) {
   const entries = [
-    { key: 'top' as const, label: 'T', ...sides.top },
-    { key: 'right' as const, label: 'R', ...sides.right },
-    { key: 'bottom' as const, label: 'B', ...sides.bottom },
-    { key: 'left' as const, label: 'L', ...sides.left },
+    { key: 'top' as const, ...sides.top },
+    { key: 'right' as const, ...sides.right },
+    { key: 'bottom' as const, ...sides.bottom },
+    { key: 'left' as const, ...sides.left },
   ];
+
   const [linked, setLinked] = useState(() =>
-    areLinked(entries.map((entry) => ({ id: entry.id, snapshot: entry.snapshot })))
+    areLinked(entries.map((e) => ({ id: e.id, snapshot: e.snapshot })))
   );
 
   const allSnapshot = sides.top.snapshot;
+  const allUnit = getUnit(allSnapshot);
+  const allDisplay = getNumericDisplay(allSnapshot);
 
-  function handleAllChange(value: string) {
-    onChange(sides.top.id, value);
-    onChange(sides.right.id, value);
-    onChange(sides.bottom.id, value);
-    onChange(sides.left.id, value);
+  function handleAllChange(raw: string) {
+    const val = buildValue(raw, allUnit);
+    onChange(sides.top.id, val);
+    onChange(sides.right.id, val);
+    onChange(sides.bottom.id, val);
+    onChange(sides.left.id, val);
   }
 
   function handleAllKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -57,100 +79,96 @@ export function PerSideControl({ label, sides, onChange, onReset }: PerSideProps
     if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
       e.preventDefault();
       const step = e.shiftKey ? 10 : 1;
-      const parsed = parseCssValue(allSnapshot.inputValue.trim()) ?? parseCssValue(allSnapshot.value.trim());
+      const parsed =
+        parseCssValue(allSnapshot.inputValue.trim()) ??
+        parseCssValue(allSnapshot.value.trim());
       if (parsed) {
-        const next = e.key === 'ArrowUp' ? parsed.number + step : parsed.number - step;
+        const next =
+          e.key === 'ArrowUp' ? parsed.number + step : parsed.number - step;
         handleAllChange(formatCssValue(Math.max(0, next), parsed.unit || 'px'));
       }
-      return;
     }
-    if (e.key === 'Enter') {
-      e.currentTarget.blur();
-    }
+    if (e.key === 'Enter') e.currentTarget.blur();
   }
 
   return (
     <div data-hawk-eye-ui="per-side-control">
-      <div data-hawk-eye-ui="per-side-header">
-        <span data-hawk-eye-ui="per-side-label">{label}</span>
-        <button
-          aria-label={linked ? 'Edit sides independently' : 'Link sides together'}
-          data-active={linked ? 'true' : 'false'}
-          data-hawk-eye-ui="per-side-link"
-          onClick={() => setLinked(!linked)}
-          type="button"
+      <span data-hawk-eye-ui="input-label">{label}</span>
+      <div data-hawk-eye-ui="per-side-row">
+        <select
+          aria-label="All sides or each side"
+          data-hawk-eye-ui="select-input"
+          onChange={(e) => setLinked(e.currentTarget.value === 'all')}
+          value={linked ? 'all' : 'each'}
         >
-          {linked ? 'All' : 'Each'}
-        </button>
-      </div>
+          <option value="all">All</option>
+          <option value="each">Each</option>
+        </select>
 
-      {linked ? (
-        <input
-          aria-label={`${label} all sides`}
-          data-hawk-eye-ui="text-input"
-          onChange={(e) => handleAllChange(e.currentTarget.value)}
-          onFocus={(e) => e.currentTarget.select()}
-          onKeyDown={handleAllKeyDown}
-          placeholder="0px"
-          type="text"
-          value={allSnapshot.inputValue}
-        />
-      ) : (
-        <div data-hawk-eye-ui="per-side-inputs">
-          {entries.map((entry) => (
-            <div
-              data-dirty={entry.snapshot.value !== entry.snapshot.baseline ? 'true' : 'false'}
-              data-hawk-eye-ui="per-side-cell"
-              data-invalid={entry.snapshot.invalid ? 'true' : 'false'}
-              data-property-id={entry.id}
-              key={entry.key}
-            >
-              <label data-hawk-eye-ui="per-side-input-wrap">
-                <span data-hawk-eye-ui="per-side-input-label">{entry.label}</span>
-                <input
-                  aria-label={`${label} ${entry.label}`}
-                  data-hawk-eye-control={entry.id}
-                  data-hawk-eye-ui="text-input"
-                  onChange={(event) => onChange(entry.id, event.currentTarget.value)}
-                  onFocus={(e) => e.currentTarget.select()}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Escape') {
-                      onChange(entry.id, entry.snapshot.value);
-                      e.currentTarget.blur();
-                    } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-                      e.preventDefault();
-                      const step = e.shiftKey ? 10 : 1;
-                      const parsed = parseCssValue(entry.snapshot.inputValue.trim()) ?? parseCssValue(entry.snapshot.value.trim());
-                      if (parsed) {
-                        const next = e.key === 'ArrowUp' ? parsed.number + step : parsed.number - step;
-                        onChange(entry.id, formatCssValue(Math.max(0, next), parsed.unit || 'px'));
-                      }
-                    } else if (e.key === 'Enter') {
-                      e.currentTarget.blur();
+        {linked ? (
+          <div data-hawk-eye-ui="per-side-all-input">
+            <input
+              aria-label={`${label} all sides`}
+              data-hawk-eye-ui="text-input"
+              onChange={(e) => handleAllChange(e.currentTarget.value)}
+              onFocus={(e) => e.currentTarget.select()}
+              onKeyDown={handleAllKeyDown}
+              placeholder="0"
+              type="text"
+              value={allDisplay}
+            />
+            <span data-hawk-eye-ui="input-unit-label">{allUnit}</span>
+          </div>
+        ) : (
+          <div data-hawk-eye-ui="per-side-each-inputs">
+            {entries.map((entry) => {
+              const unit = getUnit(entry.snapshot);
+              const display = getNumericDisplay(entry.snapshot);
+              return (
+                <div data-hawk-eye-ui="per-side-each-cell" key={entry.key}>
+                  <input
+                    aria-label={`${label} ${entry.key}`}
+                    data-hawk-eye-control={entry.id}
+                    data-hawk-eye-ui="text-input"
+                    onChange={(e) =>
+                      onChange(entry.id, buildValue(e.currentTarget.value, unit))
                     }
-                  }}
-                  placeholder="0px"
-                  type="text"
-                  value={entry.snapshot.inputValue}
-                />
-              </label>
-              {entry.snapshot.value !== entry.snapshot.baseline ? (
-                <button
-                  data-hawk-eye-control={`${entry.id}-reset`}
-                  data-hawk-eye-ui="per-side-reset"
-                  onClick={() => {
-                    setLinked(false);
-                    onReset?.(entry.id);
-                  }}
-                  type="button"
-                >
-                  Reset
-                </button>
-              ) : null}
-            </div>
-          ))}
-        </div>
-      )}
+                    onFocus={(e) => e.currentTarget.select()}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') {
+                        onChange(entry.id, entry.snapshot.value);
+                        e.currentTarget.blur();
+                      } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        const step = e.shiftKey ? 10 : 1;
+                        const parsed =
+                          parseCssValue(entry.snapshot.inputValue.trim()) ??
+                          parseCssValue(entry.snapshot.value.trim());
+                        if (parsed) {
+                          const next =
+                            e.key === 'ArrowUp'
+                              ? parsed.number + step
+                              : parsed.number - step;
+                          onChange(
+                            entry.id,
+                            formatCssValue(Math.max(0, next), parsed.unit || 'px')
+                          );
+                        }
+                      } else if (e.key === 'Enter') {
+                        e.currentTarget.blur();
+                      }
+                    }}
+                    placeholder="0"
+                    type="text"
+                    value={display}
+                  />
+                  <span data-hawk-eye-ui="input-unit-label">{unit}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

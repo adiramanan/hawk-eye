@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import type { EditablePropertyDefinition, PropertySnapshot } from '../types';
+import { parseColor, rgbaToHex } from '../utils/color';
 import { ColorPicker } from './ColorPicker';
 
 interface ColorInputProps {
@@ -8,10 +9,27 @@ interface ColorInputProps {
   onChange(value: string): void;
 }
 
+function normalizeColorDisplay(value: string): string {
+  // Always display colors in hex format for consistency
+  const parsed = parseColor(value);
+  if (parsed) {
+    // Return hex format with alpha channel if needed
+    const hex = rgbaToHex(parsed);
+    if (parsed.a < 1) {
+      return hex; // rgbaToHex includes alpha in hex format
+    }
+    return hex;
+  }
+  return value; // fallback to original if parsing fails
+}
+
 export function ColorInput({ definition, snapshot, onChange }: ColorInputProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const anchorRectRef = useRef<DOMRect | null>(null);
   const swatchRef = useRef<HTMLSpanElement>(null);
+
+  const displayValue = snapshot.inputValue || snapshot.baseline;
+  const normalizedDisplay = normalizeColorDisplay(displayValue);
 
   function handleSwatchClick() {
     if (swatchRef.current) {
@@ -32,7 +50,7 @@ export function ColorInput({ definition, snapshot, onChange }: ColorInputProps) 
           <span
             data-hawk-eye-ui="color-swatch"
             ref={swatchRef}
-            style={{ backgroundColor: snapshot.inputValue || snapshot.baseline || 'transparent' }}
+            style={{ backgroundColor: displayValue || 'transparent' }}
           />
         </button>
         <input
@@ -42,7 +60,7 @@ export function ColorInput({ definition, snapshot, onChange }: ColorInputProps) 
           onChange={(event) => onChange(event.currentTarget.value)}
           placeholder={definition.placeholder}
           type="text"
-          value={snapshot.inputValue || snapshot.baseline}
+          value={normalizedDisplay}
         />
       </div>
       {pickerOpen && anchorRectRef.current && (
@@ -50,7 +68,7 @@ export function ColorInput({ definition, snapshot, onChange }: ColorInputProps) 
           anchorRect={anchorRectRef.current}
           onChange={onChange}
           onClose={() => setPickerOpen(false)}
-          value={snapshot.inputValue || snapshot.baseline}
+          value={displayValue}
         />
       )}
     </>

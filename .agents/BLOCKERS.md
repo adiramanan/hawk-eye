@@ -1,7 +1,23 @@
 # Known Blockers, Issues & Workarounds
 
 ## Current Blockers
-(None yet — updated as development progresses)
+(None blocking Phase 3.8 or later development)
+
+### Phase 3.10 Known Issues (non-blocking, refinement queue)
+**Issue:** SizeInput component "kind of working" — basic functionality present but edge cases need testing/refinement
+**Status:** In Progress (Phase 3.10 complete, but refinement deferred to Phase 4)
+**Scope:**
+- Mode switching (Fixed/Hug/Fill) may have latency or visual artifacts
+- Value persistence when switching between modes
+- Unit selection edge cases
+- Aspect ratio lock button visual state persistence
+- Corner Radius All/Each toggle possible layout edge cases
+
+**Recommended Refinement Steps:**
+1. Manual testing of rapid mode switching, input clearing, unit changes
+2. jsdom test coverage for SizeInput in Phase 4
+3. Edge case testing for corner radius with different property names
+4. Verify aspect ratio button click responsiveness
 
 ## Resolved Blockers
 (Archived blockers will be listed here for reference)

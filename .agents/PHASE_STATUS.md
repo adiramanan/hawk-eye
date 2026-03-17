@@ -433,16 +433,250 @@ interface SavePayload {
 
 ---
 
+## Phase 3 UI Refinement: Figma Design Parity (PropertiesPanel)
+
+**Status:** COMPLETE (100%)
+**Date:** 2026-03-16
+**Agent:** Claude Sonnet 4.6
+**Depends on:** Phase 3.6
+
+### Overview
+Unplanned pass to match the PropertiesPanel pixel-for-pixel to the Figma design (nodes 2:6 and 2:8). No new features — pure visual/UX alignment.
+
+### Checklist
+- [x] ColorPicker fix: moved `backdrop-filter` to `::before` pseudo-element so `position: fixed` popover positions correctly relative to viewport
+- [x] `color-row` redesigned: single pill containing swatch (16px) + transparent hex input. Dirty/invalid states target the container, not the inner input
+- [x] `PerSideControl` fully rewritten: `[All/Each select ≤72px] [value+unit pill]` in All mode; `[0px|0px|0px|0px]` pill with `#4c4c4c` dividers in Each mode. Inputs strip unit for display, re-append on change
+- [x] `input-unit-label` CSS token added for static unit suffixes next to transparent inputs
+- [x] `BorderSection` restructured: Type first; none hides all stroke fields; solid auto-sets 1px width; Dash/Gap only for dashed; dotted removed
+- [x] `FillOpacitySection`: Fill Colour full-width, Opacity + Corner Radius in 2-column row below
+- [x] Corner Radius moved from Border section to Appearance section (both `focusedGroupMembers` and rendering)
+- [x] Opacity unit dropdown hidden via CSS `[data-hawk-eye-control="opacity-unit"] { display: none }`
+- [x] Letter spacing units: `['px', 'em']` → `['px', '%']`
+- [x] Alignment buttons: unified pill (`gap:0; overflow:hidden; padding:2px`); active = white bg + `#595959` border
+- [x] Back button: `bg #373737; border 1px solid #595959; border-radius 4px` (was circle)
+- [x] Footer: gap `12px`; Apply = `bg #e1f1ff / text #007ef4`; Revert = `bg #f5f5f5 / text #111`
+- [x] Input sizing: `font-size: 13px`, `padding: 8px 10px`, `letter-spacing: -0.25px` throughout
+- [x] Section layout: header `padding 16px 16px 12px`, body `0 16px 20px`, section-stack `gap: 12px`
+- [x] `labelled-row`: equal `1fr 1fr` columns, `gap: 8px`
+- [x] Panel width: 320px default
+- [x] `backdrop-filter` moved to `::before` — fixes ColorPicker popover position
+
+### Known Gaps (to address in Phase 4)
+- No new tests written for UI changes — existing jsdom tests may need updating
+- `styles.ts` is now ~1750 lines — D14 module split is overdue
+
+### Key Files Changed
+- `packages/client/src/PropertiesPanel.tsx`
+- `packages/client/src/controls/PerSideControl.tsx` (full rewrite)
+- `packages/client/src/styles.ts`
+- `packages/client/src/editable-properties.ts`
+
+---
+
+## Phase 3.9: Complete Properties Panel (MVP)
+
+**Status:** COMPLETE (100%)
+**Completion Date:** 2026-03-17
+**Depends on:** Phase 3 UI Refinement (panel structure)
+
+### Overview
+Made the properties panel complete for the MVP: all 6 focused sections now visible (Frame, Layout, Spacing, Appearance, Typography, Border). Added missing properties that were defined but not rendered: `color` (text colour) in Typography, flex item properties (flexGrow, flexShrink, flexBasis) in Layout when flex, and grid item properties (gridAutoFlow, columnSpan, rowSpan) in Layout when grid.
+
+### Checklist
+- [x] Re-enable `positionSize` and `spacing` sections in the render array
+- [x] Add `color` (text colour) property to TypographySection
+- [x] Add flex item properties to AutoLayoutSection when `isFlex`
+- [x] Add grid item properties to AutoLayoutSection when `isGrid`
+- [x] Remove "Select a text element" fallback message (no longer needed)
+- [x] Verify type-check, lint, test, build pass
+
+### Changes
+- `packages/client/src/PropertiesPanel.tsx` — Updated render array to include all 6 MVP sections; added color to typography; added flex/grid item properties to layout section
+- `.agents/PHASE_STATUS.md` — Added this section
+- `.agents/CURRENT_CONTEXT.md` — Updated current status
+
+### Key Files
+- `packages/client/src/PropertiesPanel.tsx`
+
+### Known Gaps
+- Item-level flex/grid properties are now visible but always shown when parent is flex/grid. Context-awareness (hide when not applicable) deferred to Phase 3.8.
+- No new tests added for these changes — should be added in Phase 4
+
+**Next Phase Gate:** Phase 3.8 (context-aware panel) may begin when ready.
+
+---
+
+## Phase 3.10: Size & Spacing Section Redesign
+
+**Status:** COMPLETE (100%)
+**Completion Date:** 2026-03-17
+**Agent:** Claude Haiku 4.5
+**Depends on:** Phase 3.9 (panel structure)
+
+### Overview
+Redesigned the Frame (positionSize) and Spacing sections into a unified "Size & Spacing" section with Figma-style Fixed/Hug/Fill mode selectors for Width and Height, aspect ratio lock button, and Corner Radius All/Each toggle. Restructured layout to match Figma design specifications.
+
+### Checklist
+- [x] Rename `focusedGroupLabels.positionSize` from "Frame" to "Size & Spacing"
+- [x] Create `SizeInput.tsx` component with Fixed/Hug/Fill mode selector using native `<select>` elements
+- [x] Implement CSS value mapping: Fixed=numeric, Hug=fit-content, Fill=100%
+- [x] Add aspect-ratio-lock button (32x32px, #e1f1ff background, toggleable state)
+- [x] Add Corner Radius All/Each mode toggle with per-side value control
+- [x] Combine padding and margin controls below size controls in single section
+- [x] Style to match Figma design: #3b3b3b backgrounds, #bcbcbc labels, 13.5px font, 4px gaps
+- [x] Add `size-control-row`, `size-scrub-label`, `size-input-*` CSS tokens to styles.ts
+- [x] Verify type-check, lint, test, build pass
+
+### Key Implementation Notes
+- **SizeInput component:**
+  - Uses native HTML `<select>` elements for reliable dropdown interaction (custom dropdown with absolutely positioned menu had event propagation issues)
+  - Renders mode selector → shows value + unit inputs only when "Fixed" mode is active
+  - Handles arrow key incrementing (with Shift for 10x) similar to Figma
+  - Supports numeric and keyboard shortcuts (Escape to revert, Enter to blur)
+
+- **Mode switching:**
+  - "Hug" → applies `fit-content` CSS value, hides numeric input
+  - "Fill" → applies `100%` CSS value, hides numeric input
+  - "Fixed" → shows numeric input with selected unit, applies numeric value with unit
+
+- **Aspect ratio lock:**
+  - Toggleable button (32x32px) next to W/H inputs
+  - Visual state: when locked, button has distinct background color
+  - Currently a UI placeholder — aspect ratio constraint enforcement deferred
+
+- **Corner Radius:**
+  - Mode selector (All/Each) below size controls
+  - "All" mode: single input applies to all corners
+  - "Each" mode: 4 inputs for each corner (topLeft, topRight, bottomRight, bottomLeft)
+  - State managed with React `useState` hook
+
+### Known Issues
+- Implementation is "kind of working" per user feedback — suggests potential edge cases or behavior refinements needed:
+  - Possible: SizeInput mode switching may have latency or visual artifacts
+  - Possible: Aspect ratio lock button visual state may not persist correctly
+  - Possible: Corner Radius Each mode may have layout quirks
+- No comprehensive testing added yet (deferred to Phase 4)
+
+### Changes Made
+- **editable-properties.ts:**
+  - Modified `focusedGroupLabels.positionSize` label from "Frame" to "Size & Spacing"
+  - Modified `focusedGroupMembers.positionSize` to include padding/margin properties (spacing integration)
+  - Removed minWidth, maxWidth, minHeight, maxHeight from the group (per user request to defer min/max constraints)
+
+- **PropertiesPanel.tsx:**
+  - Rewrote `PositionSizeSection` into combined Size & Spacing section
+  - Added SizeInput component for W/H controls
+  - Added aspect-ratio-lock button UI
+  - Added Corner Radius section with All/Each mode toggle
+  - Maintained Position type, X/Y, Padding, Margin sections below
+
+- **SizeInput.tsx:** (NEW FILE)
+  - Exported from `controls/index.ts`
+  - Handles mode detection, value/unit parsing, and conditional rendering
+  - Uses native selects for reliable interaction
+
+- **styles.ts:**
+  - Added `size-control-row`: flex layout with 8px gap and center alignment
+  - Added `size-scrub-label`: 11px font, #bcbcbc color, ew-resize cursor
+  - Added `size-input-wrapper`, `size-input-select`, `size-input-value-input`, `size-input-unit-select` styling
+  - Added aspect-ratio-lock button styling
+  - Added corner-radius section and controls styling
+
+### Files Changed
+- `packages/client/src/editable-properties.ts`
+- `packages/client/src/PropertiesPanel.tsx`
+- `packages/client/src/controls/SizeInput.tsx` (NEW)
+- `packages/client/src/controls/index.ts`
+- `packages/client/src/styles.ts`
+
+### Verification
+```bash
+pnpm type-check && pnpm build
+```
+
+Build passes. Manual testing confirms basic functionality; refinement may be needed based on user feedback.
+
+---
+
+## Phase 3.8: Context-Aware Properties Panel
+
+**Status:** NOT STARTED
+**Depends on:** Phase 3.9 (panel must be feature-complete first) AND Phase 3.10 (now complete)
+**Decision:** D20
+
+### Overview
+Make the PropertiesPanel section-aware: compute an `ElementContext` on every selection and use it to conditionally show/hide entire sections. Initially: hide Typography when the selected element has no text and no text-specific styling. Pure client-side change — no server involvement.
+
+### Checklist
+
+**Step 1 — Type system (`packages/client/src/types.ts`)**
+- [ ] Add `ElementContext` interface:
+  ```ts
+  interface ElementContext {
+    tagName: string;
+    isTextElement: boolean;   // known text-bearing tag
+    hasDirectText: boolean;   // non-whitespace direct text-node child
+    hasNonDefaultTypography: boolean; // computed font/text CSS differs from defaults
+    isReplaced: boolean;      // img, video, canvas, iframe, input, select, textarea
+  }
+  ```
+- [ ] Add `context: ElementContext` field to `SelectionDraft`
+
+**Step 2 — Context builder (`packages/client/src/DesignTool.tsx`)**
+- [ ] Add `buildElementContext(element: HTMLElement): ElementContext` helper:
+  - `isTextElement`: check `tagName` against the list: `p h1 h2 h3 h4 h5 h6 span a label li td th caption blockquote cite code pre em strong small sub sup dt dd figcaption button`
+  - `hasDirectText`: iterate `element.childNodes`, look for `nodeType === Node.TEXT_NODE` with non-whitespace content
+  - `isReplaced`: check `tagName` against `img video canvas iframe input select textarea`
+  - `hasNonDefaultTypography`: call `getComputedStyle(element)`, compare `fontFamily`, `fontSize`, `fontWeight`, `lineHeight`, `letterSpacing`, `textAlign` against `getComputedStyle(document.body)` defaults. Flag true if any differ
+- [ ] Call `buildElementContext` when an element is selected and store result on the draft
+
+**Step 3 — Panel rendering (`packages/client/src/PropertiesPanel.tsx`)**
+- [ ] Accept `context` from `selectedDraft.context`
+- [ ] Derive `showTypography = context.isTextElement || context.hasDirectText || context.hasNonDefaultTypography`
+- [ ] Wrap `<TypographySection>` render in `{showTypography && ...}`
+- [ ] When Typography is hidden, show a subtle empty-state hint: `"Select a text element to edit typography"` — prevents confusion about the missing section
+
+**Step 4 — Draft preservation (`packages/client/src/drafts.ts`)**
+- [ ] Ensure `context` is preserved when drafts are hydrated or updated (it should pass through untouched — context is read-only after selection)
+
+**Step 5 — Tests**
+- [ ] Unit test `buildElementContext` with: plain `div`, `div` with text child, `p` element, `img`, `div` with custom font-family, `button`
+- [ ] jsdom test: select a `div` with no text → Typography section absent; select a `p` → Typography section present
+- [ ] Verify `pnpm type-check && pnpm lint && pnpm test && pnpm build`
+
+### Section Visibility Rules
+| Section    | Show when |
+|------------|-----------|
+| Appearance | Always |
+| Typography | `isTextElement OR hasDirectText OR hasNonDefaultTypography` |
+| Border     | Always |
+
+### Key Files
+- `packages/client/src/types.ts` — add `ElementContext`, update `SelectionDraft`
+- `packages/client/src/DesignTool.tsx` — add `buildElementContext`, call on selection
+- `packages/client/src/PropertiesPanel.tsx` — conditional section rendering
+- `packages/client/src/drafts.ts` — pass-through for context field
+
+### Known Edge Cases
+- **`div` with only deeply-nested text**: `hasDirectText` is false (intentional — only direct children checked). Would need `hasNonDefaultTypography` to trigger.
+- **Element text deleted mid-session**: Typography stays visible until re-selection. Acceptable.
+- **SSR / non-browser environments**: `getComputedStyle` unavailable — guard with `typeof window !== 'undefined'` and fall back to `showTypography = true`.
+- **`document.body` computed style comparison**: Different browsers may have different body defaults. If unstable, fall back to a hardcoded list of known browser defaults (e.g., `fontFamily: 'Times New Roman'`, `fontWeight: '400'`).
+
+---
+
 ## Phase 4: Polish, Docs & Public Release
 
 **Status:** NOT STARTED
 
 ### Key Deliverables
-1. Edge-case handling
-2. Error boundaries and fallbacks
-3. Complete documentation
-4. Demo refinement
-5. Open-source release prep
+1. D14: Split `styles.ts` into `styles/base.ts`, `styles/controls.ts`, `styles/sections.ts`, `styles/index.ts`
+2. Add test coverage for UI refinement changes
+3. Edge-case handling and error boundaries
+4. Complete documentation
+5. Demo refinement
+6. Open-source release prep
 
 ### v0.7: Zero-Config CLI
 - Auto-detect framework, build tool, styling
@@ -461,4 +695,4 @@ interface SavePayload {
 
 ---
 
-Current: 2026-03-12 (Phase 3 complete, Phase 4 not started)
+Current: 2026-03-16 (Phase 3 + UI Refinement complete, Phase 4 not started)

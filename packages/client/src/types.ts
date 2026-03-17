@@ -101,7 +101,7 @@ export type EditablePropertyId =
   | 'bottom'
   | 'left'
   | 'zIndex'
-  // Auto Layout (Flexbox)
+  // Auto Layout (Flexbox & Grid)
   | 'display'
   | 'flexDirection'
   | 'flexWrap'
@@ -111,6 +111,14 @@ export type EditablePropertyId =
   | 'gap'
   | 'rowGap'
   | 'columnGap'
+  | 'gridColumns'
+  | 'gridRows'
+  | 'gridAutoFlow'
+  | 'flexGrow'
+  | 'flexShrink'
+  | 'flexBasis'
+  | 'columnSpan'
+  | 'rowSpan'
   // Appearance
   | 'opacity'
   | 'borderRadius'
@@ -130,6 +138,7 @@ export type EditablePropertyId =
   | 'borderRightWidth'
   | 'borderBottomWidth'
   | 'borderLeftWidth'
+  | 'strokeDasharray'
   // Typography
   | 'fontFamily'
   | 'fontSize'
@@ -206,6 +215,8 @@ export interface EditablePropertyDefinition {
   sides?: { top: string; right: string; bottom: string; left: string };
   /** Tailwind utility prefix for Phase 3 writer */
   tailwindPrefix?: string;
+  /** CSS value template for complex transforms, e.g. 'span {value} / span {value}' */
+  cssTransform?: string;
 }
 
 export interface PropertySnapshot {
@@ -216,7 +227,16 @@ export interface PropertySnapshot {
   value: string;
 }
 
+export interface ElementContext {
+  tagName: string;
+  isTextElement: boolean;           // known text-bearing tag
+  hasDirectText: boolean;           // non-whitespace direct text-node child
+  hasNonDefaultTypography: boolean; // computed font/text CSS differs from body defaults
+  isReplaced: boolean;              // img, video, canvas, iframe, input, select, textarea
+}
+
 export interface SelectionDraft extends SelectionDetails {
   detached: boolean;
   properties: Record<EditablePropertyId, PropertySnapshot>;
+  context: ElementContext;
 }

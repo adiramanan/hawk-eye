@@ -682,6 +682,21 @@ function DesignToolRuntime() {
     requestSave(payload);
   }
 
+  function selectByKey(instanceKey: string) {
+    const element = getInspectableElementByKey(instanceKey);
+    const measured = measureElement(element);
+
+    if (!measured) {
+      return;
+    }
+
+    clearSaveFeedback();
+    ensureDraftForMeasurement(measured);
+    setSelectedInstanceKey(measured.instanceKey);
+    setSelected(measured);
+    requestSelection({ source: measured.source });
+  }
+
   return (
     <Inspector
       enabled={enabled}
@@ -690,12 +705,14 @@ function DesignToolRuntime() {
       onResetAll={resetAllChanges}
       onResetProperty={resetProperty}
       onSave={savePendingDrafts}
+      onSelectByKey={selectByKey}
       onToggle={() => setEnabled((current) => !current)}
       pendingDrafts={pendingDrafts}
       savePending={savePending}
       saveResult={saveResult}
       selected={selected}
       selectedDraft={selectedDraft}
+      selectedInstanceKey={selectedInstanceKey}
     />
   );
 }

@@ -5,6 +5,7 @@ import {
 } from './editable-properties';
 import type {
   EditablePropertyId,
+  ElementContext,
   PropertySnapshot,
   SelectionDetails,
   SelectionDraft,
@@ -77,6 +78,43 @@ function restoreOriginalInlineValue(
   element.style.removeProperty(definition.cssProperty);
 }
 
+function buildElementContext(element: HTMLElement): ElementContext {
+  const TEXT_TAGS = new Set([
+    'p','h1','h2','h3','h4','h5','h6','span','a','label','li','td','th',
+    'caption','blockquote','cite','code','pre','em','strong','small','sub',
+    'sup','dt','dd','figcaption','button'
+  ]);
+  const REPLACED_TAGS = new Set(['img','video','canvas','iframe','input','select','textarea']);
+
+  const tagName = element.tagName.toLowerCase();
+  const isTextElement = TEXT_TAGS.has(tagName);
+  const isReplaced = REPLACED_TAGS.has(tagName);
+
+  // Check for non-whitespace direct text children
+  let hasDirectText = false;
+  for (const node of element.childNodes) {
+    if (node.nodeType === Node.TEXT_NODE && node.textContent?.trim()) {
+      hasDirectText = true;
+      break;
+    }
+  }
+
+  // Compare computed typography against body defaults
+  let hasNonDefaultTypography = false;
+  try {
+    if (typeof window !== 'undefined' && document.body) {
+      const computed = window.getComputedStyle(element);
+      const bodyDefaults = window.getComputedStyle(document.body);
+      const typographyProps = ['fontFamily','fontSize','fontWeight','lineHeight','letterSpacing','textAlign'] as const;
+      hasNonDefaultTypography = typographyProps.some(p => computed[p] !== bodyDefaults[p]);
+    }
+  } catch {
+    // Ignore errors from getComputedStyle (e.g., in jsdom with isolated contexts)
+  }
+
+  return { tagName, isTextElement, hasDirectText, hasNonDefaultTypography, isReplaced };
+}
+
 export function createSelectionDraft(
   details: SelectionDetails,
   element: HTMLElement
@@ -99,10 +137,13 @@ export function createSelectionDraft(
     };
   }
 
+  const context = buildElementContext(element);
+
   return {
     ...details,
     detached: false,
     properties,
+    context,
   };
 }
 
@@ -122,6 +163,7 @@ export function mergeSelectionDraft(
     styleMode: draft.detached ? 'detached' : draft.styleMode,
     classNames: draft.classNames,
     inlineStyles: draft.inlineStyles,
+    context: draft.context,
   };
 }
 
@@ -186,7 +228,19 @@ export function applyDraftInputValue(
 ): ApplyInputResult {
   const definition = editablePropertyDefinitionMap[propertyId];
   const isOpacitySlider = definition.control === 'slider' && definition.id === 'opacity';
-  const candidate = isOpacitySlider ? clampOpacity(rawValue.trim()) : rawValue.trim();
+  let candidate = isOpacitySlider ? clampOpacity(rawValue.trim()) : rawValue.trim();
+
+  // Handle CSS value transforms (e.g., numeric input → repeat(), or spans)
+  if (definition.cssTransform && candidate) {
+    // Support templates like "span {value} / span {value}" or "repeat({value}, 1fr)"
+    candidate = definition.cssTransform.replace('{value}', candidate);
+  } else if ((propertyId === 'gridColumns' || propertyId === 'gridRows') && candidate) {
+    // Legacy: grid columns/rows conversion (now should use cssTransform in definition)
+    const num = parseInt(candidate, 10);
+    if (!isNaN(num) && num > 0) {
+      candidate = `repeat(${num}, 1fr)`;
+    }
+  }
 
   if (!candidate) {
     return {
@@ -202,7 +256,13 @@ export function applyDraftInputValue(
   scratchElement.style.setProperty(definition.cssProperty, candidate);
   const normalizedValue = scratchElement.style.getPropertyValue(definition.cssProperty).trim();
 
-  if (!normalizedValue) {
+  // Special case: "0" values might normalize to empty string in some browsers
+  // If candidate looks like a valid "0" value (0, 0px, 0em, etc.) and normalization returned empty,
+  // use the candidate as-is to ensure "0" values are accepted
+  const isZeroValue = /^0(?:[a-z%]*)?$/.test(candidate);
+  const finalValue = normalizedValue || (isZeroValue ? candidate : '');
+
+  if (!finalValue) {
     return {
       baseline: snapshot.baseline,
       inlineValue: snapshot.inlineValue,
@@ -212,26 +272,26 @@ export function applyDraftInputValue(
     };
   }
 
-  if (normalizedValue === snapshot.baseline) {
+  if (finalValue === snapshot.baseline) {
     restoreOriginalInlineValue(element, propertyId, snapshot);
 
     return {
       baseline: snapshot.baseline,
       inlineValue: snapshot.inlineValue,
       invalid: false,
-      inputValue: normalizedValue,
+      inputValue: finalValue,
       value: snapshot.baseline,
     };
   }
 
-  element.style.setProperty(definition.cssProperty, normalizedValue);
+  element.style.setProperty(definition.cssProperty, finalValue);
 
   return {
     baseline: snapshot.baseline,
     inlineValue: snapshot.inlineValue,
     invalid: false,
-    inputValue: normalizedValue,
-    value: normalizedValue,
+    inputValue: finalValue,
+    value: finalValue,
   };
 }
 

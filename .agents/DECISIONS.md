@@ -464,6 +464,68 @@
 
 ---
 
+## D20: Context-Aware Panel — Section Visibility Based on Element Type
+
+**Decision:** Compute an `ElementContext` on element selection (client-side, synchronous, no server roundtrip) and use it to conditionally show or hide entire sections in the PropertiesPanel. Initially scoped to section-level visibility only — no per-property hiding.
+
+**Rationale:**
+- A `div` with no text content has no use for Typography controls — showing them creates noise and confusion
+- The target user (AI prototypers, designers) should see only what is relevant to the selected element
+- Detection is cheap: tag name, direct text nodes, and `getComputedStyle` are all available synchronously on the already-selected `HTMLElement`
+- Section-level granularity is conservative and predictable — hiding a full section is obvious, hiding individual properties within a visible section is surprising
+- Aligns with how Figma conditionally shows/hides sections (e.g., no Typography panel on a frame with no text)
+
+**Detection Signals (all client-side, synchronous):**
+1. `tagName` — element tag in lowercase
+2. `isTextElement` — element is a known text-bearing tag: `p`, `h1–h6`, `span`, `a`, `label`, `li`, `td`, `th`, `caption`, `blockquote`, `cite`, `code`, `pre`, `em`, `strong`, `small`, `sub`, `sup`, `dt`, `dd`, `figcaption`, `button`
+3. `hasDirectText` — element has at least one non-whitespace direct text-node child (not descendant — just immediate children)
+4. `hasNonDefaultTypography` — any of `fontFamily`, `fontSize`, `fontWeight`, `lineHeight`, `letterSpacing`, `textAlign` in `getComputedStyle` differ from known browser defaults
+5. `isReplaced` — element is a replaced element (`img`, `video`, `canvas`, `iframe`, `input`, `select`, `textarea`) — these can never contain styled text
+
+**Section Visibility Rules:**
+| Section    | Show when |
+|------------|-----------|
+| Appearance | Always |
+| Typography | `isTextElement OR hasDirectText OR hasNonDefaultTypography` |
+| Border     | Always |
+
+**Why always show Appearance and Border?**
+- Appearance (fill, opacity, corner radius): applicable to every visual element
+- Border: a designer may want to *add* a border to any element, not just elements that already have one; hiding it would make adding borders impossible
+
+**Data Model:**
+```ts
+// Added to types.ts
+interface ElementContext {
+  tagName: string;
+  isTextElement: boolean;
+  hasDirectText: boolean;
+  hasNonDefaultTypography: boolean;
+  isReplaced: boolean;
+}
+
+// Added to SelectionDraft
+interface SelectionDraft {
+  // ... existing fields ...
+  context: ElementContext;
+}
+```
+
+**Alternatives Considered:**
+- Per-property hiding (e.g., hide `letterSpacing` for non-text): Too granular, feels broken when a property disappears mid-session as the element changes
+- Server-side detection: Unnecessary — all signals are available from the DOM
+- Always show all sections: Current behaviour — creates noise for non-text elements
+- Tag-name whitelist only (no computed style check): Misses `div`s that have been given font styling explicitly
+
+**Trade-offs:**
+- `hasNonDefaultTypography` requires a `getComputedStyle` call, which forces a style recalc — acceptable since it happens once on selection, not on every render
+- "Browser defaults" for typography must be hardcoded (e.g., `Times New Roman` for `fontFamily` on body) — fragile across browsers; use a conservative list or compare against `document.body` computed style
+- If a `div` has text children but the user deletes them, Typography stays visible until the next re-selection — acceptable UX
+
+**Status:** CONFIRMED (2026-03-16)
+
+---
+
 ## Decision Review Schedule
 - Every phase end, review decisions with latest learnings
 - Update rationale if new context emerges

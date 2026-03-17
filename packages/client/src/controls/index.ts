@@ -6,6 +6,7 @@ export { PerCornerControl } from './PerCornerControl';
 export { PerSideControl } from './PerSideControl';
 export { SegmentedControl } from './SegmentedControl';
 export { SelectInput } from './SelectInput';
+export { SizeInput } from './SizeInput';
 export { SliderInput } from './SliderInput';
 export { TextInput } from './TextInput';
 export { ToggleSwitch } from './ToggleSwitch';

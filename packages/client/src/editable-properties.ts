@@ -1017,7 +1017,7 @@ export const focusedGroupOrder = [
 ] as const satisfies FocusedGroupId[];
 
 export const focusedGroupLabels: Record<FocusedGroupId, string> = {
-  positionSize: 'Frame',
+  positionSize: 'Size & Spacing',
   autoLayout: 'Layout',
   spacing: 'Spacing',
   fillOpacity: 'Fill',
@@ -1027,7 +1027,7 @@ export const focusedGroupLabels: Record<FocusedGroupId, string> = {
 };
 
 export const focusedGroupMembers: Record<FocusedGroupId, EditablePropertyId[]> = {
-  positionSize: ['positionType', 'top', 'left', 'width', 'height'],
+  positionSize: ['positionType', 'top', 'left', 'width', 'height', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft'],
   autoLayout: ['display', 'flexDirection', 'flexWrap', 'justifyContent', 'alignItems', 'alignSelf', 'gap', 'columnGap', 'rowGap', 'gridColumns', 'gridRows', 'flexGrow', 'flexShrink', 'flexBasis', 'gridAutoFlow', 'columnSpan', 'rowSpan'],
   spacing: [
     'paddingTop',

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { LayersPanel } from './LayersPanel';
 import { PropertiesPanel } from './PropertiesPanel';
 import type { EditablePropertyId, MeasuredElement, SaveResult, SelectionDraft } from './types';
 
@@ -10,10 +11,12 @@ interface InspectorProps {
   saveResult: SaveResult | null;
   selected: MeasuredElement | null;
   selectedDraft: SelectionDraft | null;
+  selectedInstanceKey: string | null;
   onChange(propertyId: EditablePropertyId, value: string): void;
   onResetAll(): void;
   onResetProperty(instanceKey: string, propertyId: EditablePropertyId): void;
   onSave(): void;
+  onSelectByKey(instanceKey: string): void;
   onToggle(): void;
 }
 
@@ -87,14 +90,16 @@ export function Inspector({
   saveResult,
   selected,
   selectedDraft,
+  selectedInstanceKey,
   onChange,
   onResetAll,
   onResetProperty,
   onSave,
+  onSelectByKey,
   onToggle,
 }: InspectorProps) {
   const [panelPos, setPanelPos] = useState(getDefaultPanelPos);
-  const [view, setView] = useState<'properties' | 'changes'>('properties');
+  const [view, setView] = useState<'properties' | 'changes' | 'layers'>('properties');
   const dragStateRef = useRef<DragState | null>(null);
   const activeMeasurement = selected ?? hovered;
   const saveStatusMessage = getSaveStatusMessage(savePending, saveResult);
@@ -229,6 +234,28 @@ export function Inspector({
               ) : null}
             </div>
 
+            {/* ── Tab strip (Properties | Layers) ──────────────────────── */}
+            {view !== 'changes' && (
+              <div data-hawk-eye-ui="panel-tabs">
+                <button
+                  data-active={view === 'properties' ? 'true' : 'false'}
+                  data-hawk-eye-ui="panel-tab"
+                  onClick={() => setView('properties')}
+                  type="button"
+                >
+                  Properties
+                </button>
+                <button
+                  data-active={view === 'layers' ? 'true' : 'false'}
+                  data-hawk-eye-ui="panel-tab"
+                  onClick={() => setView('layers')}
+                  type="button"
+                >
+                  Layers
+                </button>
+              </div>
+            )}
+
             {/* ── Panel body ───────────────────────────────────────── */}
             <div data-hawk-eye-ui="panel-body">
               {view === 'changes' ? (
@@ -271,8 +298,14 @@ export function Inspector({
                     );
                   })}
                 </div>
+              ) : view === 'layers' ? (
+                <LayersPanel
+                  selectedInstanceKey={selectedInstanceKey}
+                  onSelectByKey={onSelectByKey}
+                />
               ) : selectedDraft ? (
                 <PropertiesPanel
+                  context={selectedDraft.context}
                   onChange={onChange}
                   onResetAll={onResetAll}
                   onResetProperty={onResetProperty}
