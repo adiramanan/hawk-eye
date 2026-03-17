@@ -3,7 +3,6 @@ import {
   BoxShadowInput,
   ColorInput,
   NumberInput,
-  PerCornerControl,
   PerSideControl,
   SegmentedControl,
   SelectInput,
@@ -12,13 +11,10 @@ import {
   TextInput,
 } from './controls';
 import {
-  FOCUSED_PROPERTY_IDS,
   editablePropertyDefinitionMap,
   focusedGroupLabels,
-  focusedGroupMembers,
-  focusedGroupOrder,
 } from './editable-properties';
-import { getDirtyPropertyIds } from './drafts';
+import { getNextGroupIndex, isGroupNavigationKey } from './utils/keyboard-navigation';
 // CollapsibleSection replaced by a static section — no collapse toggle
 function CollapsibleSection({ title, sectionId, children }: { title: string; sectionId?: string; children: ReactNode; defaultExpanded?: boolean; key?: string }) {
   return (
@@ -37,6 +33,8 @@ import type {
   FocusedGroupId,
   PropertySnapshot,
   SelectionDraft,
+  SizeAxis,
+  SizeMode,
 } from './types';
 
 interface PropertiesPanelProps {
@@ -44,16 +42,11 @@ interface PropertiesPanelProps {
   selectedDraft: SelectionDraft;
   context: ElementContext;
   onChange(propertyId: EditablePropertyId, value: string): void;
+  onChangeSizeMode(axis: SizeAxis, mode: SizeMode): void;
+  onChangeSizeValue(axis: SizeAxis, value: string): void;
   onResetAll(): void;
   onResetProperty(instanceKey: string, propertyId: EditablePropertyId): void;
-}
-
-function renderValue(value: string) {
-  return value || 'none';
-}
-
-function getFocusedDirtyPropertyIds(draft: SelectionDraft) {
-  return getDirtyPropertyIds(draft).filter((propertyId) => FOCUSED_PROPERTY_IDS.has(propertyId));
+  onToggleAspectRatioLock(): void;
 }
 
 // ── Property card helpers ──────────────────────────────────────────────────
@@ -197,59 +190,15 @@ function PerSideCard({
   );
 }
 
-interface PerCornerCardProps {
-  cardId: string;
-  label: string;
-  propertyIds: { topLeft: EditablePropertyId; topRight: EditablePropertyId; bottomRight: EditablePropertyId; bottomLeft: EditablePropertyId };
-  selectedDraft: SelectionDraft;
-  onChange(propertyId: EditablePropertyId, value: string): void;
-  onResetProperty(instanceKey: string, propertyId: EditablePropertyId): void;
-}
-
-function PerCornerCard({
-  cardId,
-  label,
-  propertyIds,
-  selectedDraft,
-  onChange,
-  onResetProperty,
-}: PerCornerCardProps) {
-  const entries = [
-    { id: propertyIds.topLeft, snapshot: selectedDraft.properties[propertyIds.topLeft] },
-    { id: propertyIds.topRight, snapshot: selectedDraft.properties[propertyIds.topRight] },
-    { id: propertyIds.bottomRight, snapshot: selectedDraft.properties[propertyIds.bottomRight] },
-    { id: propertyIds.bottomLeft, snapshot: selectedDraft.properties[propertyIds.bottomLeft] },
-  ];
-  const dirtyEntries = entries.filter((e) => e.snapshot.value !== e.snapshot.baseline);
-
-  return (
-    <div
-      data-dirty={dirtyEntries.length > 0 ? 'true' : 'false'}
-      data-hawk-eye-ui="per-side-wrap"
-      data-property-id={cardId}
-    >
-      <PerCornerControl
-        key={`${selectedDraft.instanceKey}-${cardId}`}
-        corners={{
-          topLeft: { id: propertyIds.topLeft, snapshot: selectedDraft.properties[propertyIds.topLeft] },
-          topRight: { id: propertyIds.topRight, snapshot: selectedDraft.properties[propertyIds.topRight] },
-          bottomRight: { id: propertyIds.bottomRight, snapshot: selectedDraft.properties[propertyIds.bottomRight] },
-          bottomLeft: { id: propertyIds.bottomLeft, snapshot: selectedDraft.properties[propertyIds.bottomLeft] },
-        }}
-        label={label}
-        onChange={onChange}
-        onReset={(propertyId) => onResetProperty(selectedDraft.instanceKey, propertyId)}
-      />
-    </div>
-  );
-}
-
 // ── Section renderers ──────────────────────────────────────────────────────
 
 interface SectionProps {
   selectedDraft: SelectionDraft;
   onChange(propertyId: EditablePropertyId, value: string): void;
+  onChangeSizeMode(axis: SizeAxis, mode: SizeMode): void;
+  onChangeSizeValue(axis: SizeAxis, value: string): void;
   onResetProperty(instanceKey: string, propertyId: EditablePropertyId): void;
+  onToggleAspectRatioLock(): void;
 }
 
 function card(
@@ -274,42 +223,6 @@ function PositionSizeSection(props: SectionProps) {
   const isPositioned = positionValue === 'absolute' || positionValue === 'fixed' || positionValue === 'relative';
   const [radiusMode, setRadiusMode] = React.useState<'all' | 'each'>('all');
 
-  // ── Width mode handlers ──
-  const handleWidthModeChange = (mode: string) => {
-    console.log('[PositionSizeSection] Width mode changed to:', mode);
-    if (mode === 'hug') {
-      console.log('[PositionSizeSection] Setting width to fit-content');
-      props.onChange('width', 'fit-content');
-    } else if (mode === 'fill') {
-      console.log('[PositionSizeSection] Setting width to 100%');
-      props.onChange('width', '100%');
-    } else {
-      const widthValue = props.selectedDraft.properties.width?.value ?? '';
-      const isKeyword = ['fit-content', '100%', 'auto'].includes(widthValue);
-      const newValue = isKeyword ? '200px' : widthValue;
-      console.log('[PositionSizeSection] Setting width to:', newValue);
-      props.onChange('width', newValue);
-    }
-  };
-
-  // ── Height mode handlers ──
-  const handleHeightModeChange = (mode: string) => {
-    console.log('[PositionSizeSection] Height mode changed to:', mode);
-    if (mode === 'hug') {
-      console.log('[PositionSizeSection] Setting height to fit-content');
-      props.onChange('height', 'fit-content');
-    } else if (mode === 'fill') {
-      console.log('[PositionSizeSection] Setting height to 100%');
-      props.onChange('height', '100%');
-    } else {
-      const heightValue = props.selectedDraft.properties.height?.value ?? '';
-      const isKeyword = ['fit-content', '100%', 'auto'].includes(heightValue);
-      const newValue = isKeyword ? '100px' : heightValue;
-      console.log('[PositionSizeSection] Setting height to:', newValue);
-      props.onChange('height', newValue);
-    }
-  };
-
   return (
     <CollapsibleSection
       defaultExpanded
@@ -324,8 +237,9 @@ function PositionSizeSection(props: SectionProps) {
             <SizeInput
               definition={editablePropertyDefinitionMap.width}
               label="W"
-              onChange={(v) => props.onChange('width', v)}
-              onModeChange={handleWidthModeChange}
+              mode={props.selectedDraft.sizeControl.widthMode.value}
+              onChange={(value) => props.onChangeSizeValue('width', value)}
+              onModeChange={(mode) => props.onChangeSizeMode('width', mode)}
               snapshot={props.selectedDraft.properties.width}
             />
           </div>
@@ -333,12 +247,19 @@ function PositionSizeSection(props: SectionProps) {
             <SizeInput
               definition={editablePropertyDefinitionMap.height}
               label="H"
-              onChange={(v) => props.onChange('height', v)}
-              onModeChange={handleHeightModeChange}
+              mode={props.selectedDraft.sizeControl.heightMode.value}
+              onChange={(value) => props.onChangeSizeValue('height', value)}
+              onModeChange={(mode) => props.onChangeSizeMode('height', mode)}
               snapshot={props.selectedDraft.properties.height}
             />
           </div>
-          <button data-hawk-eye-ui="aspect-ratio-lock-button" type="button" title="Toggle aspect ratio lock">
+          <button
+            data-hawk-eye-ui="aspect-ratio-lock-button"
+            data-locked={props.selectedDraft.sizeControl.aspectRatioLocked ? 'true' : 'false'}
+            onClick={props.onToggleAspectRatioLock}
+            type="button"
+            title="Toggle aspect ratio lock"
+          >
             <svg viewBox="0 0 20 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
               <path d="M10.75 1h-5.5C3.34 1 2 2.34 2 3.75v12.5C2 17.66 3.34 19 4.75 19h10.5c1.41 0 2.75-1.34 2.75-2.75V9.25c0-.41-.34-.75-.75-.75s-.75.34-.75.75v4.5h-3v-8h3V5.5c0-.41.34-.75.75-.75s.75.34.75.75v-1.75C17 2.34 15.66 1 14.25 1zm-8.5 14v-5h5v5h-5z" />
             </svg>
@@ -724,13 +645,39 @@ function TypographySection(props: SectionProps) {
         <div data-hawk-eye-ui="labelled-single">
           <span data-hawk-eye-ui="input-label">Alignment</span>
           <div data-hawk-eye-ui="icon-segmented">
-            {TEXT_ALIGN_OPTIONS.map(({ value, label, icon }) => (
+            {TEXT_ALIGN_OPTIONS.map(({ value, label, icon }, index) => (
               <button
                 aria-label={label}
                 aria-pressed={effectiveAlign === value}
                 data-active={effectiveAlign === value ? 'true' : 'false'}
+                data-hawk-eye-control={`textAlign-${value}`}
                 data-hawk-eye-ui="icon-seg-btn"
                 key={value}
+                onKeyDown={(event) => {
+                  if (!isGroupNavigationKey(event.key)) {
+                    return;
+                  }
+
+                  event.preventDefault();
+
+                  const nextIndex = getNextGroupIndex(
+                    event.key,
+                    index,
+                    TEXT_ALIGN_OPTIONS.length
+                  );
+                  const nextOption = TEXT_ALIGN_OPTIONS[nextIndex];
+
+                  if (!nextOption) {
+                    return;
+                  }
+
+                  props.onChange('textAlign', nextOption.value);
+                  const buttons =
+                    event.currentTarget.parentElement?.querySelectorAll<globalThis.HTMLButtonElement>(
+                      'button'
+                    );
+                  buttons?.[nextIndex]?.focus();
+                }}
                 onClick={() => props.onChange('textAlign', value)}
                 title={label}
                 type="button"
@@ -796,10 +743,20 @@ export function PropertiesPanel({
   selectedDraft,
   context,
   onChange,
+  onChangeSizeMode,
+  onChangeSizeValue,
   onResetAll: _onResetAll,
   onResetProperty,
+  onToggleAspectRatioLock,
 }: PropertiesPanelProps) {
-  const sectionProps: SectionProps = { selectedDraft, onChange, onResetProperty };
+  const sectionProps: SectionProps = {
+    selectedDraft,
+    onChange,
+    onChangeSizeMode,
+    onChangeSizeValue,
+    onResetProperty,
+    onToggleAspectRatioLock,
+  };
 
   const showTypography =
     context.isTextElement ||
@@ -815,13 +772,11 @@ export function PropertiesPanel({
     typography: showTypography ? <TypographySection key="typography" {...sectionProps} /> : null,
     effects: <EffectsSection key="effects" {...sectionProps} />,
   };
-
-  // Suppress unused import warnings — keep these for potential future use
-  void focusedGroupMembers;
-
   return (
     <section data-hawk-eye-ui="property-stack">
-      {(['positionSize', 'autoLayout', 'fillOpacity', 'typography', 'border'] as const).map((group) => sectionRenderers[group])}
+      {(['positionSize', 'autoLayout', 'fillOpacity', 'typography', 'border', 'effects'] as const).map(
+        (group) => sectionRenderers[group]
+      )}
     </section>
   );
 }

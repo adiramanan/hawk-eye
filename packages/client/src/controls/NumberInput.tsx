@@ -116,6 +116,7 @@ function ScrubNumberInput({
   onChange,
 }: ScrubNumberInputProps) {
   const units = definition.units ?? [];
+  const hasSingleUnit = units.length === 1;
   const parsed = parseCssValue(snapshot.inputValue.trim()) ?? parseCssValue(snapshot.value.trim());
   const currentNumber = parsed?.number ?? 0;
 
@@ -191,7 +192,7 @@ function ScrubNumberInput({
         type="text"
         value={displayedValue}
       />
-      {units.length > 0 && (
+      {units.length > 0 && !hasSingleUnit && (
         <select
           aria-label={`${definition.label} unit`}
           data-hawk-eye-control={`${definition.id}-unit`}
@@ -206,12 +207,16 @@ function ScrubNumberInput({
           ))}
         </select>
       )}
+      {hasSingleUnit && (
+        <span data-hawk-eye-ui="input-unit-label">{selectedUnit}</span>
+      )}
     </div>
   );
 }
 
 export function NumberInput({ definition, snapshot, onChange, scrubLabel }: NumberInputProps) {
   const units = definition.units ?? [];
+  const hasSingleUnit = units.length === 1;
 
   if (units.length === 0 && !scrubLabel) {
     return (
@@ -393,7 +398,7 @@ export function NumberInput({ definition, snapshot, onChange, scrubLabel }: Numb
         type="text"
         value={displayedValue}
       />
-      {units.length > 0 && (
+      {units.length > 0 && !hasSingleUnit && (
         <select
           aria-label={`${definition.label} unit`}
           data-hawk-eye-control={`${definition.id}-unit`}
@@ -407,6 +412,9 @@ export function NumberInput({ definition, snapshot, onChange, scrubLabel }: Numb
             </option>
           ))}
         </select>
+      )}
+      {hasSingleUnit && (
+        <span data-hawk-eye-ui="input-unit-label">{selectedUnit}</span>
       )}
     </div>
   );

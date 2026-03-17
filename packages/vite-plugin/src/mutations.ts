@@ -1,10 +1,17 @@
 import type { StyleMode } from './style-analyzer';
 
+export type SizeMode = 'fixed' | 'hug' | 'fill' | 'relative';
+
 export interface PropertyMutation {
   propertyId: string;
   cssProperty: string;
   oldValue: string;
   newValue: string;
+}
+
+export interface SizeModeMetadata {
+  width?: SizeMode;
+  height?: SizeMode;
 }
 
 export interface ElementMutation {
@@ -14,6 +21,7 @@ export interface ElementMutation {
   styleMode: StyleMode;
   detached: boolean;
   properties: PropertyMutation[];
+  sizeModeMetadata?: SizeModeMetadata;
 }
 
 export interface SavePayload {

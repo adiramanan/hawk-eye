@@ -3,12 +3,21 @@ import {
   editablePropertyDefinitionMap,
   editablePropertyDefinitions,
 } from './editable-properties';
+import {
+  getSizeModeCssProperty,
+  inferSizeMode,
+  seedSizeModeMemory,
+} from './size-state';
 import type {
   EditablePropertyId,
   ElementContext,
   PropertySnapshot,
   SelectionDetails,
   SelectionDraft,
+  SizeAxis,
+  SizeControlState,
+  SizeMode,
+  SizeModeMetadataPayload,
 } from './types';
 
 interface ApplyInputResult {
@@ -61,6 +70,67 @@ function clampOpacity(rawValue: string) {
   }
 
   return String(Math.min(1, Math.max(0, Math.round(nextValue * 100) / 100)));
+}
+
+function readSizeModeMetadataValue(element: HTMLElement, axis: SizeAxis) {
+  return element.style.getPropertyValue(getSizeModeCssProperty(axis)).trim();
+}
+
+function restoreOriginalSizeMode(
+  element: HTMLElement,
+  axis: SizeAxis,
+  sizeControl: SizeControlState
+) {
+  const cssProperty = getSizeModeCssProperty(axis);
+  const snapshot = axis === 'width' ? sizeControl.widthMode : sizeControl.heightMode;
+
+  if (snapshot.inlineValue) {
+    element.style.setProperty(cssProperty, snapshot.inlineValue);
+    return;
+  }
+
+  element.style.removeProperty(cssProperty);
+}
+
+function applySizeModeMetadata(
+  element: HTMLElement,
+  axis: SizeAxis,
+  sizeControl: SizeControlState
+) {
+  const cssProperty = getSizeModeCssProperty(axis);
+  const snapshot = axis === 'width' ? sizeControl.widthMode : sizeControl.heightMode;
+
+  if (snapshot.value === snapshot.baseline && !snapshot.inlineValue) {
+    element.style.removeProperty(cssProperty);
+    return;
+  }
+
+  element.style.setProperty(cssProperty, snapshot.value);
+}
+
+function buildSizeControlState(element: HTMLElement, properties: SelectionDraft['properties']): SizeControlState {
+  const rect = element.getBoundingClientRect();
+  const widthInlineMode = readSizeModeMetadataValue(element, 'width');
+  const heightInlineMode = readSizeModeMetadataValue(element, 'height');
+  const widthBaselineMode = inferSizeMode('width', properties.width.baseline, widthInlineMode);
+  const heightBaselineMode = inferSizeMode('height', properties.height.baseline, heightInlineMode);
+
+  return {
+    aspectRatio: null,
+    aspectRatioLocked: false,
+    heightMemory: seedSizeModeMemory('height', properties.height.baseline, rect.height),
+    heightMode: {
+      baseline: heightBaselineMode,
+      inlineValue: heightInlineMode,
+      value: heightBaselineMode,
+    },
+    widthMemory: seedSizeModeMemory('width', properties.width.baseline, rect.width),
+    widthMode: {
+      baseline: widthBaselineMode,
+      inlineValue: widthInlineMode,
+      value: widthBaselineMode,
+    },
+  };
 }
 
 function restoreOriginalInlineValue(
@@ -143,6 +213,7 @@ export function createSelectionDraft(
     ...details,
     detached: false,
     properties,
+    sizeControl: buildSizeControlState(element, properties),
     context,
   };
 }
@@ -163,6 +234,7 @@ export function mergeSelectionDraft(
     styleMode: draft.detached ? 'detached' : draft.styleMode,
     classNames: draft.classNames,
     inlineStyles: draft.inlineStyles,
+    sizeControl: draft.sizeControl,
     context: draft.context,
   };
 }
@@ -206,6 +278,9 @@ export function applyDraftToElement(element: HTMLElement, draft: SelectionDraft)
 
     element.style.setProperty(definition.cssProperty, snapshot.value);
   }
+
+  applySizeModeMetadata(element, 'width', draft.sizeControl);
+  applySizeModeMetadata(element, 'height', draft.sizeControl);
 }
 
 export function clearDraftOverrides(draft: SelectionDraft) {
@@ -218,6 +293,9 @@ export function clearDraftOverrides(draft: SelectionDraft) {
   for (const definition of editablePropertyDefinitions) {
     restoreOriginalInlineValue(element, definition.id, draft.properties[definition.id]);
   }
+
+  restoreOriginalSizeMode(element, 'width', draft.sizeControl);
+  restoreOriginalSizeMode(element, 'height', draft.sizeControl);
 }
 
 export function applyDraftInputValue(
@@ -319,6 +397,23 @@ export function resetDraftProperty(
   };
 }
 
+export function resetDraftSizeMode(
+  element: HTMLElement | null,
+  draft: SelectionDraft,
+  axis: SizeAxis
+) {
+  if (element) {
+    restoreOriginalSizeMode(element, axis, draft.sizeControl);
+  }
+
+  const snapshot = axis === 'width' ? draft.sizeControl.widthMode : draft.sizeControl.heightMode;
+
+  return {
+    ...snapshot,
+    value: snapshot.baseline,
+  };
+}
+
 export function detachDraft(draft: SelectionDraft, element: HTMLElement): SelectionDraft {
   const computedStyle = window.getComputedStyle(element);
   const properties = { ...draft.properties };
@@ -345,6 +440,7 @@ export function detachDraft(draft: SelectionDraft, element: HTMLElement): Select
     ...draft,
     detached: true,
     properties,
+    sizeControl: draft.sizeControl,
     styleMode: 'detached',
   };
 }
@@ -354,14 +450,41 @@ export function hasDraftChanges(draft: SelectionDraft) {
     return true;
   }
 
-  return editablePropertyDefinitions.some(
-    (definition) =>
-      draft.properties[definition.id].value !== draft.properties[definition.id].baseline
+  return (
+    editablePropertyDefinitions.some(
+      (definition) =>
+        draft.properties[definition.id].value !== draft.properties[definition.id].baseline
+    ) ||
+    draft.sizeControl.widthMode.value !== draft.sizeControl.widthMode.baseline ||
+    draft.sizeControl.heightMode.value !== draft.sizeControl.heightMode.baseline
   );
 }
 
-export function getDirtyDrafts(drafts: Record<string, SelectionDraft>) {
-  return Object.values(drafts).filter(hasDraftChanges);
+export function getDirtySizeModes(draft: SelectionDraft): SizeModeMetadataPayload {
+  const dirtyModes: SizeModeMetadataPayload = {};
+
+  if (draft.sizeControl.widthMode.value !== draft.sizeControl.widthMode.baseline) {
+    dirtyModes.width = draft.sizeControl.widthMode.value;
+  }
+
+  if (draft.sizeControl.heightMode.value !== draft.sizeControl.heightMode.baseline) {
+    dirtyModes.height = draft.sizeControl.heightMode.value;
+  }
+
+  return dirtyModes;
+}
+
+export function getDraftSizeMode(draft: SelectionDraft, axis: SizeAxis): SizeMode {
+  return axis === 'width' ? draft.sizeControl.widthMode.value : draft.sizeControl.heightMode.value;
+}
+
+export function getDraftSizeMemory(draft: SelectionDraft, axis: SizeAxis) {
+  return axis === 'width' ? draft.sizeControl.widthMemory : draft.sizeControl.heightMemory;
+}
+
+export function isDraftSizeModeDirty(draft: SelectionDraft, axis: SizeAxis) {
+  const snapshot = axis === 'width' ? draft.sizeControl.widthMode : draft.sizeControl.heightMode;
+  return snapshot.value !== snapshot.baseline;
 }
 
 export function getDirtyPropertyIds(draft: SelectionDraft) {
@@ -371,4 +494,8 @@ export function getDirtyPropertyIds(draft: SelectionDraft) {
         draft.properties[definition.id].value !== draft.properties[definition.id].baseline
     )
     .map((definition) => definition.id);
+}
+
+export function getDirtyDrafts(drafts: Record<string, SelectionDraft>) {
+  return Object.values(drafts).filter(hasDraftChanges);
 }

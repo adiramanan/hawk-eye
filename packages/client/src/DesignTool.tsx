@@ -9,13 +9,22 @@ import {
   createSelectionDraft,
   detachDraft,
   getDirtyPropertyIds,
+  getDirtySizeModes,
   getDirtyDrafts,
   getInspectableElementByKey,
   hasDraftChanges,
   mergeSelectionDraft,
   resetDraftProperty,
+  resetDraftSizeMode,
 } from './drafts';
 import { Inspector } from './Inspector';
+import {
+  formatSizeValue,
+  getNumericMemoryValue,
+  getSizeUnitsForMode,
+  isNumericSizeMode,
+  updateSizeModeMemory,
+} from './size-state';
 import { hawkEyeStyles } from './styles';
 import type {
   EditablePropertyId,
@@ -25,8 +34,12 @@ import type {
   SelectionDetails,
   SelectionDraft,
   SelectionPayload,
+  SizeAxis,
+  SizeControlState,
+  SizeMode,
   StyleAnalysisPayload,
 } from './types';
+import { parseCssValue } from './utils/css-value';
 import {
   requestSave,
   requestSelection,
@@ -41,34 +54,38 @@ export interface DesignToolProps {
 }
 
 function buildSavePayload(drafts: SelectionDraft[]): SavePayload {
-  return {
-    mutations: drafts
-      .map((draft) => {
-        const propertyIds = draft.detached
-          ? Array.from(FOCUSED_PROPERTY_IDS)
-          : getDirtyPropertyIds(draft);
-        const properties = propertyIds.map((propertyId) => ({
-          propertyId,
-          cssProperty: editablePropertyDefinitionMap[propertyId].cssProperty,
-          oldValue: draft.properties[propertyId].baseline,
-          newValue: draft.properties[propertyId].value,
-        }));
+  const mutations: SavePayload['mutations'] = [];
 
-        if (properties.length === 0) {
-          return null;
-        }
+  for (const draft of drafts) {
+    const propertyIds = draft.detached
+      ? Array.from(FOCUSED_PROPERTY_IDS)
+      : getDirtyPropertyIds(draft);
+    const sizeModeMetadata = getDirtySizeModes(draft);
+    const properties = propertyIds.map((propertyId) => ({
+      propertyId,
+      cssProperty: editablePropertyDefinitionMap[propertyId].cssProperty,
+      oldValue: draft.properties[propertyId].baseline,
+      newValue: draft.properties[propertyId].value,
+    }));
 
-        return {
-          file: draft.file,
-          line: draft.line,
-          column: draft.column,
-          styleMode: draft.styleMode,
-          detached: draft.detached,
-          properties,
-        };
-      })
-      .filter((mutation): mutation is SavePayload['mutations'][number] => mutation !== null),
-  };
+    if (properties.length === 0 && !sizeModeMetadata.width && !sizeModeMetadata.height) {
+      continue;
+    }
+
+    mutations.push({
+      file: draft.file,
+      line: draft.line,
+      column: draft.column,
+      styleMode: draft.styleMode,
+      detached: draft.detached,
+      properties,
+      ...(sizeModeMetadata.width || sizeModeMetadata.height
+        ? { sizeModeMetadata }
+        : {}),
+    });
+  }
+
+  return { mutations };
 }
 
 function parseSourceToken(source: string): SelectionPayload | null {
@@ -129,6 +146,96 @@ function measureElementByKey(instanceKey: string) {
 
 function sameMeasuredElement(current: MeasuredElement | null, next: MeasuredElement | null) {
   return current?.element === next?.element && current?.instanceKey === next?.instanceKey;
+}
+
+function getAxisPropertyId(axis: SizeAxis): EditablePropertyId {
+  return axis;
+}
+
+function getOppositeAxis(axis: SizeAxis): SizeAxis {
+  return axis === 'width' ? 'height' : 'width';
+}
+
+function getMeasuredAxisSize(measured: DOMRect, axis: SizeAxis) {
+  return axis === 'width' ? measured.width : measured.height;
+}
+
+function getSizeSnapshotValue(draft: SelectionDraft, axis: SizeAxis) {
+  const propertyId = getAxisPropertyId(axis);
+  const snapshot = draft.properties[propertyId];
+  return (snapshot.inputValue || snapshot.value).trim();
+}
+
+function getNumericSizeValueFromDraft(
+  draft: SelectionDraft,
+  axis: SizeAxis,
+  measuredRect: DOMRect
+) {
+  const mode = getSizeModeSnapshot(draft.sizeControl, axis).value;
+
+  if (!isNumericSizeMode(mode)) {
+    return null;
+  }
+
+  const parsedSnapshotValue = parseCssValue(getSizeSnapshotValue(draft, axis));
+
+  if (parsedSnapshotValue && parsedSnapshotValue.number > 0) {
+    return parsedSnapshotValue.number;
+  }
+
+  const memoryValue = getNumericMemoryValue(
+    axis,
+    mode,
+    getSizeModeMemoryState(draft.sizeControl, axis),
+    getMeasuredAxisSize(measuredRect, axis)
+  );
+  const parsedMemoryValue = parseCssValue(memoryValue.trim());
+
+  if (parsedMemoryValue && parsedMemoryValue.number > 0) {
+    return parsedMemoryValue.number;
+  }
+
+  const measuredSize = getMeasuredAxisSize(measuredRect, axis);
+  return measuredSize > 0 ? measuredSize : null;
+}
+
+function getLockedAspectRatio(draft: SelectionDraft, measuredRect: DOMRect) {
+  const width = getNumericSizeValueFromDraft(draft, 'width', measuredRect);
+  const height = getNumericSizeValueFromDraft(draft, 'height', measuredRect);
+
+  if (!width || !height || width <= 0 || height <= 0) {
+    return null;
+  }
+
+  return width / height;
+}
+
+function getSizeModeSnapshot(sizeControl: SizeControlState, axis: SizeAxis) {
+  return axis === 'width' ? sizeControl.widthMode : sizeControl.heightMode;
+}
+
+function getSizeModeMemoryState(sizeControl: SizeControlState, axis: SizeAxis) {
+  return axis === 'width' ? sizeControl.widthMemory : sizeControl.heightMemory;
+}
+
+function setSizeModeSnapshot(
+  sizeControl: SizeControlState,
+  axis: SizeAxis,
+  value: SizeControlState['widthMode']
+): SizeControlState {
+  return axis === 'width'
+    ? { ...sizeControl, widthMode: value }
+    : { ...sizeControl, heightMode: value };
+}
+
+function setSizeMemoryState(
+  sizeControl: SizeControlState,
+  axis: SizeAxis,
+  value: SizeControlState['widthMemory']
+): SizeControlState {
+  return axis === 'width'
+    ? { ...sizeControl, widthMemory: value }
+    : { ...sizeControl, heightMemory: value };
 }
 
 function getSelectableElementAtPoint(clientX: number, clientY: number) {
@@ -302,6 +409,11 @@ function DesignToolRuntime() {
   }
 
   function updateDraftProperty(propertyId: EditablePropertyId, inputValue: string) {
+    if (propertyId === 'width' || propertyId === 'height') {
+      updateSizeProperty(propertyId, inputValue);
+      return;
+    }
+
     clearSaveFeedback();
     const instanceKey = selectedInstanceKey;
 
@@ -349,6 +461,276 @@ function DesignToolRuntime() {
     if (nextDraft) {
       refreshSelectedMeasurement(instanceKey, nextDraft);
     }
+  }
+
+  function updateSizeProperty(axis: SizeAxis, inputValue: string) {
+    clearSaveFeedback();
+    const instanceKey = selectedInstanceKey;
+
+    if (!instanceKey) {
+      return;
+    }
+
+    const element = getInspectableElementByKey(instanceKey) ?? selected?.element ?? null;
+
+    if (!element) {
+      return;
+    }
+
+    const measuredRect = element.getBoundingClientRect();
+    let nextDraft: SelectionDraft | null = null;
+
+    setDrafts((current) => {
+      const currentDraft = current[instanceKey];
+
+      if (!currentDraft) {
+        return current;
+      }
+
+      const propertyId = getAxisPropertyId(axis);
+      const axisMode = getSizeModeSnapshot(currentDraft.sizeControl, axis).value;
+
+      if (!isNumericSizeMode(axisMode)) {
+        return current;
+      }
+
+      const nextSnapshot = applyDraftInputValue(
+        element,
+        propertyId,
+        currentDraft.properties[propertyId],
+        inputValue
+      );
+
+      let nextSizeControl = currentDraft.sizeControl;
+
+      if (!nextSnapshot.invalid) {
+        nextSizeControl = setSizeMemoryState(
+          nextSizeControl,
+          axis,
+          updateSizeModeMemory(
+            axis,
+            axisMode,
+            getSizeModeMemoryState(nextSizeControl, axis),
+            nextSnapshot
+          )
+        );
+      }
+
+      const nextProperties = {
+        ...currentDraft.properties,
+        [propertyId]: nextSnapshot,
+      };
+
+      const oppositeAxis = getOppositeAxis(axis);
+      const oppositePropertyId = getAxisPropertyId(oppositeAxis);
+      const oppositeMode = getSizeModeSnapshot(nextSizeControl, oppositeAxis).value;
+      const parsedNextValue = parseCssValue(nextSnapshot.value.trim());
+      const lockedAspectRatio =
+        nextSizeControl.aspectRatio ?? getLockedAspectRatio(currentDraft, measuredRect);
+
+      if (
+        nextSizeControl.aspectRatioLocked &&
+        !nextSnapshot.invalid &&
+        parsedNextValue &&
+        lockedAspectRatio &&
+        lockedAspectRatio > 0 &&
+        isNumericSizeMode(oppositeMode)
+      ) {
+        const oppositeSnapshot = currentDraft.properties[oppositePropertyId];
+        const oppositeMemory = getSizeModeMemoryState(nextSizeControl, oppositeAxis);
+        const oppositeSeedValue = getNumericMemoryValue(
+          oppositeAxis,
+          oppositeMode,
+          oppositeMemory,
+          getMeasuredAxisSize(measuredRect, oppositeAxis)
+        );
+        const oppositeUnit =
+          parseCssValue((oppositeSnapshot.inputValue || oppositeSnapshot.value).trim())?.unit ||
+          parseCssValue(oppositeSeedValue)?.unit ||
+          getSizeUnitsForMode(oppositeAxis, oppositeMode)[0] ||
+          'px';
+        const coupledNumber =
+          axis === 'width'
+            ? parsedNextValue.number / lockedAspectRatio
+            : parsedNextValue.number * lockedAspectRatio;
+        const coupledValue = formatSizeValue(coupledNumber, oppositeUnit);
+        const nextOppositeSnapshot = applyDraftInputValue(
+          element,
+          oppositePropertyId,
+          oppositeSnapshot,
+          coupledValue
+        );
+
+        nextProperties[oppositePropertyId] = nextOppositeSnapshot;
+
+        if (!nextOppositeSnapshot.invalid) {
+          nextSizeControl = setSizeMemoryState(
+            nextSizeControl,
+            oppositeAxis,
+            updateSizeModeMemory(
+              oppositeAxis,
+              oppositeMode,
+              getSizeModeMemoryState(nextSizeControl, oppositeAxis),
+              nextOppositeSnapshot
+            )
+          );
+        }
+      }
+
+      const updatedDraft = {
+        ...currentDraft,
+        properties: nextProperties,
+        sizeControl: nextSizeControl,
+      };
+      nextDraft = updatedDraft;
+
+      return {
+        ...current,
+        [instanceKey]: updatedDraft,
+      };
+    });
+
+    if (nextDraft) {
+      refreshSelectedMeasurement(instanceKey, nextDraft);
+    }
+  }
+
+  function updateSizeMode(axis: SizeAxis, mode: SizeMode) {
+    clearSaveFeedback();
+    const instanceKey = selectedInstanceKey;
+
+    if (!instanceKey) {
+      return;
+    }
+
+    const element = getInspectableElementByKey(instanceKey) ?? selected?.element ?? null;
+
+    if (!element) {
+      return;
+    }
+
+    const measuredRect = element.getBoundingClientRect();
+    let nextDraft: SelectionDraft | null = null;
+
+    setDrafts((current) => {
+      const currentDraft = current[instanceKey];
+
+      if (!currentDraft) {
+        return current;
+      }
+
+      const propertyId = getAxisPropertyId(axis);
+      const currentModeSnapshot = getSizeModeSnapshot(currentDraft.sizeControl, axis);
+      let nextSizeControl = currentDraft.sizeControl;
+
+      if (isNumericSizeMode(currentModeSnapshot.value)) {
+        nextSizeControl = setSizeMemoryState(
+          nextSizeControl,
+          axis,
+          updateSizeModeMemory(
+            axis,
+            currentModeSnapshot.value,
+            getSizeModeMemoryState(nextSizeControl, axis),
+            currentDraft.properties[propertyId]
+          )
+        );
+      }
+
+      const nextValue =
+        mode === 'hug'
+          ? 'fit-content'
+          : mode === 'fill'
+            ? '100%'
+            : getNumericMemoryValue(
+                axis,
+                mode,
+                getSizeModeMemoryState(nextSizeControl, axis),
+                getMeasuredAxisSize(measuredRect, axis)
+              );
+
+      const nextSnapshot = applyDraftInputValue(
+        element,
+        propertyId,
+        currentDraft.properties[propertyId],
+        nextValue
+      );
+
+      nextSizeControl = setSizeModeSnapshot(nextSizeControl, axis, {
+        ...currentModeSnapshot,
+        value: mode,
+      });
+
+      if (isNumericSizeMode(mode) && !nextSnapshot.invalid) {
+        nextSizeControl = setSizeMemoryState(
+          nextSizeControl,
+          axis,
+          updateSizeModeMemory(
+            axis,
+            mode,
+            getSizeModeMemoryState(nextSizeControl, axis),
+            nextSnapshot
+          )
+        );
+      }
+
+      const updatedDraft = {
+        ...currentDraft,
+        properties: {
+          ...currentDraft.properties,
+          [propertyId]: nextSnapshot,
+        },
+        sizeControl: nextSizeControl,
+      };
+      nextDraft = updatedDraft;
+
+      return {
+        ...current,
+        [instanceKey]: updatedDraft,
+      };
+    });
+
+    if (nextDraft) {
+      refreshSelectedMeasurement(instanceKey, nextDraft);
+    }
+  }
+
+  function toggleAspectRatioLock() {
+    clearSaveFeedback();
+    const instanceKey = selectedInstanceKey;
+
+    if (!instanceKey) {
+      return;
+    }
+
+    const element = getInspectableElementByKey(instanceKey) ?? selected?.element ?? null;
+
+    if (!element) {
+      return;
+    }
+
+    const measuredRect = element.getBoundingClientRect();
+
+    setDrafts((current) => {
+      const currentDraft = current[instanceKey];
+
+      if (!currentDraft) {
+        return current;
+      }
+
+      const nextLocked = !currentDraft.sizeControl.aspectRatioLocked;
+
+      return {
+        ...current,
+        [instanceKey]: {
+          ...currentDraft,
+          sizeControl: {
+            ...currentDraft.sizeControl,
+            aspectRatio: nextLocked ? getLockedAspectRatio(currentDraft, measuredRect) : null,
+            aspectRatioLocked: nextLocked,
+          },
+        },
+      };
+    });
   }
 
   function detachSelectedDraft() {
@@ -402,12 +784,20 @@ function DesignToolRuntime() {
       }
 
       const nextSnapshot = resetDraftProperty(element, currentDraft, propertyId);
+      let nextSizeControl = currentDraft.sizeControl;
+
+      if (propertyId === 'width' || propertyId === 'height') {
+        const nextSizeMode = resetDraftSizeMode(element, currentDraft, propertyId);
+        nextSizeControl = setSizeModeSnapshot(nextSizeControl, propertyId, nextSizeMode);
+      }
+
       const updatedDraft = {
         ...currentDraft,
         properties: {
           ...currentDraft.properties,
           [propertyId]: nextSnapshot,
         },
+        sizeControl: nextSizeControl,
       };
       nextDraft = updatedDraft;
 
@@ -559,6 +949,14 @@ function DesignToolRuntime() {
     };
 
     const handleClick = (event: MouseEvent) => {
+      if (
+        event.composedPath().some(
+          (target): target is Element => target instanceof Element && isHawkEyeElement(target)
+        )
+      ) {
+        return;
+      }
+
       const nextElement = getSelectableElementAtPoint(event.clientX, event.clientY);
 
       if (!nextElement) {
@@ -702,10 +1100,14 @@ function DesignToolRuntime() {
       enabled={enabled}
       hovered={hovered}
       onChange={updateDraftProperty}
+      onChangeSizeMode={updateSizeMode}
+      onChangeSizeValue={updateSizeProperty}
+      onDetach={detachSelectedDraft}
       onResetAll={resetAllChanges}
       onResetProperty={resetProperty}
       onSave={savePendingDrafts}
       onSelectByKey={selectByKey}
+      onToggleAspectRatioLock={toggleAspectRatioLock}
       onToggle={() => setEnabled((current) => !current)}
       pendingDrafts={pendingDrafts}
       savePending={savePending}

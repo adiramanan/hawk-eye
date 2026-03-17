@@ -3,24 +3,24 @@
 ## Current Blockers
 (None blocking Phase 3.8 or later development)
 
-### Phase 3.10 Known Issues (non-blocking, refinement queue)
-**Issue:** SizeInput component "kind of working" — basic functionality present but edge cases need testing/refinement
-**Status:** In Progress (Phase 3.10 complete, but refinement deferred to Phase 4)
-**Scope:**
-- Mode switching (Fixed/Hug/Fill) may have latency or visual artifacts
-- Value persistence when switching between modes
-- Unit selection edge cases
-- Aspect ratio lock button visual state persistence
-- Corner Radius All/Each toggle possible layout edge cases
-
-**Recommended Refinement Steps:**
-1. Manual testing of rapid mode switching, input clearing, unit changes
-2. jsdom test coverage for SizeInput in Phase 4
-3. Edge case testing for corner radius with different property names
-4. Verify aspect ratio button click responsiveness
-
 ## Resolved Blockers
 (Archived blockers will be listed here for reference)
+
+### 2026-03-17: Phase 3.10 Size & Spacing refinement debt
+**Issue:** The initial Size & Spacing redesign shipped with inaccurate docs and incomplete behavior assumptions.
+
+**Resolved in code:**
+- Width/height now use four explicit modes: `fixed`, `hug`, `fill`, `relative`
+- Size mode semantics round-trip via persisted inline metadata (`--hawk-eye-width-mode`, `--hawk-eye-height-mode`)
+- Fixed/Relative numeric values are remembered separately per axis
+- Aspect ratio lock is real and derives its locked ratio from the field values at lock time, not from `getBoundingClientRect()`
+- Inspector width is fixed to the 320px Figma layout and no longer expands from size-field content
+- Single-unit controls now render static `px` labels with no dropdown chevron
+- Padding, margin, radius, and stroke-width controls are `px`-only
+
+**Verification:**
+- `pnpm type-check`
+- `pnpm test`
 
 ---
 

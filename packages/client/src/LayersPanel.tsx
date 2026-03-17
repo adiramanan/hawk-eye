@@ -1,10 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { createInspectableElementKey } from './drafts';
 
 interface LayerNode {
   element: HTMLElement;
   instanceKey: string;
-  tagName: string;
   label: string;
   source: string;
   children: LayerNode[];
@@ -17,7 +16,6 @@ interface LayersPanelProps {
 }
 
 function makeLabel(source: string): string {
-  // "src/components/Button.tsx:42:5" → "Button.tsx:42"
   const parts = source.split(':');
   const line = parts[parts.length - 2];
   const file = parts.slice(0, -2).join(':');
@@ -26,31 +24,37 @@ function makeLabel(source: string): string {
   return `${basename}:${line}`;
 }
 
+function makeDisplayLabel(element: HTMLElement, source: string) {
+  const ariaLabel = element.getAttribute('aria-label')?.trim();
+  if (ariaLabel) {
+    return ariaLabel;
+  }
+
+  const text = element.textContent?.replace(/\s+/g, ' ').trim();
+  if (text) {
+    return text.slice(0, 36);
+  }
+
+  return makeLabel(source);
+}
+
 function buildLayerTree(): LayerNode[] {
-  // Get all [data-source] elements
   const allElements = Array.from(document.querySelectorAll<HTMLElement>('[data-source]'));
-
-  // Filter out elements inside [data-hawk-eye-ui]
   const filtered = allElements.filter((el) => !el.closest('[data-hawk-eye-ui]'));
-
-  // Map to LayerNode objects
   const nodes = filtered.map((element) => {
     const instanceKey = createInspectableElementKey(element);
-    const tagName = element.tagName.toLowerCase();
     const source = element.dataset.source ?? '';
 
     return {
       element,
       instanceKey: instanceKey ?? '',
-      tagName,
-      label: makeLabel(source),
+      label: makeDisplayLabel(element, source),
       source,
       children: [] as LayerNode[],
       depth: 0,
     };
   });
 
-  // Build parent-child relationships
   const nodeMap = new Map<HTMLElement, LayerNode>();
   nodes.forEach((node) => {
     nodeMap.set(node.element, node);
@@ -62,10 +66,8 @@ function buildLayerTree(): LayerNode[] {
     let parent = node.element.parentElement;
     let parentNode: LayerNode | null = null;
 
-    // Find nearest [data-source] ancestor
     while (parent) {
       if (parent.closest('[data-hawk-eye-ui]')) {
-        // Stop if we hit the hawk-eye UI
         break;
       }
       const candidate = nodeMap.get(parent);
@@ -83,7 +85,6 @@ function buildLayerTree(): LayerNode[] {
     }
   });
 
-  // Compute depth recursively
   function computeDepth(node: LayerNode, depth: number) {
     node.depth = depth;
     node.children.forEach((child) => computeDepth(child, depth + 1));
@@ -92,6 +93,25 @@ function buildLayerTree(): LayerNode[] {
   rootNodes.forEach((node) => computeDepth(node, 0));
 
   return rootNodes;
+}
+
+function collectExpandableKeys(nodes: LayerNode[]) {
+  const keys = new Set<string>();
+
+  function visit(node: LayerNode) {
+    if (node.children.length > 0 && node.instanceKey) {
+      keys.add(node.instanceKey);
+    }
+
+    node.children.forEach(visit);
+  }
+
+  nodes.forEach(visit);
+  return keys;
+}
+
+function countNodes(nodes: LayerNode[]): number {
+  return nodes.reduce((sum, node) => sum + 1 + countNodes(node.children), 0);
 }
 
 function LayerNodeComponent({
@@ -114,12 +134,14 @@ function LayerNodeComponent({
   return (
     <>
       <div
+        data-depth={node.depth}
         data-hawk-eye-ui="layer-row"
         data-selected={isSelected ? 'true' : 'false'}
         onClick={() => onSelectByKey(node.instanceKey)}
-        style={{ paddingLeft: `${8 + node.depth * 14}px` }}
+        style={{ paddingLeft: `${node.depth * 12}px` }}
       >
         <button
+          aria-label={hasChildren ? (isExpanded ? 'Collapse layer' : 'Expand layer') : 'Layer'}
           data-hawk-eye-ui="layer-expand-btn"
           onClick={(e) => {
             e.stopPropagation();
@@ -129,8 +151,7 @@ function LayerNodeComponent({
         >
           {hasChildren ? (isExpanded ? '▾' : '▸') : ' '}
         </button>
-        <span data-hawk-eye-ui="layer-tag">{node.tagName}</span>
-        <span data-hawk-eye-ui="layer-source">{node.label}</span>
+        <span data-hawk-eye-ui="layer-label">{node.label}</span>
       </div>
       {isExpanded &&
         node.children.map((child) => (
@@ -148,40 +169,47 @@ function LayerNodeComponent({
 }
 
 export function LayersPanel({ selectedInstanceKey, onSelectByKey }: LayersPanelProps) {
+  const rootNodes = buildLayerTree();
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
-
-  const rootNodes = useMemo(() => buildLayerTree(), []);
+  const totalLayers = countNodes(rootNodes);
+  const effectiveExpandedKeys =
+    expandedKeys.size > 0 ? expandedKeys : collectExpandableKeys(rootNodes);
 
   function handleToggle(key: string) {
-    const next = new Set(expandedKeys);
-    if (next.has(key)) {
-      next.delete(key);
-    } else {
-      next.add(key);
-    }
-    setExpandedKeys(next);
+    setExpandedKeys((current) => {
+      const next = new Set(current);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
   }
 
   if (rootNodes.length === 0) {
     return (
-      <div style={{ padding: '16px', color: 'var(--he-label)', fontSize: '12px' }}>
-        No elements to inspect.
+      <div data-hawk-eye-ui="layers-empty">
+        No inspectable elements yet.
       </div>
     );
   }
 
   return (
-    <div data-hawk-eye-ui="layers-tree">
-      {rootNodes.map((node) => (
-        <LayerNodeComponent
-          key={node.instanceKey}
-          node={node}
-          selectedInstanceKey={selectedInstanceKey}
-          onSelectByKey={onSelectByKey}
-          expandedKeys={expandedKeys}
-          onToggle={handleToggle}
-        />
-      ))}
-    </div>
+    <section data-hawk-eye-ui="layers-section">
+      <p data-hawk-eye-ui="layers-heading">Layers ({totalLayers})</p>
+      <div data-hawk-eye-ui="layers-tree">
+        {rootNodes.map((node) => (
+          <LayerNodeComponent
+            key={node.instanceKey}
+            node={node}
+            selectedInstanceKey={selectedInstanceKey}
+            onSelectByKey={onSelectByKey}
+            expandedKeys={effectiveExpandedKeys}
+            onToggle={handleToggle}
+          />
+        ))}
+      </div>
+    </section>
   );
 }

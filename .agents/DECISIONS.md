@@ -526,6 +526,44 @@ interface SelectionDraft {
 
 ---
 
+## D21: Figma Size Control Semantics Over Raw CSS Heuristics
+
+**Decision:** Width and height use four explicit modes (`fixed`, `hug`, `fill`, `relative`) with persisted metadata, constrained units, and field-value-based aspect-ratio locking.
+
+**Specifically:**
+- Persist width/height mode semantics with inline custom properties:
+  - `--hawk-eye-width-mode`
+  - `--hawk-eye-height-mode`
+- `fixed` always edits numeric `px` values
+- `relative` always edits numeric `%` values
+- `hug` maps to `fit-content`
+- `fill` maps to `100%`
+- Aspect ratio lock stores the ratio from the current width/height field values when the lock is enabled
+- Single-unit controls render a static unit label, not a dropdown
+- The properties panel width stays fixed at 320px to match the Figma layout
+
+**Rationale:**
+- Raw CSS cannot distinguish `relative 100%` from `fill 100%`, so mode semantics must be persisted explicitly
+- Designers expect width/height mode changes to preserve the last numeric value per mode rather than inventing fallback sizes
+- Locking against the rendered DOM box produces incorrect behavior when layout constraints distort the actual rendered size
+- A dropdown chevron with only one valid unit is misleading UI
+- The Figma reference uses a fixed-width panel; allowing the size row to stretch the panel breaks parity
+
+**Alternatives Considered:**
+- Infer size mode from CSS on every render with no persisted metadata: simpler, but loses `relative 100%` vs `fill 100%`
+- Use `getBoundingClientRect()` for aspect-ratio lock: matches rendered box, but not the values the user is editing
+- Allow multiple numeric units for fixed/relative: more flexible, but diverges from the Figma control and increases state complexity
+- Keep native unit `<select>` for single-unit controls: technically works, but creates a fake affordance
+
+**Trade-offs:**
+- Requires additional state in `SelectionDraft.sizeControl`
+- Requires plugin-side support to persist metadata while excluding it from style-strategy analysis
+- Introduces more client-side logic around size memory, inference, and reset behavior
+
+**Status:** CONFIRMED (2026-03-17)
+
+---
+
 ## Decision Review Schedule
 - Every phase end, review decisions with latest learnings
 - Update rationale if new context emerges

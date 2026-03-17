@@ -49,6 +49,7 @@ describe('style analyzer', () => {
           <div className="px-4 py-2 bg-white text-gray-900 rounded-lg shadow-sm">Card</div>
           <button style={{ backgroundColor: '#112233', fontSize: 18 }}>Inline</button>
           <span className="p-4 text-sm" style={{ color: '#fff' }}>Mixed</span>
+          <article className="w-full rounded-lg" style={{ '--hawk-eye-width-mode': 'relative', '--hawk-eye-height-mode': 'fill' }}>Metadata</article>
           <p className={getClassName()}>Dynamic class</p>
           <img className="card card--hero" />
         </section>
@@ -61,6 +62,7 @@ describe('style analyzer', () => {
     const divPosition = getLineAndColumn(fixtureSource, '<div');
     const buttonPosition = getLineAndColumn(fixtureSource, '<button');
     const spanPosition = getLineAndColumn(fixtureSource, '<span');
+    const articlePosition = getLineAndColumn(fixtureSource, '<article');
     const dynamicPosition = getLineAndColumn(fixtureSource, '<p');
     const customPosition = getLineAndColumn(fixtureSource, '<img');
 
@@ -83,6 +85,11 @@ describe('style analyzer', () => {
       inlineStyles: {
         color: '#fff',
       },
+    });
+    expect(analyzeStyleAtPosition(filePath, articlePosition.line, articlePosition.column)).toEqual({
+      mode: 'tailwind',
+      classNames: ['w-full', 'rounded-lg'],
+      inlineStyles: {},
     });
     expect(analyzeStyleAtPosition(filePath, dynamicPosition.line, dynamicPosition.column)).toEqual({
       mode: 'unknown',

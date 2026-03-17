@@ -32,6 +32,7 @@ export interface ElementMutationPayload {
   styleMode: StyleMode;
   detached: boolean;
   properties: PropertyMutationPayload[];
+  sizeModeMetadata?: SizeModeMetadataPayload;
 }
 
 export interface SavePayload {
@@ -157,6 +158,35 @@ export type EditablePropertyId =
   | 'pointerEvents'
   | 'userSelect';
 
+export type SizeAxis = 'width' | 'height';
+
+export type SizeMode = 'fixed' | 'hug' | 'fill' | 'relative';
+
+export interface SizeModeMetadataPayload {
+  width?: SizeMode;
+  height?: SizeMode;
+}
+
+export interface SizeModeSnapshot {
+  baseline: SizeMode;
+  inlineValue: string;
+  value: SizeMode;
+}
+
+export interface SizeModeMemory {
+  fixed: string;
+  relative: string;
+}
+
+export interface SizeControlState {
+  aspectRatio: number | null;
+  aspectRatioLocked: boolean;
+  heightMemory: SizeModeMemory;
+  heightMode: SizeModeSnapshot;
+  widthMemory: SizeModeMemory;
+  widthMode: SizeModeSnapshot;
+}
+
 export type EditablePropertyGroupId =
   | 'position'
   | 'autoLayout'
@@ -238,5 +268,6 @@ export interface ElementContext {
 export interface SelectionDraft extends SelectionDetails {
   detached: boolean;
   properties: Record<EditablePropertyId, PropertySnapshot>;
+  sizeControl: SizeControlState;
   context: ElementContext;
 }

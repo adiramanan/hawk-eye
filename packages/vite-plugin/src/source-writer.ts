@@ -55,6 +55,8 @@ interface ClassMutationResult {
 const JSX_EMIT_PRESERVE = 1;
 const SCRIPT_TARGET_ES2020 = 7;
 const IDENTIFIER_PATTERN = /^[$A-Z_][0-9A-Z_$]*$/i;
+const WIDTH_SIZE_MODE_CSS_PROPERTY = '--hawk-eye-width-mode';
+const HEIGHT_SIZE_MODE_CSS_PROPERTY = '--hawk-eye-height-mode';
 
 function normalizeFilePath(filePath: string) {
   return filePath.replace(/\\/g, '/');
@@ -396,6 +398,30 @@ function usesTailwindClasses(styleMode: StyleMode) {
   return styleMode === 'mixed' || styleMode === 'tailwind';
 }
 
+function getSizeModeInlineMutations(mutation: ElementMutation): PropertyMutation[] {
+  const nextMutations: PropertyMutation[] = [];
+
+  if (mutation.sizeModeMetadata?.width) {
+    nextMutations.push({
+      propertyId: 'widthMode',
+      cssProperty: WIDTH_SIZE_MODE_CSS_PROPERTY,
+      oldValue: '',
+      newValue: mutation.sizeModeMetadata.width,
+    });
+  }
+
+  if (mutation.sizeModeMetadata?.height) {
+    nextMutations.push({
+      propertyId: 'heightMode',
+      cssProperty: HEIGHT_SIZE_MODE_CSS_PROPERTY,
+      oldValue: '',
+      newValue: mutation.sizeModeMetadata.height,
+    });
+  }
+
+  return nextMutations;
+}
+
 function applyElementMutation(
   node: JsxOpeningLike,
   mutation: ElementMutation,
@@ -404,17 +430,18 @@ function applyElementMutation(
   const classInfo = readClassAttribute(node);
   const nextClassNames = [...classInfo.classNames];
   const inlineMutations: PropertyMutation[] = [];
+  const sizeModeInlineMutations = getSizeModeInlineMutations(mutation);
 
   if (mutation.detached) {
     classInfo.attribute?.remove();
     inlineMutations.push(...mutation.properties);
-    upsertInlineStyles(node, mutation, inlineMutations, warnings);
+    upsertInlineStyles(node, mutation, [...inlineMutations, ...sizeModeInlineMutations], warnings);
     return;
   }
 
   if (!usesTailwindClasses(mutation.styleMode)) {
     inlineMutations.push(...mutation.properties);
-    upsertInlineStyles(node, mutation, inlineMutations, warnings);
+    upsertInlineStyles(node, mutation, [...inlineMutations, ...sizeModeInlineMutations], warnings);
     return;
   }
 
@@ -442,7 +469,7 @@ function applyElementMutation(
     setClassAttribute(node, classInfo, nextClassNames);
   }
 
-  upsertInlineStyles(node, mutation, inlineMutations, warnings);
+  upsertInlineStyles(node, mutation, [...inlineMutations, ...sizeModeInlineMutations], warnings);
 }
 
 function resolveMutationFilePath(root: string, file: string) {

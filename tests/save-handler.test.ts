@@ -168,4 +168,44 @@ describe('save handler', () => {
     });
     expect(runGit(workspace.repoRoot, ['rev-parse', '--abbrev-ref', 'HEAD'])).toBe('main');
   });
+
+  it('accepts size mode metadata without ordinary property mutations', () => {
+    const source = `
+      export function App() {
+        return (
+          <div className="w-full h-full">Metadata</div>
+        );
+      }
+    `;
+    const workspace = createTempGitWorkspace(source);
+    const position = getLineAndColumn(source, '<div');
+
+    const result = saveToBranch(workspace.viteRoot, {
+      mutations: [
+        {
+          file: 'src/App.tsx',
+          line: position.line,
+          column: position.column,
+          styleMode: 'tailwind',
+          detached: false,
+          properties: [],
+          sizeModeMetadata: {
+            width: 'relative',
+            height: 'fill',
+          },
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      return;
+    }
+
+    const branchSource = runGit(workspace.repoRoot, ['show', `${result.branch}:demo/src/App.tsx`]);
+    expect(branchSource).toContain('"--hawk-eye-width-mode": "relative"');
+    expect(branchSource).toContain('"--hawk-eye-height-mode": "fill"');
+    expect(runGit(workspace.repoRoot, ['rev-parse', '--abbrev-ref', 'HEAD'])).toBe('main');
+  });
 });

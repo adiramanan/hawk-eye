@@ -15,6 +15,7 @@ import type {
   PropertyMutation,
   SavePayload,
   SaveResult,
+  SizeModeMetadata,
 } from './mutations';
 import { writeSourceMutations } from './source-writer';
 
@@ -62,6 +63,10 @@ function isElementMutation(value: unknown): value is ElementMutation {
 
   const candidate = value as Record<string, unknown>;
 
+  const hasValidSizeModeMetadata =
+    candidate.sizeModeMetadata === undefined ||
+    isSizeModeMetadata(candidate.sizeModeMetadata);
+
   return (
     typeof candidate.file === 'string' &&
     typeof candidate.line === 'number' &&
@@ -69,8 +74,25 @@ function isElementMutation(value: unknown): value is ElementMutation {
     typeof candidate.styleMode === 'string' &&
     typeof candidate.detached === 'boolean' &&
     Array.isArray(candidate.properties) &&
-    candidate.properties.every(isPropertyMutation)
+    candidate.properties.every(isPropertyMutation) &&
+    hasValidSizeModeMetadata
   );
+}
+
+function isSizeModeMetadata(value: unknown): value is SizeModeMetadata {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  const isValidModeValue = (mode: unknown) =>
+    mode === undefined ||
+    mode === 'fixed' ||
+    mode === 'hug' ||
+    mode === 'fill' ||
+    mode === 'relative';
+
+  return isValidModeValue(candidate.width) && isValidModeValue(candidate.height);
 }
 
 function isSavePayload(value: unknown): value is SavePayload {

@@ -280,6 +280,39 @@ function getButtonControl(
   return button;
 }
 
+function chooseSizeMenuOption(
+  shadowRoot: { querySelector(selectors: string): Element | null },
+  triggerId: string,
+  optionValue: string
+) {
+  click(getButtonControl(shadowRoot, triggerId));
+  const option = shadowRoot.querySelector(
+    `[data-hawk-eye-control="${triggerId}-option-${optionValue}"]`
+  );
+
+  if (!(option instanceof window.HTMLButtonElement)) {
+    throw new Error(`Could not find option ${optionValue} for ${triggerId}`);
+  }
+
+  click(option);
+}
+
+function getInputByLabel(
+  shadowRoot: { querySelector(selectors: string): Element | null },
+  label: string
+) {
+  const input = shadowRoot.querySelector(`[aria-label="${label}"]`);
+
+  if (
+    !(input instanceof window.HTMLInputElement) &&
+    !(input instanceof window.HTMLSelectElement)
+  ) {
+    throw new Error(`Could not find input with label ${label}`);
+  }
+
+  return input;
+}
+
 afterEach(() => {
   for (const cleanup of Array.from(mountedCleanups)) {
     cleanup();
@@ -295,13 +328,17 @@ describe('DesignTool', () => {
     const { cleanup, shadowRoot } = renderDesignTool();
     const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]');
 
-    expect(shadowRoot.textContent).not.toContain('Inspector active');
+    expect(shadowRoot.textContent).toContain('Inspect with Hawk-Eye');
+    expect(shadowRoot.querySelector('[data-hawk-eye-ui="panel"]')).toBeNull();
 
     click(trigger as Element);
-    expect(shadowRoot.textContent).toContain('Inspector active');
+    expect(shadowRoot.textContent).toContain('CraftKit');
+    expect(shadowRoot.querySelector('[data-hawk-eye-ui="panel"]')).not.toBeNull();
+    expect(shadowRoot.textContent).not.toContain('Inspect with Hawk-Eye');
 
-    click(trigger as Element);
-    expect(shadowRoot.textContent).not.toContain('Inspector active');
+    click(shadowRoot.querySelector('[data-hawk-eye-ui="panel-close-btn"]') as Element);
+    expect(shadowRoot.textContent).toContain('Inspect with Hawk-Eye');
+    expect(shadowRoot.querySelector('[data-hawk-eye-ui="panel"]')).toBeNull();
     cleanup();
   });
 
@@ -337,20 +374,19 @@ describe('DesignTool', () => {
     expect(hot.send).toHaveBeenCalledWith(HAWK_EYE_ANALYZE_STYLE_EVENT, {
       source: 'demo/src/App.tsx:21:13',
     });
-    expect(shadowRoot.textContent).toContain('Locked selection');
+    expect(shadowRoot.textContent).toContain('CraftKit');
     expect(shadowRoot.textContent).toContain('demo/src/App.tsx:21:13');
     expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="positionSize"]')).toHaveLength(1);
-    expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="spacing"]')).toHaveLength(1);
+    expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="autoLayout"]')).toHaveLength(1);
     expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="fillOpacity"]')).toHaveLength(1);
     expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="border"]')).toHaveLength(1);
     expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="typography"]')).toHaveLength(1);
     expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="effects"]')).toHaveLength(1);
-    expect(getControl(shadowRoot, 'paddingTop').value).toBe('16px');
-    expect(getControl(shadowRoot, 'borderTopLeftRadius').value).toBe('14px');
+    expect(getControl(shadowRoot, 'paddingTop').value).toBe('16');
+    expect(getControl(shadowRoot, 'borderRadius').value).toBe('14');
     expect(getControl(shadowRoot, 'fontWeight').value).toBe('600');
     expect(shadowRoot.querySelector('[data-hawk-eye-control="backgroundColor"]')).not.toBeNull();
-    // opacity-number is the text input inside SliderInput for opacity (now in focused panel)
-    expect(shadowRoot.querySelector('[data-hawk-eye-control="opacity-number"]')).not.toBeNull();
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="opacity"]')).not.toBeNull();
     // width, positionType, fontFamily are now in the focused panel
     expect(shadowRoot.querySelector('[data-hawk-eye-control="width"]')).not.toBeNull();
     expect(shadowRoot.querySelector('[data-hawk-eye-control="positionType"]')).not.toBeNull();
@@ -405,12 +441,7 @@ describe('DesignTool', () => {
 
     expect(shadowRoot.querySelector('[data-hawk-eye-ui="badge"]')?.textContent).toBe('detached');
     expect(shadowRoot.querySelector('[data-hawk-eye-control="detach"]')).toBeNull();
-    expect(shadowRoot.textContent).toContain(
-      'Detached preview active. Focused properties will save as inline styles.'
-    );
-    expect(shadowRoot.textContent).toContain(
-      'Focused properties will be written inline when this draft is saved.'
-    );
+    expect(target.style.paddingTop).toBe('16px');
 
     act(() => {
       hot.emit('hawk-eye:style-analysis', {
@@ -480,7 +511,7 @@ describe('DesignTool', () => {
 
     expect(target.style.paddingTop).toBe('16px');
     expect(shadowRoot.textContent).toContain('Saved to hawk-eye/design-tweaks-20260312-230000');
-    expect(shadowRoot.textContent).toContain('Hover any intrinsic DOM element');
+    expect(shadowRoot.textContent).toContain('No element selected');
     cleanup();
   });
 
@@ -502,7 +533,7 @@ describe('DesignTool', () => {
     updateSelect(fontSizeUnit() as InstanceType<typeof window.HTMLSelectElement>, 'rem');
     updateInput(fontSizeInput() as InstanceType<typeof window.HTMLInputElement>, '1.5');
     expect(target.style.fontSize).toBe('1.5rem');
-    expect(shadowRoot.textContent).toContain('18px -> 1.5rem');
+    expect(fontSizeInput().value).toBe('1.5');
 
     updateInput(fontSizeInput() as InstanceType<typeof window.HTMLInputElement>, 'banana');
     expect(target.style.fontSize).toBe('1.5rem');
@@ -525,12 +556,24 @@ describe('DesignTool', () => {
     document.body.append(target);
     setElementFromPoint(target);
 
-    const { cleanup, host, shadowRoot } = renderDesignTool();
+    const { cleanup, shadowRoot } = renderDesignTool();
     const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+    const perSideModeSelects = () =>
+      shadowRoot.querySelectorAll<HTMLSelectElement>('[aria-label="All sides or each side"]');
 
     click(trigger);
     click(document);
 
+    updateInput(
+      getInputByLabel(shadowRoot, 'Padding all sides') as InstanceType<typeof window.HTMLInputElement>,
+      '20'
+    );
+    expect(target.style.paddingTop).toBe('20px');
+    expect(target.style.paddingRight).toBe('20px');
+    expect(target.style.paddingBottom).toBe('20px');
+    expect(target.style.paddingLeft).toBe('20px');
+
+    updateSelect(perSideModeSelects()[1] as InstanceType<typeof window.HTMLSelectElement>, 'each');
     updateInput(
       getControl(shadowRoot, 'marginTop') as InstanceType<typeof window.HTMLInputElement>,
       '24px'
@@ -538,19 +581,20 @@ describe('DesignTool', () => {
     expect(target.style.marginTop).toBe('24px');
     expect(target.style.marginRight).toBe('4px');
 
+    updateSelect(perSideModeSelects()[0] as InstanceType<typeof window.HTMLSelectElement>, 'each');
     updateInput(
       getControl(shadowRoot, 'paddingTop') as InstanceType<typeof window.HTMLInputElement>,
       '20px'
     );
     expect(target.style.paddingTop).toBe('20px');
     expect(target.style.paddingRight).toBe('20px');
-    expect(target.style.paddingBottom).toBe('20px');
-    expect(target.style.paddingLeft).toBe('20px');
 
-    setElementFromPoint(host);
-    click(getButtonControl(shadowRoot, 'paddingTop-reset'));
+    updateInput(
+      getControl(shadowRoot, 'paddingTop') as InstanceType<typeof window.HTMLInputElement>,
+      '26px'
+    );
 
-    expect(target.style.paddingTop).toBe('16px');
+    expect(target.style.paddingTop).toBe('26px');
     expect(target.style.paddingRight).toBe('20px');
     expect(target.style.paddingBottom).toBe('20px');
     expect(target.style.paddingLeft).toBe('20px');
@@ -566,26 +610,51 @@ describe('DesignTool', () => {
 
     const { cleanup, host, shadowRoot } = renderDesignTool();
     const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+    const paddingModeSelect = () =>
+      shadowRoot.querySelectorAll<HTMLSelectElement>('[aria-label="All sides or each side"]')[0];
 
     click(trigger);
     click(document);
 
+    updateSelect(paddingModeSelect() as InstanceType<typeof window.HTMLSelectElement>, 'each');
     updateInput(
       getControl(shadowRoot, 'paddingTop') as InstanceType<typeof window.HTMLInputElement>,
       '24px'
     );
     updateInput(
-      getControl(shadowRoot, 'borderTopLeftRadius') as InstanceType<typeof window.HTMLInputElement>,
-      '20px'
+      getControl(shadowRoot, 'fontSize') as InstanceType<typeof window.HTMLInputElement>,
+      '20'
     );
 
+    const fontSizeCard = shadowRoot.querySelector(
+      '[data-property-id="fontSize"]'
+    );
+
+    if (!(fontSizeCard instanceof window.HTMLElement)) {
+      throw new Error('Missing fontSize card');
+    }
+
+    const fontSizeReset = fontSizeCard.querySelector(
+      '[data-hawk-eye-ui="control-reset-mini"]'
+    );
+
+    if (!(fontSizeReset instanceof window.HTMLButtonElement)) {
+      throw new Error('Missing fontSize reset button');
+    }
+
     setElementFromPoint(host);
-    click(getButtonControl(shadowRoot, 'paddingTop-reset'));
+    click(fontSizeReset);
 
-    expect(target.style.paddingTop).toBe('16px');
-    expect(target.style.borderTopLeftRadius).toBe('20px');
+    expect(target.style.paddingTop).toBe('24px');
+    expect(target.style.fontSize).toBe('18px');
+    expect(getControl(shadowRoot, 'fontSize').value).toBe('18');
+    expect(
+      shadowRoot
+        .querySelector('[data-property-id="fontSize"]')
+        ?.querySelector('[data-hawk-eye-ui="control-reset-mini"]')
+    ).toBeNull();
 
-    const resetAll = shadowRoot.querySelector('[data-hawk-eye-ui="secondary-button"]');
+    const resetAll = shadowRoot.querySelector('[data-hawk-eye-ui="footer-revert-btn"]');
 
     if (!(resetAll instanceof window.HTMLButtonElement)) {
       throw new Error('Missing reset all button');
@@ -595,9 +664,163 @@ describe('DesignTool', () => {
     click(resetAll);
 
     expect(target.style.paddingTop).toBe('16px');
-    expect(target.style.borderTopLeftRadius).toBe('14px');
-    expect(shadowRoot.textContent).not.toContain('14px -> 20px');
-    expect(shadowRoot.textContent).toContain('Live preview changes stay in this session only.');
+    expect(target.style.fontSize).toBe('18px');
+    expect(resetAll.disabled).toBe(true);
+    cleanup();
+  });
+
+  it('tracks size mode-only changes in the changes view', () => {
+    const target = document.createElement('div');
+    applyBaselineStyles(target, 'demo/src/App.tsx:14:3');
+    target.style.width = '100%';
+    mockRect(target, { height: 48, left: 24, top: 40, width: 120 });
+    document.body.append(target);
+    setElementFromPoint(target);
+
+    const { cleanup, shadowRoot } = renderDesignTool();
+    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+
+    click(trigger);
+    click(document);
+    chooseSizeMenuOption(shadowRoot, 'width-mode', 'relative');
+
+    expect(target.style.width).toBe('100%');
+
+    const tabs = shadowRoot.querySelectorAll('[data-hawk-eye-ui="panel-tab"]');
+    click(tabs[1] as Element);
+
+    const changesButton = shadowRoot.querySelector('[data-hawk-eye-ui="footer-changes-btn"]');
+
+    if (!(changesButton instanceof window.HTMLButtonElement)) {
+      throw new Error('Missing changes button');
+    }
+
+    expect(changesButton.textContent).toContain('1 Change');
+    click(changesButton);
+    expect(shadowRoot.textContent).toContain('width mode');
+    cleanup();
+  });
+
+  it('preserves separate fixed and relative size values across mode switches and reselection', () => {
+    const first = document.createElement('div');
+    applyBaselineStyles(first, 'demo/src/App.tsx:72:9');
+    mockRect(first, { height: 48, left: 24, top: 40, width: 120 });
+    document.body.append(first);
+
+    const second = document.createElement('div');
+    applyBaselineStyles(second, 'demo/src/App.tsx:74:9');
+    second.style.width = '80px';
+    mockRect(second, { height: 48, left: 220, top: 40, width: 80 });
+    document.body.append(second);
+
+    const { cleanup, shadowRoot } = renderDesignTool();
+    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+
+    click(trigger);
+
+    setElementFromPoint(first);
+    click(document);
+
+    updateInput(
+      getControl(shadowRoot, 'width') as InstanceType<typeof window.HTMLInputElement>,
+      '200'
+    );
+    expect(first.style.width).toBe('200px');
+
+    chooseSizeMenuOption(shadowRoot, 'width-mode', 'relative');
+    expect(first.style.width).toBe('100%');
+
+    updateInput(
+      getControl(shadowRoot, 'width') as InstanceType<typeof window.HTMLInputElement>,
+      '75'
+    );
+    expect(first.style.width).toBe('75%');
+
+    chooseSizeMenuOption(shadowRoot, 'width-mode', 'fixed');
+    expect(first.style.width).toBe('200px');
+
+    chooseSizeMenuOption(shadowRoot, 'width-mode', 'relative');
+    expect(first.style.width).toBe('75%');
+
+    setElementFromPoint(second);
+    click(document);
+    setElementFromPoint(first);
+    click(document);
+
+    expect(getButtonControl(shadowRoot, 'width-mode').dataset.value).toBe('relative');
+    expect(
+      (getControl(shadowRoot, 'width') as InstanceType<typeof window.HTMLInputElement>).value
+    ).toBe('75');
+    cleanup();
+  });
+
+  it('locks and unlocks width and height using the current aspect ratio', () => {
+    const target = document.createElement('div');
+    applyBaselineStyles(target, 'demo/src/App.tsx:14:3');
+    mockRect(target, { height: 48, left: 24, top: 40, width: 120 });
+    document.body.append(target);
+    setElementFromPoint(target);
+
+    const { cleanup, shadowRoot } = renderDesignTool();
+    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+
+    click(trigger);
+    click(document);
+    const lockButton = shadowRoot.querySelector('[data-hawk-eye-ui="aspect-ratio-lock-button"]');
+
+    if (!(lockButton instanceof window.HTMLButtonElement)) {
+      throw new Error('Missing aspect ratio lock button');
+    }
+
+    click(lockButton);
+
+    updateInput(
+      getControl(shadowRoot, 'width') as InstanceType<typeof window.HTMLInputElement>,
+      '240'
+    );
+    expect(target.style.width).toBe('240px');
+    expect(target.style.height).toBe('96px');
+
+    click(lockButton);
+    updateInput(
+      getControl(shadowRoot, 'width') as InstanceType<typeof window.HTMLInputElement>,
+      '300'
+    );
+    expect(target.style.width).toBe('300px');
+    expect(target.style.height).toBe('96px');
+    cleanup();
+  });
+
+  it('locks aspect ratio from the size field values instead of the measured box', () => {
+    const target = document.createElement('div');
+    applyBaselineStyles(target, 'demo/src/App.tsx:18:4');
+    target.style.width = '20px';
+    target.style.height = '40px';
+    mockRect(target, { height: 120, left: 24, top: 40, width: 120 });
+    document.body.append(target);
+    setElementFromPoint(target);
+
+    const { cleanup, shadowRoot } = renderDesignTool();
+    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+
+    click(trigger);
+    click(document);
+
+    const lockButton = shadowRoot.querySelector('[data-hawk-eye-ui="aspect-ratio-lock-button"]');
+
+    if (!(lockButton instanceof window.HTMLButtonElement)) {
+      throw new Error('Missing aspect ratio lock button');
+    }
+
+    click(lockButton);
+
+    updateInput(
+      getControl(shadowRoot, 'width') as InstanceType<typeof window.HTMLInputElement>,
+      '40'
+    );
+
+    expect(target.style.width).toBe('40px');
+    expect(target.style.height).toBe('80px');
     cleanup();
   });
 
@@ -616,32 +839,34 @@ describe('DesignTool', () => {
 
     const { cleanup, shadowRoot } = renderDesignTool();
     const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+    const paddingInput = () => getControl(shadowRoot, 'paddingTop');
+    const marginInput = () => getControl(shadowRoot, 'marginTop');
 
     click(trigger);
 
     setElementFromPoint(first);
     click(document);
     updateInput(
-      getControl(shadowRoot, 'paddingTop') as InstanceType<typeof window.HTMLInputElement>,
-      '24px'
+      paddingInput() as InstanceType<typeof window.HTMLInputElement>,
+      '24'
     );
 
     setElementFromPoint(second);
     click(document);
     updateInput(
-      getControl(shadowRoot, 'marginTop') as InstanceType<typeof window.HTMLInputElement>,
-      '12px'
+      marginInput() as InstanceType<typeof window.HTMLInputElement>,
+      '12'
     );
 
     expect(first.style.paddingTop).toBe('24px');
     expect(second.style.marginTop).toBe('12px');
-    expect(shadowRoot.textContent).toContain('demo/src/App.tsx:20:5');
+    expect(shadowRoot.textContent).toContain('unknown');
     expect(shadowRoot.textContent).toContain('demo/src/App.tsx:38:9');
 
     setElementFromPoint(first);
     click(document);
 
-    expect(getControl(shadowRoot, 'paddingTop').value).toBe('24px');
+    expect(paddingInput().value).toBe('24');
     cleanup();
   });
 
@@ -668,11 +893,11 @@ describe('DesignTool', () => {
     click(trigger);
     click(document);
 
-    expect(getControl(shadowRoot, 'paddingTop').value).toBe('16px');
+    expect(getControl(shadowRoot, 'paddingTop').value).toBe('16');
 
     updateInput(
       getControl(shadowRoot, 'paddingTop') as InstanceType<typeof window.HTMLInputElement>,
-      '28px'
+      '28'
     );
 
     expect(second.style.paddingTop).toBe('28px');
@@ -747,8 +972,8 @@ describe('DesignTool', () => {
     setElementFromPoint(host);
     click(getButtonControl(shadowRoot, 'textAlign-center'));
     updateInput(
-      getControl(shadowRoot, 'borderTopLeftRadius') as InstanceType<typeof window.HTMLInputElement>,
-      '22px'
+      getControl(shadowRoot, 'borderRadius') as InstanceType<typeof window.HTMLInputElement>,
+      '22'
     );
     updateInput(
       getControl(shadowRoot, 'boxShadow-blur') as InstanceType<typeof window.HTMLInputElement>,
@@ -760,7 +985,7 @@ describe('DesignTool', () => {
     expect(target.style.fontWeight).toBe('700');
     expect(target.style.fontSize).toBe('24px');
     expect(target.style.textAlign).toBe('center');
-    expect(target.style.borderTopLeftRadius).toBe('22px');
+    expect(target.style.borderRadius).toBe('22px');
     expect(target.style.boxShadow).toContain('20px');
     expect(target.style.boxShadow).toContain('inset');
     cleanup();
@@ -781,17 +1006,16 @@ describe('DesignTool', () => {
 
     // True non-focused controls still absent
     expect(shadowRoot.querySelector('[data-hawk-eye-control="property-search"]')).toBeNull();
-    // opacity-number is the text input inside SliderInput for opacity (now in focused panel)
-    expect(shadowRoot.querySelector('[data-hawk-eye-control="opacity-number"]')).not.toBeNull();
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="opacity"]')).not.toBeNull();
     expect(shadowRoot.querySelector('[data-hawk-eye-control="cursor"]')).toBeNull();
     expect(shadowRoot.querySelector('[data-hawk-eye-control="userSelect"]')).toBeNull();
     expect(shadowRoot.querySelector('[data-hawk-eye-control="overflow"]')).toBeNull();
-    // display, positionType, fontFamily, filter, borderTopWidth are now in the focused panel
-    expect(shadowRoot.querySelector('[data-hawk-eye-control="display"]')).not.toBeNull();
+    // segmented and select controls are present via their concrete control ids
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="display-none"]')).not.toBeNull();
     expect(shadowRoot.querySelector('[data-hawk-eye-control="positionType"]')).not.toBeNull();
     expect(shadowRoot.querySelector('[data-hawk-eye-control="fontFamily"]')).not.toBeNull();
     expect(shadowRoot.querySelector('[data-hawk-eye-control="filter"]')).not.toBeNull();
-    expect(shadowRoot.querySelector('[data-hawk-eye-control="borderTopWidth"]')).not.toBeNull();
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="borderTopWidth"]')).toBeNull();
     cleanup();
   });
 
@@ -820,14 +1044,14 @@ describe('DesignTool', () => {
 
     expect(target.style.textAlign).toBe('center');
 
-    expect(panel.style.getPropertyValue('--hawk-eye-panel-width')).toBe('420px');
-    expect(panel.style.getPropertyValue('--hawk-eye-panel-height')).toBe('760px');
+    expect(panel.style.getPropertyValue('--hawk-eye-panel-width')).toBe('320px');
+    expect(panel.style.getPropertyValue('--hawk-eye-panel-height')).toBe('792px');
 
     keyDown(resizeHandle, 'ArrowLeft');
     keyDown(resizeHandle, 'ArrowUp');
 
-    expect(panel.style.getPropertyValue('--hawk-eye-panel-width')).toBe('444px');
-    expect(panel.style.getPropertyValue('--hawk-eye-panel-height')).toBe('648px');
+    expect(panel.style.getPropertyValue('--hawk-eye-panel-width')).toBe('320px');
+    expect(panel.style.getPropertyValue('--hawk-eye-panel-height')).toBe('720px');
     cleanup();
   });
 });

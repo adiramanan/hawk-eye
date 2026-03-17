@@ -63,6 +63,7 @@ packages/client/src/
 ├── PropertiesPanel.tsx     # Guided property controls + pending changes
 ├── editable-properties.ts  # Property metadata
 ├── drafts.ts               # Live preview draft helpers
+├── size-state.ts           # Size-mode inference + memory helpers
 ├── ws-client.ts            # WebSocket client
 ├── styles.ts               # CSS injected into Shadow DOM
 └── types.ts                # Internal runtime types
@@ -85,7 +86,10 @@ packages/vite-plugin/src/
 
 ## Current Implementation Surface
 - `@hawk-eye/client` exports a dev-only inspector with a floating trigger, hover outline, click-to-lock selection, source info panel, guided property controls, and session-scoped live preview edits.
+- Width/height now use Figma-style size modes (`fixed`, `hug`, `fill`, `relative`) with persisted size-mode metadata, separate numeric memory per mode, and a working aspect-ratio lock.
+- The properties panel width is fixed to the 320px Figma layout, and single-unit controls render static unit labels instead of fake dropdown affordances.
 - `@hawk-eye/vite-plugin` injects `data-source` metadata into intrinsic JSX elements and replies to selection requests over Vite HMR.
+- The save pipeline persists size-mode metadata as inline custom properties and ignores that metadata during style-strategy analysis so Tailwind elements do not get reclassified as `mixed`.
 - The demo app exercises the full Phase 2 inspector and live-preview flow in a React + Vite + Tailwind environment.
 
 ## Known Issues & Workarounds
@@ -112,7 +116,7 @@ packages/vite-plugin/src/
   - Session-scoped draft accumulation and reset behavior
   - Search, keyboard navigation, resizable panel
 
-- **Phase 3 (Designer-Friendly Editor + Code Writers + Save-to-Branch):** COMPLETE (3.1–3.6, UI Refinement, 3.9–3.10)
+- **Phase 3 (Designer-Friendly Editor + Code Writers + Save-to-Branch):** COMPLETE (3.1–3.6, UI Refinement, 3.9–3.10 + 3.10 refinement pass)
   - 3.1: Focused 15-property subset with Figma-style sections (Layout/Fill/Typography/Design/Effects)
   - 3.2: Server-side style strategy detection (Tailwind vs inline vs mixed)
   - 3.3: Bidirectional Tailwind CSS-to-class mapping
@@ -121,7 +125,12 @@ packages/vite-plugin/src/
   - 3.6: Save-to-branch workflow (git branch + commit + switch back)
   - UI Refinement: Figma design parity for PropertiesPanel (2026-03-16)
   - 3.9: Complete Properties Panel (all 6 MVP sections visible)
-  - 3.10: Size & Spacing section redesign with Fixed/Hug/Fill modes (2026-03-17) — "kind of working" status
+  - 3.10: Size & Spacing section redesign and refinement (2026-03-17)
+    - Four size modes: `fixed`, `hug`, `fill`, `relative`
+    - Persisted size-mode metadata for round-trip semantics
+    - Aspect ratio lock uses field values at lock time
+    - Panel width fixed to 320px
+    - Radius/padding/margin/stroke-width controls are `px`-only with static unit labels
 
 - **Phase 4 (Polish):** NOT STARTED
   - Edge case handling
@@ -143,27 +152,30 @@ packages/vite-plugin/src/
 
 ## Phase 3.10 Key Learnings
 
-### SizeInput Component (Fixed/Hug/Fill Pattern)
-- **CSS value mapping:** Hug → `fit-content`, Fill → `100%`, Fixed → numeric value (e.g. `200px`, `50%`, `10rem`)
-- **Mode detection:** Check `value === 'fit-content'` for Hug, `value === '100%'` for Fill, else Fixed
-- **Conditional rendering:** Show numeric value + unit inputs **only** when in Fixed mode; Hug/Fill hide these inputs
-- **Native selects are reliable:** Custom absolutely-positioned dropdown menus have event propagation issues (clicks don't register reliably). Switched to native `<select>` elements — more robust, matches browser expectations
-- **Arrow key incrementing:** Support ↑/↓ with optional Shift for 10x multiplier (similar to Figma number inputs)
-- **Unit handling in SizeInput:**
-  - Display: strip unit from value, show just the number in the input
-  - On change: re-append the selected unit to the number
-  - This pattern prevents unit confusion and allows easy unit switching
+### Size control semantics (current)
+- **Four explicit size modes:** `fixed`, `hug`, `fill`, `relative`
+- **CSS mapping:** Hug → `fit-content`, Fill → `100%`, Fixed → numeric `px`, Relative → numeric `%`
+- **Persisted mode metadata:** Raw CSS alone cannot preserve `relative 100%` vs `fill 100%`, so width/height mode semantics are stored as inline custom properties
+- **Per-mode numeric memory:** Width and height each remember separate numeric values for Fixed and Relative so mode switching restores the prior value instead of inventing defaults
+- **Single mode menu:** The size pill uses a single chevron-driven mode menu; there is no separate unit dropdown for width/height
+- **Constrained units:** Fixed is always `px`, Relative is always `%`
+- **Arrow key incrementing:** ↑/↓ with optional Shift for 10x multiplier still works for numeric inputs
+- **Value handling pattern:** Display strips the unit, edit works on the raw number, and writes re-append the mode-defined unit
 
 ### Corner Radius All/Each Toggle
 - Simple React `useState('all' | 'each')` for mode tracking
 - All mode: single input applies to all corners
 - Each mode: 4 separate inputs for each corner (topLeft, topRight, bottomRight, bottomLeft)
 - Layout: Each mode shows `[0px|0px|0px|0px]` pill with `#4c4c4c` dividers (borrowed from PerSideControl pattern)
+- Radius controls are now `px`-only and render static `px` labels instead of unit dropdowns
 
 ### Size & Spacing Section Merge
 - Combined Frame (positionSize) + Spacing into single "Size & Spacing" section
 - Order: W/H with modes → Corner Radius → Position type → X/Y → Padding → Margin
-- Aspect ratio lock button (32x32px, #e1f1ff background) is a UI placeholder — no constraint enforcement logic yet
+- Aspect ratio lock button (32x32px, #e1f1ff background when locked) is functional for numeric modes
+- The locked ratio must come from the current width/height field values at the moment the lock is enabled, not from the rendered box size
+- Panel width is fixed to 320px and the size row must not expand it
+- Padding and margin controls are now `px`-only with static `px` labels
 
 ## Phase 3 Key Patterns
 
@@ -224,6 +236,9 @@ Currently a single file (~1750 lines). Decision D14 calls for splitting into `st
 ### `input-unit-label` token
 A static muted unit suffix (`color: var(--he-label); font-size: 13px; letter-spacing: -0.25px`) used next to transparent number inputs inside a container pill. Used in `PerSideControl` and `DashGapCard`.
 
+### Single-unit controls should not fake dropdowns
+If a numeric control only has one valid unit, render `input-unit-label` and no `<select>`. This is now the policy for radius, padding, margin, stroke-width, opacity, width Fixed mode, and height Fixed mode.
+
 ### PerSideControl pattern (as of 2026-03-16)
 Renders `[All/Each <select>] [single-value pill OR 4-cell pill]`. Select uses `data-hawk-eye-ui="select-input"` with a `per-side-row > select-input` override for `max-width: 72px`. Each cell in "Each" mode is separated by `border-right: 1px solid #4c4c4c` with `:last-child { border-right: none }`. The inner `text-input` is transparent/borderless; the container provides the background.
 
@@ -231,4 +246,4 @@ Renders `[All/Each <select>] [single-value pill OR 4-cell pill]`. Select uses `d
 `color-row` is the styled container (`bg var(--he-input); border-radius: 8px; padding: 8px; border: 1px solid transparent`). Swatch is 16×16px inside. Inner `text-input` is transparent with no border. Dirty/invalid border states target `color-row`, not the inner input. An explicit override resets the inner input back to transparent when its parent `compact-card` is dirty.
 
 ## Last Updated
-2026-03-17 (Phase 3.10 Size & Spacing redesign complete)
+2026-03-17 (Phase 3.10 refinement complete; handoff docs synced)

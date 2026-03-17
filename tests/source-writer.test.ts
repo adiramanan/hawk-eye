@@ -375,4 +375,39 @@ describe('source writer', () => {
       },
     ]);
   });
+
+  it('persists size mode metadata as inline custom properties', () => {
+    const source = `
+      export function App() {
+        return (
+          <div className="w-full h-full">Metadata</div>
+        );
+      }
+    `;
+    const { filePath, root } = writeFixture(source);
+    const position = getLineAndColumn(source, '<div');
+    const result = writeSourceMutations(root, {
+      mutations: [
+        {
+          file: 'src/App.tsx',
+          line: position.line,
+          column: position.column,
+          styleMode: 'tailwind',
+          detached: false,
+          properties: [],
+          sizeModeMetadata: {
+            width: 'relative',
+            height: 'fill',
+          },
+        },
+      ],
+    });
+
+    const nextSource = readFixture(filePath);
+
+    expect(result.warnings).toEqual([]);
+    expect(nextSource).toContain('className="w-full h-full"');
+    expect(nextSource).toContain('"--hawk-eye-width-mode": "relative"');
+    expect(nextSource).toContain('"--hawk-eye-height-mode": "fill"');
+  });
 });

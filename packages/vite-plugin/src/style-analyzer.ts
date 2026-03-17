@@ -20,6 +20,10 @@ type JsxOpeningLike = JsxOpeningElement | JsxSelfClosingElement;
 
 const JSX_EMIT_PRESERVE = 1;
 const SCRIPT_TARGET_ES2020 = 7;
+const HAWK_EYE_METADATA_INLINE_STYLES = new Set([
+  '--hawk-eye-width-mode',
+  '--hawk-eye-height-mode',
+]);
 
 const EXACT_TAILWIND_TOKENS = new Set([
   'absolute',
@@ -320,7 +324,7 @@ function analyzeInlineStyles(node: JsxOpeningLike) {
     const name = toCssPropertyName(property.getName());
     const value = getLiteralExpressionValue(property.getInitializer());
 
-    if (!name || value === null) {
+    if (!name || value === null || HAWK_EYE_METADATA_INLINE_STYLES.has(name)) {
       continue;
     }
 
@@ -329,7 +333,7 @@ function analyzeInlineStyles(node: JsxOpeningLike) {
 
   return {
     dynamic: false,
-    hasInlineStyle: true,
+    hasInlineStyle: Object.keys(inlineStyles).length > 0,
     inlineStyles,
   };
 }
