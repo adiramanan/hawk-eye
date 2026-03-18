@@ -6,15 +6,16 @@ Hawk-Eye aims to let designers and AI prototypers refine React interfaces visual
 
 ## Current Scope
 
-The repository is in pre-alpha and has completed Phase 2.
+The repository is in pre-alpha and has completed the prerelease hardening pass for the public `hawk-eye` package.
 
 Implemented:
 
 - workspace/package scaffolding
 - demo app wiring
+- single-package public install surface with `.` and `./vite` exports
 - build, lint, type-check, and test commands
 - agent handoff and project tracking files
-- dev-only source injection for intrinsic JSX elements
+- dev-only signed source injection for intrinsic JSX elements
 - inspector trigger, hover overlay, click-to-lock selection, and repo-relative source display
 - guided property controls for spacing, radius, colors, typography, and opacity
 - live DOM preview with session-scoped pending changes and reset controls
@@ -103,6 +104,12 @@ Not implemented:
 - harden edge cases
 - complete docs
 - prepare open-source release
+
+### Prerelease Packaging
+
+- publish one installable package under `hawk-eye`
+- keep the internal client/plugin split
+- keep save opt-in through `hawkeyePlugin({ enableSave: true })`
 
 ## Phase 0 Acceptance Criteria
 

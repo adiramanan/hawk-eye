@@ -6,17 +6,17 @@ Pre-alpha visual inspector and live-preview editor for React + Vite interfaces.
 
 ## Current Status
 
-As of 2026-03-12, this repository has completed Phase 3:
+As of 2026-03-18, this repository has completed the prerelease hardening pass:
 
-- The pnpm workspace, TypeScript config, linting, builds, and demo app are wired up.
-- `@hawk-eye/client` renders a floating inspector trigger and Shadow DOM overlay in development.
-- `@hawk-eye/vite-plugin` injects `data-source="file:line:column"` onto intrinsic JSX elements during Vite dev transforms.
+- The workspace now publishes one installable package, `hawk-eye`, with `.` and `./vite` entrypoints.
+- `DesignTool` renders a floating inspector trigger and Shadow DOM overlay in development.
+- The Vite plugin injects signed `data-hawk-eye-source` metadata onto intrinsic JSX elements during dev transforms.
 - Clicking a live DOM element locks selection, reveals repo-relative source metadata, and opens a properties panel.
 - The properties panel now exposes a focused 15-property editor grouped into Layout, Fill, Typography, Design, and Effects.
 - The inspector now requests server-side AST analysis to classify selections as inline, tailwind, mixed, or unknown.
 - The Vite plugin now includes focused-property Tailwind CSS/class mapping utilities and a ts-morph AST writer for source mutations.
 - Tailwind and mixed selections can now be detached into focused inline preview styles from the inspector.
-- Dirty drafts can now be saved to a review branch, committed server-side, and reported back to the inspector.
+- Dirty drafts can be saved to a review branch when save is explicitly enabled in `hawkeyePlugin({ enableSave: true })`.
 - Preview changes stay in the current browser session, survive switching between selected elements, and can be reset per field or all at once.
 
 This repo is not published to npm yet. The current entrypoint for evaluation is the local demo app.
@@ -26,6 +26,19 @@ This repo is not published to npm yet. The current entrypoint for evaluation is 
 ```bash
 pnpm install
 pnpm dev
+```
+
+Install the public package in an app:
+
+```bash
+pnpm add hawk-eye
+```
+
+Use the public entrypoints:
+
+```ts
+import { DesignTool } from 'hawk-eye';
+import hawkeyePlugin from 'hawk-eye/vite';
 ```
 
 Additional verification commands:
@@ -40,7 +53,7 @@ pnpm build
 ## What Works Today
 
 - Workspace install and local package linking
-- Library builds for `@hawk-eye/client` and `@hawk-eye/vite-plugin`
+- Library builds for `hawk-eye` and its internal client/plugin packages
 - Demo app startup and production build
 - Dev-only inspector trigger, hover outline, click-to-lock selection, and repo-relative source info
 - Guided focused controls for layout spacing, fill, typography, radius, and box shadow
@@ -48,7 +61,7 @@ pnpm build
 - Tailwind CSS-to-class mapping utilities for the focused property set
 - AST source mutation primitives for Tailwind swaps, inline style writes, mixed-mode fallback, and detached writes
 - A detach-from-classes preview flow that keeps focused properties inline and marks the draft as `detached`
-- A save-to-branch workflow with dirty-worktree guards, automatic review-branch creation, commit generation, and inspector feedback
+- A save-to-branch workflow with dirty-worktree guards, automatic review-branch creation, commit generation, and inspector feedback when enabled
 - DOM-only live preview with session-scoped pending changes, per-field reset, and global reset
 - Automated coverage for source injection, HMR payload validation, and the client runtime
 
@@ -64,8 +77,9 @@ Those are the main remaining limitations before broader polish.
 ```text
 hawk-eye/
 ├── packages/
-│   ├── client/        # Embeddable React component
-│   └── vite-plugin/   # Vite integration
+│   ├── client/        # Internal React runtime package
+│   ├── vite-plugin/   # Internal Vite integration package
+│   └── hawk-eye/      # Public package export surface
 ├── demo/              # Local React + Tailwind demo app
 ├── docs/              # Architecture notes
 ├── tests/             # Vitest coverage

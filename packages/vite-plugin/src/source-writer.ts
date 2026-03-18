@@ -1,5 +1,3 @@
-import { existsSync } from 'node:fs';
-import { resolve, sep } from 'node:path';
 import {
   Node,
   Project,
@@ -9,18 +7,22 @@ import {
   type ObjectLiteralExpression,
   type SourceFile,
 } from 'ts-morph';
+import type { MutationWarning } from '../../../shared/protocol';
 import type {
   ElementMutation,
-  MutationWarning,
   PropertyMutation,
-  SavePayload,
   SourceWriteResult,
 } from './mutations';
+import { resolveWorkspaceFile } from './path-security';
 import {
   findJsxElementAtPosition as findJsxElementAtPositionFromAnalyzer,
   type StyleMode,
 } from './style-analyzer';
-import { cssToTailwindClass, tailwindClassToCss } from './tailwind-map';
+import {
+  cssToTailwindClass,
+  isTailwindRoundTripSupported,
+  tailwindClassToCss,
+} from './tailwind-map';
 
 type JsxOpeningLike = JsxOpeningElement | JsxSelfClosingElement;
 type AttributeName = 'class' | 'className';
@@ -57,14 +59,6 @@ const SCRIPT_TARGET_ES2020 = 7;
 const IDENTIFIER_PATTERN = /^[$A-Z_][0-9A-Z_$]*$/i;
 const WIDTH_SIZE_MODE_CSS_PROPERTY = '--hawk-eye-width-mode';
 const HEIGHT_SIZE_MODE_CSS_PROPERTY = '--hawk-eye-height-mode';
-
-function normalizeFilePath(filePath: string) {
-  return filePath.replace(/\\/g, '/');
-}
-
-function isPathInsideRoot(root: string, resolvedFile: string) {
-  return resolvedFile === root || resolvedFile.startsWith(`${root}${sep}`);
-}
 
 function createProject() {
   return new Project({
@@ -394,6 +388,21 @@ function addInlineFallbackWarning(
   });
 }
 
+function addUnsupportedTailwindPropertyWarning(
+  mutation: ElementMutation,
+  propertyMutation: PropertyMutation,
+  warnings: MutationWarning[]
+) {
+  warnings.push({
+    code: 'unsupported-tailwind-property',
+    file: mutation.file,
+    line: mutation.line,
+    column: mutation.column,
+    propertyId: propertyMutation.propertyId,
+    message: `Persisted ${propertyMutation.propertyId} as inline styles because Tailwind class round-tripping is not supported for ${propertyMutation.cssProperty}.`,
+  });
+}
+
 function usesTailwindClasses(styleMode: StyleMode) {
   return styleMode === 'mixed' || styleMode === 'tailwind';
 }
@@ -452,6 +461,12 @@ function applyElementMutation(
       continue;
     }
 
+    if (!isTailwindRoundTripSupported(propertyMutation.cssProperty)) {
+      addUnsupportedTailwindPropertyWarning(mutation, propertyMutation, warnings);
+      inlineMutations.push(propertyMutation);
+      continue;
+    }
+
     const result = applyClassMutation(nextClassNames, propertyMutation);
 
     if (result.handledByClass) {
@@ -470,23 +485,6 @@ function applyElementMutation(
   }
 
   upsertInlineStyles(node, mutation, [...inlineMutations, ...sizeModeInlineMutations], warnings);
-}
-
-function resolveMutationFilePath(root: string, file: string) {
-  const resolvedRoot = resolve(root);
-  const normalizedFile = normalizeFilePath(file);
-
-  if (!normalizedFile || normalizedFile.startsWith('/') || normalizedFile === '..') {
-    return null;
-  }
-
-  const absoluteFile = resolve(resolvedRoot, normalizedFile);
-
-  if (!isPathInsideRoot(resolvedRoot, absoluteFile)) {
-    return null;
-  }
-
-  return absoluteFile;
 }
 
 function getOrLoadSourceFile(
@@ -517,37 +515,37 @@ export function findJsxElementAtPosition(sourceFile: SourceFile, line: number, c
   return findJsxElementAtPositionFromAnalyzer(sourceFile, line, column);
 }
 
-export function writeSourceMutations(root: string, payload: SavePayload): SourceWriteResult {
+export function writeSourceMutations(
+  root: string,
+  payload: { mutations: ElementMutation[] }
+): SourceWriteResult {
   const project = createProject();
   const loadedFiles = new Map<string, LoadedSourceFile>();
   const warnings: MutationWarning[] = [];
 
   for (const mutation of payload.mutations) {
-    const absoluteFile = resolveMutationFilePath(root, mutation.file);
+    const resolvedFile = resolveWorkspaceFile(root, mutation.file);
 
-    if (!absoluteFile) {
+    if (!resolvedFile.ok) {
       warnings.push({
         code: 'path-outside-root',
         file: mutation.file,
         line: mutation.line,
         column: mutation.column,
-        message: `Skipped ${mutation.file} because it resolves outside the workspace root.`,
+        message:
+          resolvedFile.reason === 'symlink-not-allowed'
+            ? `Skipped ${mutation.file} because symlinked source targets are not allowed.`
+            : `Skipped ${mutation.file} because it is not a valid workspace source path.`,
       });
       continue;
     }
 
-    if (!existsSync(absoluteFile)) {
-      warnings.push({
-        code: 'file-not-found',
-        file: mutation.file,
-        line: mutation.line,
-        column: mutation.column,
-        message: `Skipped ${mutation.file} because the file does not exist.`,
-      });
-      continue;
-    }
-
-    const loadedSourceFile = getOrLoadSourceFile(project, loadedFiles, absoluteFile, mutation.file);
+    const loadedSourceFile = getOrLoadSourceFile(
+      project,
+      loadedFiles,
+      resolvedFile.value.absoluteFile,
+      mutation.file
+    );
     const jsxElement = findJsxElementAtPosition(
       loadedSourceFile.sourceFile,
       mutation.line,

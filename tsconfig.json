@@ -17,7 +17,9 @@
     "paths": {
       "@/*": ["src/*"],
       "@hawk-eye/client": ["packages/client/src/index.ts"],
-      "@hawk-eye/vite-plugin": ["packages/vite-plugin/src/index.ts"]
+      "@hawk-eye/vite-plugin": ["packages/vite-plugin/src/index.ts"],
+      "hawk-eye": ["packages/hawk-eye/src/index.ts"],
+      "hawk-eye/vite": ["packages/hawk-eye/src/vite.ts"]
     }
   },
   "exclude": ["node_modules", "dist", "build", "coverage"]

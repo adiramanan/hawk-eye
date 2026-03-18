@@ -4,6 +4,7 @@ import React from 'react';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { HAWK_EYE_SOURCE_ATTRIBUTE } from '../shared/protocol';
 import { DesignTool } from '../packages/client/src';
 import type {
   SaveResult,
@@ -17,6 +18,7 @@ import {
 } from '../packages/client/src/ws-client';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+const SAVE_CAPABILITY = 'test-save-capability';
 
 const mountedCleanups = new Set<() => void>();
 
@@ -77,7 +79,7 @@ function mockRect(element: HTMLElement, rect: Partial<DOMRect>) {
 }
 
 function applyBaselineStyles(element: HTMLElement, source: string) {
-  element.dataset.source = source;
+  element.setAttribute(HAWK_EYE_SOURCE_ATTRIBUTE, source);
   element.style.paddingTop = '16px';
   element.style.paddingRight = '20px';
   element.style.paddingBottom = '12px';
@@ -353,7 +355,7 @@ describe('DesignTool', () => {
     expect(shadowRoot.querySelector('[data-hawk-eye-ui="panel"]')).toBeNull();
 
     click(trigger as Element);
-    expect(shadowRoot.textContent).toContain('CraftKit');
+    expect(shadowRoot.textContent).toContain('Hawk-Eye');
     expect(shadowRoot.querySelector('[data-hawk-eye-ui="panel"]')).not.toBeNull();
     expect(shadowRoot.textContent).not.toContain('Inspect with Hawk-Eye');
 
@@ -386,6 +388,8 @@ describe('DesignTool', () => {
         file: 'demo/src/App.tsx',
         line: 21,
         column: 13,
+        saveCapability: SAVE_CAPABILITY,
+        saveEnabled: true,
       });
     });
 
@@ -395,7 +399,7 @@ describe('DesignTool', () => {
     expect(hot.send).toHaveBeenCalledWith(HAWK_EYE_ANALYZE_STYLE_EVENT, {
       source: 'demo/src/App.tsx:21:13',
     });
-    expect(shadowRoot.textContent).toContain('CraftKit');
+    expect(shadowRoot.textContent).toContain('Hawk-Eye');
     expect(shadowRoot.querySelector('[data-hawk-eye-ui="panel-source"]')).toBeNull();
     expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="positionSize"]')).toHaveLength(1);
     expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="autoLayout"]')).toHaveLength(1);
@@ -418,6 +422,9 @@ describe('DesignTool', () => {
         mode: 'tailwind',
         classNames: ['px-4', 'py-2', 'rounded-lg'],
         inlineStyles: {},
+        fingerprint: 'fp-21-13',
+        saveCapability: SAVE_CAPABILITY,
+        saveEnabled: true,
       });
     });
 
@@ -447,12 +454,17 @@ describe('DesignTool', () => {
         file: 'demo/src/App.tsx',
         line: 34,
         column: 9,
+        saveCapability: SAVE_CAPABILITY,
+        saveEnabled: true,
       });
       hot.emit('hawk-eye:style-analysis', {
         source: 'demo/src/App.tsx:34:9',
         mode: 'tailwind',
         classNames: ['px-4', 'py-2', 'rounded-lg'],
         inlineStyles: {},
+        fingerprint: 'fp-34-9',
+        saveCapability: SAVE_CAPABILITY,
+        saveEnabled: true,
       });
     });
 
@@ -468,6 +480,9 @@ describe('DesignTool', () => {
         mode: 'tailwind',
         classNames: ['px-4', 'py-2', 'rounded-lg'],
         inlineStyles: {},
+        fingerprint: 'fp-34-9',
+        saveCapability: SAVE_CAPABILITY,
+        saveEnabled: true,
       });
     });
 
@@ -490,6 +505,27 @@ describe('DesignTool', () => {
 
     click(trigger);
     click(document);
+
+    act(() => {
+      hot.emit('hawk-eye:selection', {
+        source: 'demo/src/App.tsx:52:11',
+        file: 'demo/src/App.tsx',
+        line: 52,
+        column: 11,
+        saveCapability: SAVE_CAPABILITY,
+        saveEnabled: true,
+      });
+      hot.emit('hawk-eye:style-analysis', {
+        source: 'demo/src/App.tsx:52:11',
+        mode: 'tailwind',
+        classNames: ['pt-4'],
+        inlineStyles: {},
+        fingerprint: 'fp-52-11',
+        saveCapability: SAVE_CAPABILITY,
+        saveEnabled: true,
+      });
+    });
+
     updateInput(
       getControl(shadowRoot, 'paddingTop') as InstanceType<typeof window.HTMLInputElement>,
       '24px'
@@ -499,17 +535,17 @@ describe('DesignTool', () => {
     click(getButtonControl(shadowRoot, 'save'));
 
     expect(hot.send).toHaveBeenCalledWith(HAWK_EYE_SAVE_EVENT, {
+      capability: SAVE_CAPABILITY,
       mutations: [
         {
           file: 'demo/src/App.tsx',
           line: 52,
           column: 11,
-          styleMode: 'unknown',
           detached: false,
+          fingerprint: 'fp-52-11',
           properties: [
             {
               propertyId: 'paddingTop',
-              cssProperty: 'padding-top',
               oldValue: '16px',
               newValue: '24px',
             },
@@ -1074,7 +1110,7 @@ describe('DesignTool', () => {
     cleanup();
   });
 
-  it('clears all session previews when the inspector exits', () => {
+  it('opens a close guard on Escape and discards session previews when requested', () => {
     const target = document.createElement('div');
     applyBaselineStyles(target, 'demo/src/App.tsx:14:3');
     mockRect(target, { height: 44, left: 24, top: 40, width: 132 });
@@ -1093,6 +1129,13 @@ describe('DesignTool', () => {
 
     expect(target.style.paddingTop).toBe('28px');
     pressEscape();
+
+    expect(shadowRoot.textContent).toContain('Unsaved Changes');
+    click(
+      shadowRoot.querySelector(
+        '[data-hawk-eye-ui="close-guard-dialog"] [data-hawk-eye-ui="footer-revert-btn"]'
+      ) as Element
+    );
 
     expect(target.style.paddingTop).toBe('16px');
     expect(shadowRoot.textContent).toContain('Inspect with Hawk-Eye');
@@ -1190,7 +1233,7 @@ describe('DesignTool', () => {
     cleanup();
   });
 
-  it('supports keyboard navigation for focused segmented controls and the panel resize handle', () => {
+  it('supports keyboard navigation for focused segmented controls', () => {
     const target = document.createElement('div');
     applyBaselineStyles(target, 'demo/src/App.tsx:63:17');
     mockRect(target, { height: 52, left: 24, top: 40, width: 144 });
@@ -1204,7 +1247,6 @@ describe('DesignTool', () => {
     click(document);
 
     const textAlignLeft = getButtonControl(shadowRoot, 'textAlign-left');
-    const resizeHandle = getButtonControl(shadowRoot, 'panel-resize');
     const panel = shadowRoot.querySelector('[data-hawk-eye-ui="panel"]');
 
     if (!(panel instanceof window.HTMLElement)) {
@@ -1219,14 +1261,6 @@ describe('DesignTool', () => {
 
     expect(panel.style.getPropertyValue('--hawk-eye-panel-width')).toBe('320px');
     expect(panel.style.getPropertyValue('--hawk-eye-panel-height')).toBe(initialPanelHeight);
-
-    keyDown(resizeHandle, 'ArrowLeft');
-    keyDown(resizeHandle, 'ArrowUp');
-
-    expect(panel.style.getPropertyValue('--hawk-eye-panel-width')).toBe('320px');
-    expect(panel.style.getPropertyValue('--hawk-eye-panel-height')).toBe(
-      `${window.innerHeight - 88}px`
-    );
     cleanup();
   });
 });

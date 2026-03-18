@@ -402,7 +402,7 @@ function LayoutSection(props: SectionProps) {
         <div data-hawk-eye-ui="icon-segmented">
           {LAYOUT_MODE_OPTIONS.map(({ value, label, icon }, index) => (
             <button
-              aria-label={label}
+              aria-label={`Layout mode: ${label}`}
               aria-pressed={layoutMode === value}
               data-active={layoutMode === value ? 'true' : 'false'}
               data-hawk-eye-control={`layout-${value}`}
@@ -440,7 +440,7 @@ function LayoutSection(props: SectionProps) {
                 <div data-hawk-eye-ui="icon-segmented">
                   {X_AXIS_OPTIONS.map(({ value, label, icon }, index) => (
                     <button
-                      aria-label={label}
+                      aria-label={`Horizontal alignment: ${label}`}
                       aria-pressed={xAxisValue === value}
                       data-active={xAxisValue === value ? 'true' : 'false'}
                       data-hawk-eye-ui="icon-seg-btn"
@@ -469,7 +469,7 @@ function LayoutSection(props: SectionProps) {
                 <div data-hawk-eye-ui="icon-segmented">
                   {Y_AXIS_OPTIONS.map(({ value, label, icon }, index) => (
                     <button
-                      aria-label={label}
+                      aria-label={`Vertical alignment: ${label}`}
                       aria-pressed={yAxisValue === value}
                       data-active={yAxisValue === value ? 'true' : 'false'}
                       data-hawk-eye-ui="icon-seg-btn"
@@ -510,7 +510,7 @@ function LayoutSection(props: SectionProps) {
                 <div data-hawk-eye-ui="icon-segmented">
                   {X_AXIS_OPTIONS.map(({ value, label, icon }, index) => (
                     <button
-                      aria-label={label}
+                      aria-label={`Horizontal alignment: ${label}`}
                       aria-pressed={xAxisValue === value}
                       data-active={xAxisValue === value ? 'true' : 'false'}
                       data-hawk-eye-ui="icon-seg-btn"
@@ -539,7 +539,7 @@ function LayoutSection(props: SectionProps) {
                 <div data-hawk-eye-ui="icon-segmented">
                   {Y_AXIS_OPTIONS.map(({ value, label, icon }, index) => (
                     <button
-                      aria-label={label}
+                      aria-label={`Vertical alignment: ${label}`}
                       aria-pressed={yAxisValue === value}
                       data-active={yAxisValue === value ? 'true' : 'false'}
                       data-hawk-eye-ui="icon-seg-btn"
@@ -827,7 +827,7 @@ function TypographySection(props: SectionProps) {
           <div data-hawk-eye-ui="icon-segmented">
             {TEXT_ALIGN_OPTIONS.map(({ value, label, icon }, index) => (
               <button
-                aria-label={label}
+                aria-label={`Text alignment: ${label}`}
                 aria-pressed={effectiveAlign === value}
                 data-active={effectiveAlign === value ? 'true' : 'false'}
                 data-hawk-eye-control={`textAlign-${value}`}

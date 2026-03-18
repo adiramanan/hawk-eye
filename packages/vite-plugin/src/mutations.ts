@@ -1,17 +1,14 @@
-import type { StyleMode } from './style-analyzer';
-
-export type SizeMode = 'fixed' | 'hug' | 'fill' | 'relative';
+import type {
+  MutationWarning,
+  SizeModeMetadata,
+  StyleMode,
+} from '../../../shared/protocol';
 
 export interface PropertyMutation {
   propertyId: string;
   cssProperty: string;
   oldValue: string;
   newValue: string;
-}
-
-export interface SizeModeMetadata {
-  width?: SizeMode;
-  height?: SizeMode;
 }
 
 export interface ElementMutation {
@@ -24,44 +21,8 @@ export interface ElementMutation {
   sizeModeMetadata?: SizeModeMetadata;
 }
 
-export interface SavePayload {
-  mutations: ElementMutation[];
-}
-
-export type MutationWarningCode =
-  | 'element-not-found'
-  | 'file-not-found'
-  | 'inline-fallback'
-  | 'path-outside-root'
-  | 'unsupported-dynamic-class'
-  | 'unsupported-dynamic-style';
-
-export interface MutationWarning {
-  code: MutationWarningCode;
-  file: string;
-  line: number;
-  column: number;
-  propertyId?: string;
-  message: string;
-}
-
 export interface SourceWriteResult {
   appliedMutationCount: number;
   modifiedFiles: string[];
   warnings: MutationWarning[];
 }
-
-export type SaveResult =
-  | {
-      success: true;
-      branch: string;
-      commitSha: string;
-      modifiedFiles: string[];
-      warnings: MutationWarning[];
-    }
-  | {
-      success: false;
-      error: string;
-      branch?: string;
-      warnings: MutationWarning[];
-    };

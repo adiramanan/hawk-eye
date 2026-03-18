@@ -4,6 +4,7 @@ import React from 'react';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { HAWK_EYE_SOURCE_ATTRIBUTE } from '../shared/protocol';
 import { editablePropertyDefinitionMap, editablePropertyDefinitions } from '../packages/client/src/editable-properties';
 import { GridTrackEditor } from '../packages/client/src/controls/GridTrackEditor';
 import { NumberInput } from '../packages/client/src/controls/NumberInput';
@@ -136,11 +137,11 @@ describe('client UI controls', () => {
 
   it('renders focusable disclosure and selection buttons for layer rows', () => {
     const parent = document.createElement('section');
-    parent.dataset.source = 'demo/src/App.tsx:10:1';
+    parent.setAttribute(HAWK_EYE_SOURCE_ATTRIBUTE, 'demo/src/App.tsx:10:1');
     parent.setAttribute('aria-label', 'Hero section');
 
     const child = document.createElement('button');
-    child.dataset.source = 'demo/src/App.tsx:11:3';
+    child.setAttribute(HAWK_EYE_SOURCE_ATTRIBUTE, 'demo/src/App.tsx:11:3');
     child.textContent = 'CTA';
 
     parent.append(child);

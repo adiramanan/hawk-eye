@@ -1,17 +1,25 @@
-import type {
+import {
+  HAWK_EYE_ANALYZE_STYLE_EVENT,
   InspectRequest,
+  HAWK_EYE_INSPECT_EVENT,
+  HAWK_EYE_SAVE_EVENT,
+  HAWK_EYE_SAVE_RESULT_EVENT,
   SavePayload,
   SaveResult,
+  HAWK_EYE_SELECTION_EVENT,
   SelectionPayload,
   StyleAnalysisPayload,
-} from './types';
+  HAWK_EYE_STYLE_ANALYSIS_EVENT,
+} from '../../../shared/protocol';
 
-export const HAWK_EYE_INSPECT_EVENT = 'hawk-eye:inspect';
-export const HAWK_EYE_SELECTION_EVENT = 'hawk-eye:selection';
-export const HAWK_EYE_ANALYZE_STYLE_EVENT = 'hawk-eye:analyze-style';
-export const HAWK_EYE_STYLE_ANALYSIS_EVENT = 'hawk-eye:style-analysis';
-export const HAWK_EYE_SAVE_EVENT = 'hawk-eye:save';
-export const HAWK_EYE_SAVE_RESULT_EVENT = 'hawk-eye:save-result';
+export {
+  HAWK_EYE_ANALYZE_STYLE_EVENT,
+  HAWK_EYE_INSPECT_EVENT,
+  HAWK_EYE_SAVE_EVENT,
+  HAWK_EYE_SAVE_RESULT_EVENT,
+  HAWK_EYE_SELECTION_EVENT,
+  HAWK_EYE_STYLE_ANALYSIS_EVENT,
+};
 
 interface HotClient {
   on<T>(event: string, cb: (payload: T) => void): void;

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { HAWK_EYE_SOURCE_ATTRIBUTE } from '../../../shared/protocol';
 import { createInspectableElementKey } from './drafts';
 
 interface LayerNode {
@@ -39,11 +40,13 @@ function makeDisplayLabel(element: HTMLElement, source: string) {
 }
 
 function buildLayerTree(): LayerNode[] {
-  const allElements = Array.from(document.querySelectorAll<HTMLElement>('[data-source]'));
+  const allElements = Array.from(
+    document.querySelectorAll<HTMLElement>(`[${HAWK_EYE_SOURCE_ATTRIBUTE}]`)
+  );
   const filtered = allElements.filter((el) => !el.closest('[data-hawk-eye-ui]'));
   const nodes = filtered.map((element) => {
     const instanceKey = createInspectableElementKey(element);
-    const source = element.dataset.source ?? '';
+    const source = element.dataset.hawkEyeSource ?? '';
 
     return {
       element,

@@ -2,13 +2,14 @@
 
 ## Current State
 
-Hawk-Eye is currently a pre-alpha monorepo with three active workspace packages:
+Hawk-Eye is currently a pre-alpha monorepo with one public install target and two internal implementation packages:
 
-- `@hawk-eye/client`: React-facing runtime entrypoint
-- `@hawk-eye/vite-plugin`: Vite integration point
+- `hawk-eye`: public runtime and Vite plugin export surface
+- `@hawk-eye/client`: internal React-facing runtime package
+- `@hawk-eye/vite-plugin`: internal Vite integration package
 - `hawk-eye-demo`: local validation app
 
-Today, the client and plugin packages collaborate to provide a working Phase 2 inspector and live-preview editor in Vite development mode.
+Today, the internal client and plugin packages collaborate to provide a working inspector and live-preview editor in Vite development mode.
 
 ## Runtime Boundaries
 
@@ -29,7 +30,7 @@ The client package owns the browser-side UX. In the current state it owns:
 
 The Vite plugin owns dev-server integration. In the current state it owns:
 
-- intrinsic JSX source injection
+- intrinsic JSX source injection with signed `data-hawk-eye-source` metadata
 - source-token validation
 - selection payload replies over the Vite HMR channel
 
@@ -45,6 +46,7 @@ The demo app is the integration harness. It proves that the local packages insta
 ## Build and Verification
 
 - pnpm workspaces manage local package linking
+- the public `hawk-eye` package re-exports the internal runtime and plugin entrypoints
 - tsup builds the library packages
 - Vite builds and serves the demo app
 - ESLint and TypeScript provide static validation

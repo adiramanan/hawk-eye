@@ -138,6 +138,16 @@ const SPACING_PREFIX_TO_PROPERTY = {
 const SPACING_PROPERTY_TO_PREFIX = Object.fromEntries(
   Object.entries(SPACING_PREFIX_TO_PROPERTY).map(([prefix, property]) => [property, prefix])
 ) as Record<string, keyof typeof SPACING_PREFIX_TO_PROPERTY>;
+const TAILWIND_ROUND_TRIP_PROPERTIES = new Set([
+  ...Object.keys(SPACING_PROPERTY_TO_PREFIX),
+  'background-color',
+  'border-radius',
+  'box-shadow',
+  'color',
+  'font-size',
+  'font-weight',
+  'text-align',
+]);
 
 const TEXT_ALIGN_TOKENS = new Set(Object.keys(TEXT_ALIGN_SCALE));
 const FONT_SIZE_TOKENS = new Set(Object.keys(FONT_SIZE_SCALE));
@@ -466,6 +476,10 @@ export function cssToTailwindClass(cssProperty: string, value: string): string |
   }
 
   return null;
+}
+
+export function isTailwindRoundTripSupported(cssProperty: string) {
+  return TAILWIND_ROUND_TRIP_PROPERTIES.has(cssProperty.trim().toLowerCase());
 }
 
 export function tailwindClassToCss(className: string): CssDeclaration | null {

@@ -4,15 +4,20 @@ import { PropertiesPanel } from './PropertiesPanel';
 import type { EditablePropertyId, MeasuredElement, SaveResult, SelectionDraft, SizeAxis, SizeMode } from './types';
 
 interface InspectorProps {
+  closeGuardOpen: boolean;
   enabled: boolean;
   hovered: MeasuredElement | null;
   pendingDrafts: SelectionDraft[];
   savePending: boolean;
+  saveBlockedReason: string | null;
   saveResult: SaveResult | null;
   selected: MeasuredElement | null;
   selectedDraft: SelectionDraft | null;
   selectedInstanceKey: string | null;
   onChange(propertyId: EditablePropertyId, value: string): void;
+  onCloseGuardCancel(): void;
+  onCloseGuardDiscard(): void;
+  onCloseGuardSave(): void;
   onChangeSizeMode(axis: SizeAxis, mode: SizeMode): void;
   onChangeSizeValue(axis: SizeAxis, value: string): void;
   onDetach(): void;
@@ -29,11 +34,6 @@ interface DragState {
   startY: number;
   startPanelX: number;
   startPanelY: number;
-}
-
-interface PanelSize {
-  height: number;
-  width: number;
 }
 
 type InspectorView = 'properties' | 'changes' | 'layers';
@@ -82,7 +82,7 @@ function getSaveStatusMessage(savePending: boolean, saveResult: SaveResult | nul
   if (saveResult.success) {
     const warningSuffix =
       saveResult.warnings.length > 0 ? ` ${saveResult.warnings.length} warning(s).` : '';
-    return `Saved to ${saveResult.branch} @ ${saveResult.commitSha.slice(0, 7)}.${warningSuffix}`;
+    return `Saved to ${saveResult.branch} @ ${saveResult.commitSha.slice(0, 7)}. Review with git show ${saveResult.branch}.${warningSuffix}`;
   }
 
   return saveResult.branch ? `${saveResult.error} (${saveResult.branch})` : saveResult.error;
@@ -131,27 +131,21 @@ function canDetachDraft(draft: SelectionDraft | null) {
   return draft.styleMode === 'tailwind' || draft.styleMode === 'mixed';
 }
 
-function clampPanelSize(next: PanelSize) {
-  if (typeof window === 'undefined') {
-    return { ...next, width: PANEL_WIDTH };
-  }
-
-  return {
-    height: Math.max(520, Math.min(window.innerHeight - PANEL_VIEWPORT_GUTTER, next.height)),
-    width: PANEL_WIDTH,
-  };
-}
-
 export function Inspector({
+  closeGuardOpen,
   enabled,
   hovered,
   pendingDrafts,
   savePending,
+  saveBlockedReason,
   saveResult,
   selected,
   selectedDraft,
   selectedInstanceKey,
   onChange,
+  onCloseGuardCancel,
+  onCloseGuardDiscard,
+  onCloseGuardSave,
   onChangeSizeMode,
   onChangeSizeValue,
   onDetach,
@@ -163,7 +157,7 @@ export function Inspector({
   onToggle,
 }: InspectorProps) {
   const [panelPos, setPanelPos] = useState(getDefaultPanelPos);
-  const [panelSize, setPanelSize] = useState<PanelSize>(() => ({
+  const [panelSize] = useState(() => ({
     height: typeof window !== 'undefined' ? window.innerHeight - 64 : PANEL_HEIGHT,
     width: PANEL_WIDTH,
   }));
@@ -176,6 +170,8 @@ export function Inspector({
     0,
   );
   const showDetach = canDetachDraft(selectedDraft);
+  const saveButtonLabel = savePending ? 'Saving…' : 'Save to Branch';
+  const saveDisabled = savePending || totalChanges === 0 || Boolean(saveBlockedReason);
   useEffect(() => {
     if (pendingDrafts.length === 0) setView('properties');
   }, [pendingDrafts.length]);
@@ -226,15 +222,6 @@ export function Inspector({
     left: `${panelPos.x}px`,
     top: `${panelPos.y}px`,
   } as CSSProperties;
-
-  function adjustPanelSize(widthDelta: number, heightDelta: number) {
-    setPanelSize((current) =>
-      clampPanelSize({
-        height: current.height + heightDelta,
-        width: current.width + widthDelta,
-      })
-    );
-  }
 
   function resetDraft(draft: SelectionDraft) {
     const resetIds = new Set(getDirtyProperties(draft).map(({ resetId }) => resetId));
@@ -346,7 +333,7 @@ export function Inspector({
                 ) : (
                   <span data-hawk-eye-ui="panel-brand">
                     <span data-hawk-eye-ui="panel-brand-mark">{renderBrandMark()}</span>
-                    <span data-hawk-eye-ui="panel-brand-copy">CraftKit</span>
+                    <span data-hawk-eye-ui="panel-brand-copy">Hawk-Eye</span>
                   </span>
                 )}
               </span>
@@ -505,7 +492,7 @@ export function Inspector({
                   </svg>
                   <p data-hawk-eye-ui="empty-state-title">No element selected</p>
                   <p data-hawk-eye-ui="empty-state-body">
-                    Hover any element on the page and click to lock it. Properties will appear here.
+                    Hover any element on the page and click to lock it. Properties and branch-save actions will appear here.
                   </p>
                 </div>
               )}
@@ -516,11 +503,11 @@ export function Inspector({
                 <button
                   data-hawk-eye-control="save"
                   data-hawk-eye-ui="footer-apply-btn"
-                  disabled={savePending || totalChanges === 0}
+                  disabled={saveDisabled}
                   onClick={onSave}
                   type="button"
                 >
-                  {savePending ? 'Applying…' : 'Apply changes'}
+                  {saveButtonLabel}
                 </button>
                 <button
                   aria-label="Back to properties"
@@ -559,11 +546,11 @@ export function Inspector({
                 <button
                   data-hawk-eye-control="save"
                   data-hawk-eye-ui="footer-apply-btn"
-                  disabled={savePending || totalChanges === 0}
+                  disabled={saveDisabled}
                   onClick={onSave}
                   type="button"
                 >
-                  {savePending ? 'Applying…' : 'Apply changes'}
+                  {saveButtonLabel}
                 </button>
                 <button
                   data-hawk-eye-ui="footer-revert-btn"
@@ -586,7 +573,7 @@ export function Inspector({
               </div>
             ) : null}
 
-            {saveStatusMessage ? (
+            {saveStatusMessage || saveBlockedReason ? (
               <div data-hawk-eye-ui="panel-footer-status">
                 {saveStatusMessage ? (
                   <p
@@ -597,31 +584,52 @@ export function Inspector({
                   >
                     {saveStatusMessage}
                   </p>
+                ) : saveBlockedReason ? (
+                  <p
+                    aria-live="polite"
+                    data-hawk-eye-ui="footer-status"
+                    data-state="pending"
+                    role="status"
+                  >
+                    {saveBlockedReason}
+                  </p>
                 ) : null}
               </div>
             ) : null}
 
-            <button
-              aria-label="Resize panel"
-              data-hawk-eye-control="panel-resize"
-              data-hawk-eye-ui="panel-resize"
-              onKeyDown={(event) => {
-                if (event.key === 'ArrowLeft') {
-                  event.preventDefault();
-                  adjustPanelSize(24, 0);
-                } else if (event.key === 'ArrowRight') {
-                  event.preventDefault();
-                  adjustPanelSize(-24, 0);
-                } else if (event.key === 'ArrowUp') {
-                  event.preventDefault();
-                  adjustPanelSize(0, -24);
-                } else if (event.key === 'ArrowDown') {
-                  event.preventDefault();
-                  adjustPanelSize(0, 24);
-                }
-              }}
-              type="button"
-            />
+            {closeGuardOpen ? (
+              <div data-hawk-eye-ui="close-guard-backdrop">
+                <div
+                  aria-labelledby="hawk-eye-close-guard-title"
+                  aria-modal="true"
+                  data-hawk-eye-ui="close-guard-dialog"
+                  role="dialog"
+                >
+                  <h3 data-hawk-eye-ui="close-guard-title" id="hawk-eye-close-guard-title">
+                    Unsaved Changes
+                  </h3>
+                  <p data-hawk-eye-ui="close-guard-body">
+                    You have unsaved preview changes. Save them to a review branch, discard them, or keep editing.
+                  </p>
+                  <div data-hawk-eye-ui="close-guard-actions">
+                    <button
+                      data-hawk-eye-ui="footer-apply-btn"
+                      disabled={saveDisabled}
+                      onClick={onCloseGuardSave}
+                      type="button"
+                    >
+                      {saveButtonLabel}
+                    </button>
+                    <button data-hawk-eye-ui="footer-revert-btn" onClick={onCloseGuardDiscard} type="button">
+                      Discard
+                    </button>
+                    <button data-hawk-eye-ui="footer-reset-btn" onClick={onCloseGuardCancel} type="button">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </aside>
         ) : null}
 

@@ -1,131 +1,119 @@
-import { existsSync, statSync } from 'node:fs';
-import { resolve, sep } from 'node:path';
+import { statSync } from 'node:fs';
 import type { HMRBroadcasterClient, ViteDevServer } from 'vite';
-import { analyzeStyleAtPosition, type StyleAnalysisResult, type StyleMode } from './style-analyzer';
+import {
+  HAWK_EYE_ANALYZE_STYLE_EVENT,
+  HAWK_EYE_INSPECT_EVENT,
+  HAWK_EYE_SELECTION_EVENT,
+  HAWK_EYE_STYLE_ANALYSIS_EVENT,
+  type InspectRequest,
+  type SelectionPayload,
+  type StyleAnalysisPayload,
+  type StyleMode,
+} from '../../../shared/protocol';
+import { issueSaveCapability, parseSignedSourceToken, type HawkEyeServerState } from './plugin-state';
+import { resolveWorkspaceFile } from './path-security';
+import {
+  analyzeStyleAtPosition,
+  createStyleAnalysisFingerprint,
+} from './style-analyzer';
 
-export interface InspectRequest {
-  source: string;
-}
-
-export interface SelectionPayload {
-  source: string;
-  file: string;
-  line: number;
-  column: number;
-}
-
-export interface StyleAnalysisPayload extends StyleAnalysisResult {
-  source: string;
-}
-
-export const HAWK_EYE_INSPECT_EVENT = 'hawk-eye:inspect';
-export const HAWK_EYE_SELECTION_EVENT = 'hawk-eye:selection';
-export const HAWK_EYE_ANALYZE_STYLE_EVENT = 'hawk-eye:analyze-style';
-export const HAWK_EYE_STYLE_ANALYSIS_EVENT = 'hawk-eye:style-analysis';
-
-const SOURCE_TOKEN_PATTERN = /^(.*):(\d+):(\d+)$/;
 const styleAnalysisCache = new Map<
   string,
   {
-    mtimeMs: number;
     payload: StyleAnalysisPayload;
   }
 >();
 
-function normalizeFilePath(filePath: string) {
-  return filePath.replace(/\\/g, '/');
-}
-
-function isPathInsideRoot(root: string, resolvedFile: string) {
-  return resolvedFile === root || resolvedFile.startsWith(`${root}${sep}`);
-}
-
-function toAbsoluteSelectionFile(root: string, file: string) {
-  return resolve(resolve(root), file);
-}
-
-function createUnknownStylePayload(source: string): StyleAnalysisPayload {
+function createUnknownStylePayload(
+  source: string,
+  saveCapability: string | null,
+  saveEnabled: boolean
+): StyleAnalysisPayload {
   return {
     source,
     mode: 'unknown' satisfies StyleMode,
     classNames: [],
     inlineStyles: {},
+    fingerprint: createStyleAnalysisFingerprint({
+      mode: 'unknown',
+      classNames: [],
+      inlineStyles: {},
+    }),
+    saveCapability,
+    saveEnabled,
   };
 }
 
-export function resolveSelectionPayload(root: string, data: InspectRequest) {
+export function resolveSelectionPayload(
+  state: HawkEyeServerState,
+  client: HMRBroadcasterClient,
+  data: InspectRequest
+) {
   if (!data?.source) {
     return null;
   }
 
-  const match = SOURCE_TOKEN_PATTERN.exec(data.source);
+  const parsedSource = parseSignedSourceToken(state, data.source);
 
-  if (!match) {
+  if (!parsedSource) {
     return null;
   }
 
-  const [, rawFile, rawLine, rawColumn] = match;
-  const line = Number.parseInt(rawLine, 10);
-  const column = Number.parseInt(rawColumn, 10);
+  const resolvedFile = resolveWorkspaceFile(state.root, parsedSource.file);
 
-  if (!Number.isInteger(line) || line < 1 || !Number.isInteger(column) || column < 1) {
+  if (!resolvedFile.ok) {
     return null;
   }
 
-  const normalizedFile = normalizeFilePath(rawFile);
-
-  if (
-    !normalizedFile ||
-    normalizedFile.startsWith('/') ||
-    normalizedFile === '..' ||
-    normalizedFile.startsWith('../')
-  ) {
-    return null;
-  }
-
-  const resolvedRoot = resolve(root);
-  const resolvedFile = resolve(resolvedRoot, normalizedFile);
-
-  if (!isPathInsideRoot(resolvedRoot, resolvedFile) || !existsSync(resolvedFile)) {
-    return null;
-  }
+  const saveCapability = issueSaveCapability(state, client);
 
   return {
-    source: `${normalizedFile}:${line}:${column}`,
-    file: normalizedFile,
-    line,
-    column,
+    source: parsedSource.source,
+    file: parsedSource.file,
+    line: parsedSource.line,
+    column: parsedSource.column,
+    saveCapability,
+    saveEnabled: state.saveEnabled,
   } satisfies SelectionPayload;
 }
 
 export function handleInspectRequest(
-  root: string,
+  state: HawkEyeServerState,
   client: HMRBroadcasterClient,
   data: InspectRequest
 ) {
-  const payload = resolveSelectionPayload(root, data);
+  const payload = resolveSelectionPayload(state, client, data);
 
   if (!payload) {
     return null;
   }
 
   client.send(HAWK_EYE_SELECTION_EVENT, payload);
-
   return payload;
 }
 
-export function resolveStyleAnalysisPayload(root: string, data: InspectRequest) {
-  const selection = resolveSelectionPayload(root, data);
+export function resolveStyleAnalysisPayload(
+  state: HawkEyeServerState,
+  client: HMRBroadcasterClient,
+  data: InspectRequest
+) {
+  const selection = resolveSelectionPayload(state, client, data);
 
   if (!selection) {
     return null;
   }
 
-  const absoluteFile = toAbsoluteSelectionFile(root, selection.file);
-  const mtimeMs = statSync(absoluteFile).mtimeMs;
-  const cachedEntry = styleAnalysisCache.get(selection.source);
+  const resolvedFile = resolveWorkspaceFile(state.root, selection.file);
 
-  if (cachedEntry && cachedEntry.mtimeMs === mtimeMs) {
+  if (!resolvedFile.ok) {
+    return null;
+  }
+
+  const mtimeMs = statSync(resolvedFile.value.absoluteFile).mtimeMs;
+  const cacheKey = `${resolvedFile.value.absoluteFile}:${mtimeMs}:${selection.line}:${selection.column}`;
+  const cachedEntry = styleAnalysisCache.get(cacheKey);
+
+  if (cachedEntry) {
     return cachedEntry.payload;
   }
 
@@ -134,14 +122,30 @@ export function resolveStyleAnalysisPayload(root: string, data: InspectRequest) 
   try {
     payload = {
       source: selection.source,
-      ...analyzeStyleAtPosition(absoluteFile, selection.line, selection.column),
+      ...(() => {
+        const analysis = analyzeStyleAtPosition(
+          resolvedFile.value.absoluteFile,
+          selection.line,
+          selection.column
+        );
+
+        return {
+          ...analysis,
+          fingerprint: createStyleAnalysisFingerprint(analysis),
+        };
+      })(),
+      saveCapability: selection.saveCapability,
+      saveEnabled: selection.saveEnabled,
     };
   } catch {
-    payload = createUnknownStylePayload(selection.source);
+    payload = createUnknownStylePayload(
+      selection.source,
+      selection.saveCapability,
+      selection.saveEnabled
+    );
   }
 
-  styleAnalysisCache.set(selection.source, {
-    mtimeMs,
+  styleAnalysisCache.set(cacheKey, {
     payload,
   });
 
@@ -149,27 +153,26 @@ export function resolveStyleAnalysisPayload(root: string, data: InspectRequest) 
 }
 
 export function handleStyleAnalysisRequest(
-  root: string,
+  state: HawkEyeServerState,
   client: HMRBroadcasterClient,
   data: InspectRequest
 ) {
-  const payload = resolveStyleAnalysisPayload(root, data);
+  const payload = resolveStyleAnalysisPayload(state, client, data);
 
   if (!payload) {
     return null;
   }
 
   client.send(HAWK_EYE_STYLE_ANALYSIS_EVENT, payload);
-
   return payload;
 }
 
-export function registerInspectHandler(server: ViteDevServer, root: string) {
+export function registerInspectHandler(server: ViteDevServer, state: HawkEyeServerState) {
   server.ws.on(HAWK_EYE_INSPECT_EVENT, (data, client) => {
-    handleInspectRequest(root, client, data as InspectRequest);
+    handleInspectRequest(state, client, data as InspectRequest);
   });
 
   server.ws.on(HAWK_EYE_ANALYZE_STYLE_EVENT, (data, client) => {
-    handleStyleAnalysisRequest(root, client, data as InspectRequest);
+    handleStyleAnalysisRequest(state, client, data as InspectRequest);
   });
 }

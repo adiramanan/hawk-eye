@@ -347,6 +347,54 @@ export const hawkEyeStyles = `
     padding: 0 16px 12px;
   }
 
+  [data-hawk-eye-ui="close-guard-backdrop"] {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: flex-end;
+    padding: 16px;
+    background: rgba(8, 8, 8, 0.68);
+    backdrop-filter: blur(6px);
+    z-index: 30;
+  }
+
+  [data-hawk-eye-ui="close-guard-dialog"] {
+    width: 100%;
+    display: grid;
+    gap: 12px;
+    padding: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    background: rgba(35, 35, 35, 0.98);
+    box-shadow:
+      0 18px 44px rgba(0, 0, 0, 0.42),
+      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  }
+
+  [data-hawk-eye-ui="close-guard-title"] {
+    margin: 0;
+    color: var(--he-fg);
+    font-family: var(--he-font-ui);
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  [data-hawk-eye-ui="close-guard-body"] {
+    margin: 0;
+    color: var(--he-fg);
+    font-family: var(--he-font-ui);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  [data-hawk-eye-ui="close-guard-actions"] {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: stretch;
+  }
+
   /* ── Changes view ────────────────────────────────────────────── */
 
   [data-hawk-eye-ui="changes-view"] {

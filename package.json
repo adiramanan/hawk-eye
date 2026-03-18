@@ -1,5 +1,5 @@
 {
-  "name": "hawk-eye",
+  "name": "hawk-eye-workspace",
   "version": "0.0.1",
   "description": "Visual design tool for refining AI-generated React interfaces",
   "private": true,
@@ -9,7 +9,7 @@
     "pnpm": ">=8.0.0"
   },
   "scripts": {
-    "dev": "concurrently \"pnpm -F @hawk-eye/client dev\" \"pnpm -F @hawk-eye/vite-plugin dev\" \"pnpm -F hawk-eye-demo dev\"",
+    "dev": "concurrently \"pnpm -F hawk-eye dev\" \"pnpm -F hawk-eye-demo dev\"",
     "build": "pnpm -r build",
     "build:client": "pnpm -F @hawk-eye/client build",
     "build:plugin": "pnpm -F @hawk-eye/vite-plugin build",

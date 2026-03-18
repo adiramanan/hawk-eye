@@ -1,4 +1,5 @@
 import type { Plugin } from 'vite';
+import { createHawkEyeServerState, type HawkEyePluginOptions, updateHawkEyeServerRoot } from './plugin-state';
 import { registerSaveHandler } from './save-handler';
 import { injectSourceMetadata } from './source-injector';
 import { registerInspectHandler } from './ws-server';
@@ -14,24 +15,28 @@ import { registerInspectHandler } from './ws-server';
  *
  * Phase 1–3: Implement inspector bridge, writers, and file persistence
  */
-export default function hawkeyePlugin(): Plugin {
-  let root = process.cwd();
+export default function hawkeyePlugin(options: HawkEyePluginOptions = {}): Plugin {
+  const state = createHawkEyeServerState(options);
 
   return {
     name: '@hawk-eye/vite-plugin',
     apply: 'serve',
     enforce: 'pre',
     configResolved(config) {
-      root = config.root;
+      updateHawkEyeServerRoot(state, config.root);
     },
     transform(code, id) {
-      return injectSourceMetadata(code, id, root);
+      return injectSourceMetadata(code, id, state.root, state);
     },
     configureServer(server) {
-      registerInspectHandler(server, root);
-      registerSaveHandler(server, root);
+      registerInspectHandler(server, state);
+
+      if (state.saveEnabled) {
+        registerSaveHandler(server, state);
+      }
     },
   };
 }
 
 export type { Plugin } from 'vite';
+export type { HawkEyePluginOptions } from './plugin-state';

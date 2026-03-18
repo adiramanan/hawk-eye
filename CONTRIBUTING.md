@@ -1,6 +1,6 @@
 # Contributing to Hawk-Eye
 
-This repository is in pre-alpha. Phase 2 live-preview editing is complete; Phase 3 is the next milestone.
+This repository is in pre-alpha. The prerelease packaging pass is in progress and the public install story is `hawk-eye` with separate `.` and `./vite` exports.
 
 ## Development Setup
 
@@ -30,8 +30,9 @@ pnpm build
 hawk-eye/
 ├── .agents/             # Multi-agent handoff files
 ├── packages/
-│   ├── client/          # @hawk-eye/client
-│   └── vite-plugin/     # @hawk-eye/vite-plugin
+│   ├── client/          # Internal React runtime
+│   ├── vite-plugin/     # Internal Vite integration
+│   └── hawk-eye/        # Public package surface
 ├── demo/                # Local React + Tailwind app
 ├── docs/                # Architecture notes
 ├── tests/               # Vitest coverage
@@ -71,12 +72,12 @@ Suggested commit types:
 - Phase 0: complete
 - Phase 1: complete
 - Phase 2: complete
-- Phase 3: next milestone, focused on source writers and persistence
+- Phase 3: writers and persistence are in place
 - Phase 4: hardening and release prep
 
 ## Testing
 
-The current test suite covers the Phase 0 baseline plus Phase 1 and Phase 2 client behavior.
+The current test suite covers the client runtime, Vite plugin, and prerelease packaging flow.
 
 - Use `pnpm test` for the current Vitest suite.
 - Extend coverage as Phase 3 and later code lands.

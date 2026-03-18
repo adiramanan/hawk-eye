@@ -1,8 +1,11 @@
 import { relative, resolve } from 'node:path';
 import { transformSync, types as t } from '@babel/core';
 import type { NodePath, PluginObj } from '@babel/core';
+import { HAWK_EYE_SOURCE_ATTRIBUTE } from '../../../shared/protocol';
+import type { HawkEyeServerState } from './plugin-state';
+import { createSignedSourceToken } from './plugin-state';
 
-const SUPPORTED_SOURCE_PATTERN = /\.[jt]sx?$/;
+const SUPPORTED_SOURCE_PATTERN = /\.(?:jsx|tsx)$/;
 const EXCLUDED_SEGMENTS = ['/node_modules/', '/dist/', '/build/', '/coverage/'];
 
 function stripQuery(id: string) {
@@ -23,13 +26,6 @@ function isIntrinsicElementName(
   const firstCharacter = name.name.charAt(0);
 
   return firstCharacter === firstCharacter.toLowerCase();
-}
-
-function hasDataSourceAttribute(attributes: Array<t.JSXAttribute | t.JSXSpreadAttribute>) {
-  return attributes.some(
-    (attribute) =>
-      t.isJSXAttribute(attribute) && t.isJSXIdentifier(attribute.name, { name: 'data-source' })
-  );
 }
 
 function toRootRelativePath(root: string, id: string) {
@@ -57,8 +53,21 @@ export function shouldTransformSource(id: string) {
   return !EXCLUDED_SEGMENTS.some((segment) => cleanId.includes(segment));
 }
 
-export function injectSourceMetadata(code: string, id: string, root: string) {
+function shouldBailBeforeTransform(code: string) {
+  return !code.includes('<');
+}
+
+export function injectSourceMetadata(
+  code: string,
+  id: string,
+  root: string,
+  state: HawkEyeServerState
+) {
   if (!shouldTransformSource(id)) {
+    return null;
+  }
+
+  if (shouldBailBeforeTransform(code)) {
     return null;
   }
 
@@ -89,21 +98,34 @@ export function injectSourceMetadata(code: string, id: string, root: string) {
                 return;
               }
 
-              if (hasDataSourceAttribute(path.node.attributes)) {
-                return;
-              }
-
               const start = path.node.loc?.start;
 
               if (!start) {
                 return;
               }
 
-              const sourceToken = `${relativePath}:${start.line}:${start.column + 1}`;
-
-              path.node.attributes.push(
-                t.jsxAttribute(t.jsxIdentifier('data-source'), t.stringLiteral(sourceToken))
+              const sourceToken = createSignedSourceToken(
+                state,
+                relativePath,
+                start.line,
+                start.column + 1
               );
+              const existingIndex = path.node.attributes.findIndex(
+                (attribute) =>
+                  t.isJSXAttribute(attribute) &&
+                  t.isJSXIdentifier(attribute.name, { name: HAWK_EYE_SOURCE_ATTRIBUTE })
+              );
+              const nextAttribute = t.jsxAttribute(
+                t.jsxIdentifier(HAWK_EYE_SOURCE_ATTRIBUTE),
+                t.stringLiteral(sourceToken)
+              );
+
+              if (existingIndex === -1) {
+                path.node.attributes.push(nextAttribute);
+                return;
+              }
+
+              path.node.attributes[existingIndex] = nextAttribute;
             },
           },
         }) satisfies PluginObj,

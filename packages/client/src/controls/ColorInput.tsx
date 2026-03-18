@@ -27,6 +27,7 @@ export function ColorInput({ definition, snapshot, onChange }: ColorInputProps) 
   const [pickerOpen, setPickerOpen] = useState(false);
   const anchorRectRef = useRef<DOMRect | null>(null);
   const swatchRef = useRef<HTMLSpanElement>(null);
+  const popoverId = `hawk-eye-color-picker-${definition.id}`;
 
   const displayValue = snapshot.inputValue || snapshot.baseline;
   const normalizedDisplay = normalizeColorDisplay(displayValue);
@@ -43,6 +44,9 @@ export function ColorInput({ definition, snapshot, onChange }: ColorInputProps) 
       <div data-hawk-eye-ui="color-row">
         <button
           aria-label={`Open color picker for ${definition.label}`}
+          aria-controls={popoverId}
+          aria-expanded={pickerOpen}
+          aria-haspopup="dialog"
           data-hawk-eye-ui="color-swatch-btn"
           onClick={handleSwatchClick}
           type="button"
@@ -66,6 +70,8 @@ export function ColorInput({ definition, snapshot, onChange }: ColorInputProps) 
       {pickerOpen && anchorRectRef.current && (
         <ColorPicker
           anchorRect={anchorRectRef.current}
+          id={popoverId}
+          label={definition.label}
           onChange={onChange}
           onClose={() => setPickerOpen(false)}
           value={displayValue}

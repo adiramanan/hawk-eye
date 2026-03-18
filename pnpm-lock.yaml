@@ -59,12 +59,6 @@ importers:
       '@fontsource-variable/geist':
         specifier: ^5.2.8
         version: 5.2.8
-      '@hawk-eye/client':
-        specifier: workspace:*
-        version: link:../packages/client
-      '@hawk-eye/vite-plugin':
-        specifier: workspace:*
-        version: link:../packages/vite-plugin
       '@tabler/icons-react':
         specifier: ^3.40.0
         version: 3.40.0(react@18.3.1)
@@ -74,6 +68,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      hawk-eye:
+        specifier: workspace:*
+        version: link:../packages/hawk-eye
       react:
         specifier: ^18.2.0
         version: 18.3.1
@@ -139,6 +136,25 @@ importers:
       '@types/react-dom':
         specifier: ^18.2.0
         version: 18.3.7(@types/react@18.3.28)
+      tsup:
+        specifier: ^8.0.0
+        version: 8.5.1(jiti@1.21.7)(postcss@8.5.8)(typescript@5.9.3)
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.3
+
+  packages/hawk-eye:
+    dependencies:
+      react:
+        specifier: ^18.0.0
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.0.0
+        version: 18.3.1(react@18.3.1)
+      vite:
+        specifier: ^5.0.0
+        version: 5.4.21(@types/node@20.19.37)
+    devDependencies:
       tsup:
         specifier: ^8.0.0
         version: 8.5.1(jiti@1.21.7)(postcss@8.5.8)(typescript@5.9.3)

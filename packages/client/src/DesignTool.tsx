@@ -1,6 +1,7 @@
 import React, { startTransition, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { FOCUSED_PROPERTY_IDS, editablePropertyDefinitionMap } from './editable-properties';
+import { HAWK_EYE_SOURCE_ATTRIBUTE } from '../../../shared/protocol';
+import { FOCUSED_PROPERTY_IDS } from './editable-properties';
 import {
   applyDraftInputValue,
   applyDraftToElement,
@@ -54,6 +55,7 @@ export interface DesignToolProps {
 }
 
 function buildSavePayload(drafts: SelectionDraft[]): SavePayload {
+  const capability = drafts.find((draft) => draft.saveCapability)?.saveCapability;
   const mutations: SavePayload['mutations'] = [];
 
   for (const draft of drafts) {
@@ -63,7 +65,6 @@ function buildSavePayload(drafts: SelectionDraft[]): SavePayload {
     const sizeModeMetadata = getDirtySizeModes(draft);
     const properties = propertyIds.map((propertyId) => ({
       propertyId,
-      cssProperty: editablePropertyDefinitionMap[propertyId].cssProperty,
       oldValue: draft.properties[propertyId].baseline,
       newValue: draft.properties[propertyId].value,
     }));
@@ -76,8 +77,8 @@ function buildSavePayload(drafts: SelectionDraft[]): SavePayload {
       file: draft.file,
       line: draft.line,
       column: draft.column,
-      styleMode: draft.styleMode,
       detached: draft.detached,
+      fingerprint: draft.analysisFingerprint,
       properties,
       ...(sizeModeMetadata.width || sizeModeMetadata.height
         ? { sizeModeMetadata }
@@ -85,11 +86,14 @@ function buildSavePayload(drafts: SelectionDraft[]): SavePayload {
     });
   }
 
-  return { mutations };
+  return {
+    capability: capability ?? '',
+    mutations,
+  };
 }
 
-function parseSourceToken(source: string): SelectionPayload | null {
-  const match = /^(.*):(\d+):(\d+)$/.exec(source);
+function parseSourceToken(source: string) {
+  const match = /^(.*):(\d+):(\d+)(?::[a-f0-9]+)?$/.exec(source);
 
   if (!match) {
     return null;
@@ -104,7 +108,6 @@ function parseSourceToken(source: string): SelectionPayload | null {
   }
 
   return {
-    source: `${file}:${line}:${column}`,
     file,
     line,
     column,
@@ -120,7 +123,7 @@ function measureElement(element: HTMLElement | null) {
     return null;
   }
 
-  const source = element.dataset.source;
+  const source = element.dataset.hawkEyeSource;
 
   if (!source) {
     return null;
@@ -249,7 +252,7 @@ function getSelectableElementAtPoint(clientX: number, clientY: number) {
     return null;
   }
 
-  const inspectable = target.closest<HTMLElement>('[data-source]');
+  const inspectable = target.closest<HTMLElement>(`[${HAWK_EYE_SOURCE_ATTRIBUTE}]`);
 
   if (!inspectable || isHawkEyeElement(inspectable)) {
     return null;
@@ -267,7 +270,22 @@ function buildSelectionDetails(
   }
 
   const parsedPayload =
-    payload && payload.source === measured.source ? payload : parseSourceToken(measured.source);
+    payload && payload.source === measured.source
+      ? payload
+      : (() => {
+          const parsedSource = parseSourceToken(measured.source);
+
+          if (!parsedSource) {
+            return null;
+          }
+
+          return {
+            ...parsedSource,
+            source: measured.source,
+            saveCapability: null,
+            saveEnabled: false,
+          } satisfies SelectionPayload;
+        })();
 
   if (!parsedPayload) {
     return null;
@@ -275,8 +293,13 @@ function buildSelectionDetails(
 
   return {
     ...parsedPayload,
+    source: measured.source,
+    analysisFingerprint: '',
     instanceKey: measured.instanceKey,
+    saveCapability: null,
+    saveEnabled: false,
     styleMode: 'unknown',
+    styleAnalysisResolved: false,
     tagName: measured.element.tagName.toLowerCase(),
     classNames: [],
     inlineStyles: {},
@@ -301,6 +324,8 @@ function createShadowPortalRoot() {
 }
 
 function DesignToolRuntime() {
+  const [closeAfterSave, setCloseAfterSave] = useState(false);
+  const [closeGuardOpen, setCloseGuardOpen] = useState(false);
   const [enabled, setEnabled] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, SelectionDraft>>({});
   const [hovered, setHovered] = useState<MeasuredElement | null>(null);
@@ -308,8 +333,12 @@ function DesignToolRuntime() {
   const [saveResult, setSaveResult] = useState<SaveResult | null>(null);
   const [selected, setSelected] = useState<MeasuredElement | null>(null);
   const [selectedInstanceKey, setSelectedInstanceKey] = useState<string | null>(null);
+  const closeAfterSaveRef = useRef(false);
   const draftsRef = useRef<Record<string, SelectionDraft>>({});
+  const hoverFrameRef = useRef(0);
+  const pointerRef = useRef<{ x: number; y: number } | null>(null);
   const selectedInstanceKeyRef = useRef<string | null>(null);
+  const syncMeasurementsFrameRef = useRef(0);
 
   useEffect(() => {
     draftsRef.current = drafts;
@@ -318,6 +347,10 @@ function DesignToolRuntime() {
   useEffect(() => {
     selectedInstanceKeyRef.current = selectedInstanceKey;
   }, [selectedInstanceKey]);
+
+  useEffect(() => {
+    closeAfterSaveRef.current = closeAfterSave;
+  }, [closeAfterSave]);
 
   function clearSessionDrafts() {
     for (const draft of Object.values(draftsRef.current)) {
@@ -349,7 +382,7 @@ function DesignToolRuntime() {
   }
 
   function ensureDraftForMeasurement(measured: MeasuredElement) {
-    const details = buildSelectionDetails(measured, parseSourceToken(measured.source));
+    const details = buildSelectionDetails(measured, null);
 
     if (!details) {
       return null;
@@ -908,7 +941,9 @@ function DesignToolRuntime() {
               mergeSelectionDraft(draft, {
                 ...payload,
                 instanceKey: draft.instanceKey,
+                analysisFingerprint: '',
                 styleMode: draft.styleMode,
+                styleAnalysisResolved: false,
                 tagName: draft.tagName,
                 classNames: draft.classNames,
                 inlineStyles: draft.inlineStyles,
@@ -944,10 +979,14 @@ function DesignToolRuntime() {
               instanceKey,
               {
                 ...draft,
+                analysisFingerprint: payload.fingerprint,
                 detached: draft.detached,
                 styleMode: payload.mode,
+                styleAnalysisResolved: true,
                 classNames: payload.classNames,
                 inlineStyles: payload.inlineStyles,
+                saveCapability: payload.saveCapability,
+                saveEnabled: payload.saveEnabled,
               },
             ] as const;
           });
@@ -968,6 +1007,12 @@ function DesignToolRuntime() {
 
         if (payload.success) {
           clearSessionDrafts();
+
+          if (closeAfterSaveRef.current) {
+            setCloseAfterSave(false);
+            setCloseGuardOpen(false);
+            setEnabled(false);
+          }
         }
       });
     });
@@ -984,18 +1029,37 @@ function DesignToolRuntime() {
       return;
     }
 
+    setDrafts((current) => {
+      const instanceKey = selectedInstanceKeyRef.current;
+
+      if (!instanceKey || !current[instanceKey]) {
+        return current;
+      }
+
+      return {
+        ...current,
+        [instanceKey]: {
+          ...current[instanceKey],
+          analysisFingerprint: '',
+          styleAnalysisResolved: false,
+        },
+      };
+    });
     requestStyleAnalysis({ source: selected.source });
   }, [enabled, selected?.source]);
 
   useEffect(() => {
     if (!enabled) {
       clearSessionDrafts();
+      setCloseAfterSave(false);
+      setCloseGuardOpen(false);
       setSavePending(false);
       setSaveResult(null);
       return;
     }
 
     const syncMeasurements = () => {
+      syncMeasurementsFrameRef.current = 0;
       setHovered((current) => (current ? measureElementByKey(current.instanceKey) : null));
 
       const lockedInstanceKey = selectedInstanceKeyRef.current;
@@ -1005,17 +1069,43 @@ function DesignToolRuntime() {
       }
     };
 
+    const scheduleMeasurementSync = () => {
+      if (syncMeasurementsFrameRef.current) {
+        return;
+      }
+
+      syncMeasurementsFrameRef.current = window.requestAnimationFrame(syncMeasurements);
+    };
+
     const handlePointerMove = (event: MouseEvent) => {
       if (selectedInstanceKeyRef.current) {
         return;
       }
 
-      const nextElement = getSelectableElementAtPoint(event.clientX, event.clientY);
-      const nextMeasurement = measureElement(nextElement);
+      pointerRef.current = {
+        x: event.clientX,
+        y: event.clientY,
+      };
 
-      setHovered((current) =>
-        sameMeasuredElement(current, nextMeasurement) ? current : nextMeasurement
-      );
+      if (hoverFrameRef.current) {
+        return;
+      }
+
+      hoverFrameRef.current = window.requestAnimationFrame(() => {
+        hoverFrameRef.current = 0;
+        const nextPointer = pointerRef.current;
+
+        if (!nextPointer) {
+          return;
+        }
+
+        const nextElement = getSelectableElementAtPoint(nextPointer.x, nextPointer.y);
+        const nextMeasurement = measureElement(nextElement);
+
+        setHovered((current) =>
+          sameMeasuredElement(current, nextMeasurement) ? current : nextMeasurement
+        );
+      });
     };
 
     const handleClick = (event: MouseEvent) => {
@@ -1055,26 +1145,50 @@ function DesignToolRuntime() {
       }
 
       event.preventDefault();
+      if (getDirtyDrafts(draftsRef.current).length > 0) {
+        setCloseGuardOpen(true);
+        return;
+      }
+
       setEnabled(false);
     };
 
     document.addEventListener('pointermove', handlePointerMove, true);
     document.addEventListener('click', handleClick, true);
     window.addEventListener('keydown', handleEscape);
-    window.addEventListener('resize', syncMeasurements);
-    window.addEventListener('scroll', syncMeasurements, true);
+    window.addEventListener('resize', scheduleMeasurementSync);
+    window.addEventListener('scroll', scheduleMeasurementSync, {
+      capture: true,
+      passive: true,
+    });
 
     return () => {
       document.removeEventListener('pointermove', handlePointerMove, true);
       document.removeEventListener('click', handleClick, true);
       window.removeEventListener('keydown', handleEscape);
-      window.removeEventListener('resize', syncMeasurements);
-      window.removeEventListener('scroll', syncMeasurements, true);
+      window.removeEventListener('resize', scheduleMeasurementSync);
+      window.removeEventListener('scroll', scheduleMeasurementSync, true);
+
+      if (hoverFrameRef.current) {
+        window.cancelAnimationFrame(hoverFrameRef.current);
+        hoverFrameRef.current = 0;
+      }
+
+      if (syncMeasurementsFrameRef.current) {
+        window.cancelAnimationFrame(syncMeasurementsFrameRef.current);
+        syncMeasurementsFrameRef.current = 0;
+      }
     };
   }, [enabled]);
 
   useEffect(() => {
-    if (!enabled || typeof window.MutationObserver === 'undefined') {
+    const activeDrafts = Object.values(drafts).filter(hasDraftChanges);
+
+    if (
+      !enabled ||
+      activeDrafts.length === 0 ||
+      typeof window.MutationObserver === 'undefined'
+    ) {
       return;
     }
 
@@ -1107,10 +1221,27 @@ function DesignToolRuntime() {
       frame = window.requestAnimationFrame(syncDrafts);
     });
 
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-    });
+    const observedRoots = new Set<HTMLElement>();
+
+    for (const draft of activeDrafts) {
+      const element = getInspectableElementByKey(draft.instanceKey);
+      const observedRoot = element?.parentElement ?? null;
+
+      if (observedRoot) {
+        observedRoots.add(observedRoot);
+      }
+    }
+
+    if (observedRoots.size === 0) {
+      return;
+    }
+
+    for (const observedRoot of observedRoots) {
+      observer.observe(observedRoot, {
+        childList: true,
+        subtree: true,
+      });
+    }
 
     return () => {
       observer.disconnect();
@@ -1119,7 +1250,7 @@ function DesignToolRuntime() {
         window.cancelAnimationFrame(frame);
       }
     };
-  }, [enabled]);
+  }, [drafts, enabled]);
 
   const selectedDraft = selectedInstanceKey ? (drafts[selectedInstanceKey] ?? null) : null;
   const pendingDrafts = getDirtyDrafts(drafts).sort((left, right) => {
@@ -1134,6 +1265,15 @@ function DesignToolRuntime() {
     return left.source.localeCompare(right.source) || left.instanceKey.localeCompare(right.instanceKey);
   });
   const hasPendingDrafts = pendingDrafts.length > 0;
+  const hasPendingStyleAnalysis = pendingDrafts.some((draft) => !draft.styleAnalysisResolved);
+  const saveEnabled = pendingDrafts.every(
+    (draft) => draft.saveEnabled && Boolean(draft.saveCapability)
+  );
+  const saveBlockedReason = hasPendingStyleAnalysis
+    ? 'Finish style analysis for the selected element before saving to a branch.'
+    : !saveEnabled
+      ? 'Save to branch is disabled. Enable `enableSave` in `hawkeyePlugin()` to persist source changes.'
+      : null;
 
   useEffect(() => {
     if (!hasPendingDrafts) {
@@ -1158,15 +1298,42 @@ function DesignToolRuntime() {
       return;
     }
 
+    if (saveBlockedReason) {
+      setSaveResult({
+        success: false,
+        error: saveBlockedReason,
+        warnings: [],
+      });
+      return;
+    }
+
     const payload = buildSavePayload(getDirtyDrafts(draftsRef.current));
 
-    if (payload.mutations.length === 0) {
+    if (!payload.capability || payload.mutations.length === 0) {
       return;
     }
 
     setSavePending(true);
     setSaveResult(null);
     requestSave(payload);
+  }
+
+  function attemptToggleInspector() {
+    if (savePending) {
+      return;
+    }
+
+    if (!enabled) {
+      setEnabled(true);
+      return;
+    }
+
+    if (getDirtyDrafts(draftsRef.current).length > 0) {
+      setCloseGuardOpen(true);
+      return;
+    }
+
+    setEnabled(false);
   }
 
   function selectByKey(instanceKey: string) {
@@ -1188,7 +1355,19 @@ function DesignToolRuntime() {
     <Inspector
       enabled={enabled}
       hovered={hovered}
+      closeGuardOpen={closeGuardOpen}
       onChange={updateDraftProperty}
+      onCloseGuardCancel={() => setCloseGuardOpen(false)}
+      onCloseGuardDiscard={() => {
+        setCloseAfterSave(false);
+        setCloseGuardOpen(false);
+        setEnabled(false);
+      }}
+      onCloseGuardSave={() => {
+        setCloseAfterSave(true);
+        setCloseGuardOpen(false);
+        savePendingDrafts();
+      }}
       onChangeSizeMode={updateSizeMode}
       onChangeSizeValue={updateSizeProperty}
       onDetach={detachSelectedDraft}
@@ -1197,8 +1376,9 @@ function DesignToolRuntime() {
       onSave={savePendingDrafts}
       onSelectByKey={selectByKey}
       onToggleAspectRatioLock={toggleAspectRatioLock}
-      onToggle={() => setEnabled((current) => !current)}
+      onToggle={attemptToggleInspector}
       pendingDrafts={pendingDrafts}
+      saveBlockedReason={saveBlockedReason}
       savePending={savePending}
       saveResult={saveResult}
       selected={selected}

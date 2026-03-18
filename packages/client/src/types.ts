@@ -1,74 +1,32 @@
-export interface InspectRequest {
-  source: string;
-}
-
-export interface SelectionPayload {
-  source: string;
-  file: string;
-  line: number;
-  column: number;
-}
-
-export type StyleMode = 'inline' | 'tailwind' | 'mixed' | 'detached' | 'unknown';
-
-export interface StyleAnalysisPayload {
-  source: string;
-  mode: StyleMode;
-  classNames: string[];
-  inlineStyles: Record<string, string>;
-}
-
-export interface PropertyMutationPayload {
-  propertyId: EditablePropertyId;
-  cssProperty: string;
-  oldValue: string;
-  newValue: string;
-}
-
-export interface ElementMutationPayload {
-  file: string;
-  line: number;
-  column: number;
-  styleMode: StyleMode;
-  detached: boolean;
-  properties: PropertyMutationPayload[];
-  sizeModeMetadata?: SizeModeMetadataPayload;
-}
-
-export interface SavePayload {
-  mutations: ElementMutationPayload[];
-}
-
-export interface MutationWarningPayload {
-  code: string;
-  file: string;
-  line: number;
-  column: number;
-  propertyId?: string;
-  message: string;
-}
-
-export type SaveResult =
-  | {
-      success: true;
-      branch: string;
-      commitSha: string;
-      modifiedFiles: string[];
-      warnings: MutationWarningPayload[];
-    }
-  | {
-      success: false;
-      error: string;
-      branch?: string;
-      warnings: MutationWarningPayload[];
-    };
+import type {
+  SelectionPayload,
+  SizeMode,
+  StyleMode,
+} from '../../../shared/protocol';
+export type {
+  ClientPropertyMutation as PropertyMutationPayload,
+  ElementMutationRequest as ElementMutationPayload,
+  InspectRequest,
+  MutationWarning as MutationWarningPayload,
+  SavePayload,
+  SaveResult,
+  SelectionPayload,
+  SizeMode,
+  SizeModeMetadata as SizeModeMetadataPayload,
+  StyleAnalysisPayload,
+  StyleMode,
+} from '../../../shared/protocol';
 
 export interface SelectionDetails extends SelectionPayload {
+  analysisFingerprint: string;
   instanceKey: string;
-  styleMode: StyleMode;
-  tagName: string;
   classNames: string[];
   inlineStyles: Record<string, string>;
+  saveCapability: string | null;
+  saveEnabled: boolean;
+  styleAnalysisResolved: boolean;
+  styleMode: StyleMode;
+  tagName: string;
 }
 
 export interface MeasuredElement {
@@ -160,13 +118,6 @@ export type EditablePropertyId =
   | 'userSelect';
 
 export type SizeAxis = 'width' | 'height';
-
-export type SizeMode = 'fixed' | 'hug' | 'fill' | 'relative';
-
-export interface SizeModeMetadataPayload {
-  width?: SizeMode;
-  height?: SizeMode;
-}
 
 export interface SizeModeSnapshot {
   baseline: SizeMode;
@@ -268,6 +219,7 @@ export interface ElementContext {
 }
 
 export interface SelectionDraft extends SelectionDetails {
+  styleAnalysisResolved: boolean;
   detached: boolean;
   properties: Record<EditablePropertyId, PropertySnapshot>;
   sizeControl: SizeControlState;

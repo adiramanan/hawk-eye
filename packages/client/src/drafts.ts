@@ -8,6 +8,7 @@ import {
   inferSizeMode,
   seedSizeModeMemory,
 } from './size-state';
+import { HAWK_EYE_SOURCE_ATTRIBUTE } from '../../../shared/protocol';
 import type {
   EditablePropertyId,
   ElementContext,
@@ -29,6 +30,7 @@ interface ApplyInputResult {
 }
 
 const INSTANCE_KEY_SEPARATOR = '@@';
+const elementInstanceKeyCache = new WeakMap<HTMLElement, string>();
 
 function escapeAttributeValue(value: string) {
   return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
@@ -36,7 +38,9 @@ function escapeAttributeValue(value: string) {
 
 function getInspectableElementsBySource(source: string) {
   return Array.from(
-    document.querySelectorAll<HTMLElement>(`[data-source="${escapeAttributeValue(source)}"]`)
+    document.querySelectorAll<HTMLElement>(
+      `[${HAWK_EYE_SOURCE_ATTRIBUTE}="${escapeAttributeValue(source)}"]`
+    )
   );
 }
 
@@ -272,10 +276,12 @@ export function createSelectionDraft(
 
   return {
     ...details,
+    analysisFingerprint: details.analysisFingerprint,
     detached: false,
     properties,
     sizeControl: buildSizeControlState(element, properties),
     context,
+    styleAnalysisResolved: details.styleAnalysisResolved,
   };
 }
 
@@ -287,6 +293,7 @@ export function mergeSelectionDraft(
     ...draft,
     detached: draft.detached,
     file: details.file,
+    analysisFingerprint: details.analysisFingerprint,
     instanceKey: details.instanceKey,
     line: details.line,
     column: details.column,
@@ -297,6 +304,9 @@ export function mergeSelectionDraft(
     inlineStyles: draft.inlineStyles,
     sizeControl: draft.sizeControl,
     context: draft.context,
+    saveCapability: details.saveCapability,
+    saveEnabled: details.saveEnabled,
+    styleAnalysisResolved: details.styleAnalysisResolved,
   };
 }
 
@@ -305,7 +315,13 @@ export function createInspectableElementKey(element: HTMLElement) {
     return null;
   }
 
-  const source = element.dataset.source?.trim();
+  const cachedKey = elementInstanceKeyCache.get(element);
+
+  if (cachedKey) {
+    return cachedKey;
+  }
+
+  const source = element.dataset.hawkEyeSource?.trim();
 
   if (!source) {
     return null;
@@ -314,7 +330,9 @@ export function createInspectableElementKey(element: HTMLElement) {
   const matches = getInspectableElementsBySource(source);
   const occurrence = matches.findIndex((match) => match === element);
 
-  return `${source}${INSTANCE_KEY_SEPARATOR}${Math.max(occurrence, 0)}`;
+  const instanceKey = `${source}${INSTANCE_KEY_SEPARATOR}${Math.max(occurrence, 0)}`;
+  elementInstanceKeyCache.set(element, instanceKey);
+  return instanceKey;
 }
 
 export function getInspectableElementByKey(instanceKey: string) {

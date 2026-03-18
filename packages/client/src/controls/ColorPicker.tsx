@@ -14,6 +14,8 @@ import {
 type ColorMode = 'hex' | 'rgb' | 'hsl';
 
 interface ColorPickerProps {
+  id: string;
+  label: string;
   value: string;
   onChange(value: string): void;
   onClose(): void;
@@ -52,7 +54,7 @@ function drawCanvas(canvas: HTMLCanvasElement, hue: number) {
   ctx.fillRect(0, 0, width, height);
 }
 
-export function ColorPicker({ value, onChange, onClose, anchorRect }: ColorPickerProps) {
+export function ColorPicker({ id, label, value, onChange, onClose, anchorRect }: ColorPickerProps) {
   const initialRgba = parseColor(value) ?? { r: 0, g: 0, b: 0, a: 1 };
   const initialHsv = rgbaToHsv(initialRgba);
 
@@ -141,6 +143,33 @@ export function ColorPicker({ value, onChange, onClose, anchorRect }: ColorPicke
     isDraggingCanvas.current = false;
   }
 
+  function handleCanvasKeyDown(event: React.KeyboardEvent<HTMLCanvasElement>) {
+    const step = event.shiftKey ? 0.1 : 0.02;
+
+    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
+      return;
+    }
+
+    event.preventDefault();
+
+    if (event.key === 'ArrowLeft') {
+      updateHsv({ ...hsv, s: clamp(hsv.s - step, 0, 1) });
+      return;
+    }
+
+    if (event.key === 'ArrowRight') {
+      updateHsv({ ...hsv, s: clamp(hsv.s + step, 0, 1) });
+      return;
+    }
+
+    if (event.key === 'ArrowUp') {
+      updateHsv({ ...hsv, v: clamp(hsv.v + step, 0, 1) });
+      return;
+    }
+
+    updateHsv({ ...hsv, v: clamp(hsv.v - step, 0, 1) });
+  }
+
   // Compute popover position
   const POPOVER_WIDTH = 232;
   const POPOVER_HEIGHT = 320;
@@ -206,18 +235,25 @@ export function ColorPicker({ value, onChange, onClose, anchorRect }: ColorPicke
 
   return (
     <div
+      aria-label={`${label} color picker`}
+      aria-modal="false"
       data-hawk-eye-ui="color-popover"
+      id={id}
       ref={popoverRef}
+      role="dialog"
       style={{ top, left, position: 'fixed' }}
     >
       {/* SV Canvas */}
       <div data-hawk-eye-ui="color-canvas-wrap">
         <canvas
+          aria-label={`${label} saturation and brightness`}
           height={140}
           onPointerDown={handleCanvasPointerDown}
+          onKeyDown={handleCanvasKeyDown}
           onPointerMove={handleCanvasPointerMove}
           onPointerUp={handleCanvasPointerUp}
           ref={canvasRef}
+          tabIndex={0}
           width={200}
         />
         <div

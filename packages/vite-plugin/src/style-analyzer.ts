@@ -7,8 +7,8 @@ import {
   type JsxSelfClosingElement,
   type SourceFile,
 } from 'ts-morph';
-
-export type StyleMode = 'inline' | 'tailwind' | 'mixed' | 'detached' | 'unknown';
+import type { StyleMode } from '../../../shared/protocol';
+export type { StyleMode } from '../../../shared/protocol';
 
 export interface StyleAnalysisResult {
   mode: StyleMode;
@@ -116,6 +116,18 @@ function createUnknownAnalysis(
     classNames: overrides.classNames ?? [],
     inlineStyles: overrides.inlineStyles ?? {},
   };
+}
+
+export function createStyleAnalysisFingerprint(result: StyleAnalysisResult) {
+  const orderedInlineStyles = Object.entries(result.inlineStyles).sort(([left], [right]) =>
+    left.localeCompare(right)
+  );
+
+  return JSON.stringify({
+    classNames: result.classNames,
+    inlineStyles: orderedInlineStyles,
+    mode: result.mode,
+  });
 }
 
 function getLineAndColumn(sourceFile: SourceFile, node: JsxOpeningLike) {

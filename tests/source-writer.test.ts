@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { SavePayload } from '../packages/vite-plugin/src/mutations';
+import { getEditableCssProperty } from '../shared/property-map';
 import { writeSourceMutations } from '../packages/vite-plugin/src/source-writer';
 
 const tempRoots: string[] = [];
@@ -42,6 +42,21 @@ function getLineAndColumn(source: string, search: string) {
   };
 }
 
+function createPropertyMutation(propertyId: string, oldValue: string, newValue: string) {
+  const cssProperty = getEditableCssProperty(propertyId);
+
+  if (!cssProperty) {
+    throw new Error(`Missing editable CSS property mapping for ${propertyId}`);
+  }
+
+  return {
+    propertyId,
+    cssProperty,
+    oldValue,
+    newValue,
+  };
+}
+
 afterEach(() => {
   while (tempRoots.length > 0) {
     const root = tempRoots.pop();
@@ -76,12 +91,7 @@ describe('source writer', () => {
           styleMode: 'tailwind',
           detached: false,
           properties: [
-            {
-              propertyId: 'paddingTop',
-              cssProperty: 'padding-top',
-              oldValue: '0.5rem',
-              newValue: '1rem',
-            },
+            createPropertyMutation('paddingTop', '0.5rem', '1rem'),
           ],
         },
       ],
@@ -93,7 +103,7 @@ describe('source writer', () => {
     expect(nextSource).toContain('<button className="pt-4">Secondary</button>');
   });
 
-  it('swaps matching Tailwind utilities and falls back to inline styles for missing ones', () => {
+  it('swaps matching Tailwind utilities and falls back to inline styles for unsupported ones', () => {
     const source = `
       export function App() {
         return (
@@ -105,7 +115,8 @@ describe('source writer', () => {
     `;
     const { filePath, root } = writeFixture(source);
     const position = getLineAndColumn(source, '<button');
-    const payload: SavePayload = {
+
+    const result = writeSourceMutations(root, {
       mutations: [
         {
           file: 'src/App.tsx',
@@ -114,30 +125,28 @@ describe('source writer', () => {
           styleMode: 'tailwind',
           detached: false,
           properties: [
-            {
-              propertyId: 'paddingTop',
-              cssProperty: 'padding-top',
-              oldValue: '1rem',
-              newValue: '1.5rem',
-            },
-            {
-              propertyId: 'marginLeft',
-              cssProperty: 'margin-left',
-              oldValue: '0px',
-              newValue: 'auto',
-            },
+            createPropertyMutation('paddingTop', '1rem', '1.5rem'),
+            createPropertyMutation('opacity', '1', '0.75'),
           ],
         },
       ],
-    };
-
-    const result = writeSourceMutations(root, payload);
+    });
     const nextSource = readFixture(filePath);
 
     expect(result.modifiedFiles).toEqual(['src/App.tsx']);
-    expect(result.warnings).toEqual([]);
+    expect(result.warnings).toEqual([
+      {
+        code: 'unsupported-tailwind-property',
+        file: 'src/App.tsx',
+        line: position.line,
+        column: position.column,
+        propertyId: 'opacity',
+        message:
+          'Persisted opacity as inline styles because Tailwind class round-tripping is not supported for opacity.',
+      },
+    ]);
     expect(nextSource).toContain('className="pt-6 bg-white text-sm rounded-lg shadow-sm"');
-    expect(nextSource).toContain('style={{ marginLeft: "auto" }}');
+    expect(nextSource).toContain('style={{ opacity: "0.75" }}');
   });
 
   it('updates and creates inline style properties in object literals', () => {
@@ -160,18 +169,8 @@ describe('source writer', () => {
           styleMode: 'inline',
           detached: false,
           properties: [
-            {
-              propertyId: 'fontSize',
-              cssProperty: 'font-size',
-              oldValue: '16px',
-              newValue: '20px',
-            },
-            {
-              propertyId: 'borderRadius',
-              cssProperty: 'border-radius',
-              oldValue: '0px',
-              newValue: '0.5rem',
-            },
+            createPropertyMutation('fontSize', '16px', '20px'),
+            createPropertyMutation('borderRadius', '0px', '0.5rem'),
           ],
         },
       ],
@@ -204,18 +203,8 @@ describe('source writer', () => {
           styleMode: 'mixed',
           detached: false,
           properties: [
-            {
-              propertyId: 'fontSize',
-              cssProperty: 'font-size',
-              oldValue: '0.875rem',
-              newValue: '1.25rem',
-            },
-            {
-              propertyId: 'boxShadow',
-              cssProperty: 'box-shadow',
-              oldValue: 'none',
-              newValue: '0 4px 12px rgba(15,23,42,0.18)',
-            },
+            createPropertyMutation('fontSize', '0.875rem', '1.25rem'),
+            createPropertyMutation('boxShadow', 'none', '0 4px 12px rgba(15,23,42,0.18)'),
           ],
         },
       ],
@@ -248,24 +237,9 @@ describe('source writer', () => {
           styleMode: 'detached',
           detached: true,
           properties: [
-            {
-              propertyId: 'paddingTop',
-              cssProperty: 'padding-top',
-              oldValue: '1rem',
-              newValue: '1rem',
-            },
-            {
-              propertyId: 'backgroundColor',
-              cssProperty: 'background-color',
-              oldValue: '#ffffff',
-              newValue: '#ffffff',
-            },
-            {
-              propertyId: 'color',
-              cssProperty: 'color',
-              oldValue: '#111827',
-              newValue: '#111827',
-            },
+            createPropertyMutation('paddingTop', '1rem', '1rem'),
+            createPropertyMutation('backgroundColor', '#ffffff', '#ffffff'),
+            createPropertyMutation('color', '#111827', '#111827'),
           ],
         },
       ],
@@ -298,12 +272,7 @@ describe('source writer', () => {
           styleMode: 'tailwind',
           detached: false,
           properties: [
-            {
-              propertyId: 'borderRadius',
-              cssProperty: 'border-radius',
-              oldValue: '0px',
-              newValue: '0.5rem',
-            },
+            createPropertyMutation('borderRadius', '0px', '0.5rem'),
           ],
         },
       ],
@@ -344,12 +313,7 @@ describe('source writer', () => {
           styleMode: 'tailwind',
           detached: false,
           properties: [
-            {
-              propertyId: 'fontWeight',
-              cssProperty: 'font-weight',
-              oldValue: '600',
-              newValue: '550',
-            },
+            createPropertyMutation('fontWeight', '600', '550'),
           ],
         },
       ],

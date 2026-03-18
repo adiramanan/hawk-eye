@@ -3,8 +3,11 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  HAWK_EYE_STYLE_ANALYSIS_EVENT,
   HAWK_EYE_SELECTION_EVENT,
+  HAWK_EYE_STYLE_ANALYSIS_EVENT,
+} from '../shared/protocol';
+import { createHawkEyeServerState, createSignedSourceToken } from '../packages/vite-plugin/src/plugin-state';
+import {
   handleStyleAnalysisRequest,
   handleInspectRequest,
   resolveSelectionPayload,
@@ -22,10 +25,17 @@ function createTempWorkspace(source: string) {
   mkdirSync(srcDir, { recursive: true });
   writeFileSync(filePath, source, 'utf8');
   tempRoots.push(root);
+  const state = createHawkEyeServerState({ enableSave: true });
+  state.root = root;
 
   return {
-    root,
-    sourceToken: `src/App.tsx:${lines.length}:${(lines.at(-1)?.length ?? 0) + 1}`,
+    state,
+    sourceToken: createSignedSourceToken(
+      state,
+      'src/App.tsx',
+      lines.length,
+      (lines.at(-1)?.length ?? 0) + 1
+    ),
   };
 }
 
@@ -41,33 +51,40 @@ afterEach(() => {
 
 describe('inspect request handling', () => {
   it('returns canonical selection payloads for in-root files', () => {
-    const payload = resolveSelectionPayload(process.cwd(), {
-      source: 'demo/src/App.tsx:1:1',
+    const state = createHawkEyeServerState({ enableSave: true });
+    const client = { send: vi.fn() };
+    const payload = resolveSelectionPayload(state, client as never, {
+      source: createSignedSourceToken(state, 'demo/src/App.tsx', 1, 1),
     });
 
     expect(payload).toEqual({
-      source: 'demo/src/App.tsx:1:1',
+      source: createSignedSourceToken(state, 'demo/src/App.tsx', 1, 1),
       file: 'demo/src/App.tsx',
       line: 1,
       column: 1,
+      saveCapability: expect.any(String),
+      saveEnabled: true,
     });
   });
 
   it('ignores out-of-root paths safely', () => {
-    const payload = resolveSelectionPayload(process.cwd(), {
-      source: '../secrets.tsx:1:1',
+    const state = createHawkEyeServerState({ enableSave: true });
+    const client = { send: vi.fn() };
+    const payload = resolveSelectionPayload(state, client as never, {
+      source: createSignedSourceToken(state, '../secrets.tsx', 1, 1),
     });
 
     expect(payload).toBeNull();
   });
 
   it('sends selection payloads back to the requesting client', () => {
+    const state = createHawkEyeServerState({ enableSave: true });
     const client = {
       send: vi.fn(),
     };
 
-    const payload = handleInspectRequest(process.cwd(), client, {
-      source: 'demo/src/App.tsx:1:1',
+    const payload = handleInspectRequest(state, client as never, {
+      source: createSignedSourceToken(state, 'demo/src/App.tsx', 1, 1),
     });
 
     expect(payload?.file).toBe('demo/src/App.tsx');
@@ -86,15 +103,18 @@ describe('inspect request handling', () => {
       send: vi.fn(),
     };
 
-    const payload = handleStyleAnalysisRequest(workspace.root, client, {
+    const payload = handleStyleAnalysisRequest(workspace.state, client as never, {
       source: workspace.sourceToken,
     });
 
-    expect(payload).toEqual({
+    expect(payload).toMatchObject({
       source: workspace.sourceToken,
       mode: 'tailwind',
       classNames: ['px-4', 'py-2', 'rounded-lg'],
       inlineStyles: {},
+      fingerprint: expect.any(String),
+      saveCapability: expect.any(String),
+      saveEnabled: true,
     });
     expect(client.send).toHaveBeenCalledWith(HAWK_EYE_STYLE_ANALYSIS_EVENT, payload);
   });

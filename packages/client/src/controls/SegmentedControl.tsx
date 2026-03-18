@@ -15,7 +15,7 @@ export function SegmentedControl({ definition, snapshot, onChange }: SegmentedCo
     <div data-hawk-eye-ui="segmented-row">
       {options.map((opt, index) => (
         <button
-          aria-label={opt.label}
+          aria-label={`${definition.label}: ${opt.label}`}
           data-active={effectiveValue === opt.value ? 'true' : 'false'}
           data-hawk-eye-control={`${definition.id}-${opt.value}`}
           data-hawk-eye-ui="segmented-button"

@@ -34,6 +34,35 @@ export function getCurrentBranch(cwd: string) {
   return runGit(cwd, ['rev-parse', '--abbrev-ref', 'HEAD']);
 }
 
+export function stashWorkingTree(cwd: string, message: string) {
+  if (!hasUncommittedChanges(cwd)) {
+    return null;
+  }
+
+  const beforeRefs = runGit(cwd, ['stash', 'list', '--format=%gd'], {
+    allowFailure: true,
+  })
+    .split('\n')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+  runGit(cwd, ['stash', 'push', '--include-untracked', '--message', message]);
+
+  const afterRefs = runGit(cwd, ['stash', 'list', '--format=%gd'], {
+    allowFailure: true,
+  })
+    .split('\n')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+  return afterRefs.find((ref) => !beforeRefs.includes(ref)) ?? afterRefs[0] ?? null;
+}
+
+export function restoreStashedWorkingTree(cwd: string, stashRef: string) {
+  runGit(cwd, ['stash', 'apply', stashRef]);
+  runGit(cwd, ['stash', 'drop', stashRef]);
+}
+
 export function createBranch(cwd: string, branchName: string) {
   runGit(cwd, ['checkout', '-b', branchName]);
 }
@@ -47,8 +76,6 @@ export function commitChanges(cwd: string, files: string[], message: string) {
     'user.email=hawk-eye@local',
     '-c',
     'commit.gpgSign=false',
-    '-c',
-    'core.hooksPath=/dev/null',
     'commit',
     '-m',
     message,
