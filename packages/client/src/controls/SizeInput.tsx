@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useId,
   useRef,
   useState,
   type KeyboardEvent,
@@ -33,6 +34,13 @@ const SIZE_MODE_LABELS: Record<SizeMode, string> = {
   fill: 'Fill',
   relative: 'Relative',
 };
+
+function getModeIndex(mode: SizeMode) {
+  return Math.max(
+    0,
+    SIZE_MODE_OPTIONS.findIndex((option) => option.value === mode)
+  );
+}
 
 function ChevronIcon() {
   return (
@@ -109,7 +117,12 @@ export function SizeInput({
 }: SizeInputProps) {
   const axis = getAxis(definition);
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const shouldRestoreFocusRef = useRef(false);
+  const listboxId = useId();
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
+  const [activeOptionIndex, setActiveOptionIndex] = useState(() => getModeIndex(mode));
   const value = snapshot.inputValue || snapshot.value;
   const numericMode = isNumericSizeMode(mode);
   const units = getSizeUnitsForMode(axis, mode, value.trim());
@@ -134,20 +147,29 @@ export function SizeInput({
       setOpenMenu(null);
     }
 
-    function handleEscape(event: globalThis.KeyboardEvent) {
-      if (event.key === 'Escape') {
-        setOpenMenu(null);
-      }
-    }
-
     document.addEventListener('pointerdown', handlePointerDown, true);
-    window.addEventListener('keydown', handleEscape);
 
     return () => {
       document.removeEventListener('pointerdown', handlePointerDown, true);
-      window.removeEventListener('keydown', handleEscape);
     };
   }, []);
+
+  useEffect(() => {
+    setActiveOptionIndex(getModeIndex(mode));
+  }, [mode]);
+
+  useEffect(() => {
+    if (openMenu !== 'mode') {
+      if (shouldRestoreFocusRef.current) {
+        shouldRestoreFocusRef.current = false;
+        triggerRef.current?.focus();
+      }
+
+      return;
+    }
+
+    optionRefs.current[activeOptionIndex]?.focus();
+  }, [activeOptionIndex, openMenu]);
 
   function handleValueChange(rawValue: string) {
     const trimmed = rawValue.trim();
@@ -189,13 +211,106 @@ export function SizeInput({
     }
   }
 
+  function closeMenu(restoreFocus = false) {
+    shouldRestoreFocusRef.current = restoreFocus;
+    setOpenMenu(null);
+  }
+
+  function openMenuAt(index: number) {
+    const nextIndex = Math.max(0, Math.min(SIZE_MODE_OPTIONS.length - 1, index));
+    setActiveOptionIndex(nextIndex);
+    setOpenMenu('mode');
+  }
+
   function toggleMenu(nextMenu: 'mode') {
-    setOpenMenu((current) => (current === nextMenu ? null : nextMenu));
+    if (openMenu === nextMenu) {
+      closeMenu(false);
+      return;
+    }
+
+    openMenuAt(getModeIndex(mode));
   }
 
   function handleModeSelect(nextMode: SizeMode) {
-    setOpenMenu(null);
+    setActiveOptionIndex(getModeIndex(nextMode));
     onModeChange(nextMode);
+    closeMenu(true);
+  }
+
+  function handleTriggerKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    const currentIndex = getModeIndex(mode);
+
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault();
+        openMenuAt(currentIndex + 1);
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        openMenuAt(currentIndex - 1);
+        break;
+      case 'Home':
+        event.preventDefault();
+        openMenuAt(0);
+        break;
+      case 'End':
+        event.preventDefault();
+        openMenuAt(SIZE_MODE_OPTIONS.length - 1);
+        break;
+      case 'Enter':
+      case ' ':
+        event.preventDefault();
+        openMenuAt(currentIndex);
+        break;
+      case 'Escape':
+        if (openMenu === 'mode') {
+          event.preventDefault();
+          closeMenu(true);
+        }
+        break;
+      default:
+        break;
+    }
+  }
+
+  function handleOptionKeyDown(
+    event: KeyboardEvent<HTMLButtonElement>,
+    index: number
+  ) {
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault();
+        setActiveOptionIndex((current) =>
+          Math.min(current + 1, SIZE_MODE_OPTIONS.length - 1)
+        );
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        setActiveOptionIndex((current) => Math.max(current - 1, 0));
+        break;
+      case 'Home':
+        event.preventDefault();
+        setActiveOptionIndex(0);
+        break;
+      case 'End':
+        event.preventDefault();
+        setActiveOptionIndex(SIZE_MODE_OPTIONS.length - 1);
+        break;
+      case 'Enter':
+      case ' ':
+        event.preventDefault();
+        handleModeSelect(SIZE_MODE_OPTIONS[index]?.value ?? mode);
+        break;
+      case 'Escape':
+        event.preventDefault();
+        closeMenu(true);
+        break;
+      case 'Tab':
+        closeMenu(false);
+        break;
+      default:
+        break;
+    }
   }
 
   function preventSelection(event: ReactPointerEvent<HTMLButtonElement>) {
@@ -225,14 +340,17 @@ export function SizeInput({
               {selectedUnit}
             </span>
             <button
+              aria-controls={listboxId}
               aria-expanded={openMenu === 'mode'}
-              aria-haspopup="menu"
+              aria-haspopup="listbox"
               aria-label={`${definition.label} mode`}
               data-hawk-eye-control={`${definition.id}-mode`}
               data-hawk-eye-ui="size-input-menu-button"
               data-value={mode}
               onClick={() => toggleMenu('mode')}
+              onKeyDown={handleTriggerKeyDown}
               onPointerDown={preventSelection}
+              ref={triggerRef}
               type="button"
             >
               <ChevronIcon />
@@ -240,14 +358,17 @@ export function SizeInput({
           </>
         ) : (
           <button
+            aria-controls={listboxId}
             aria-expanded={openMenu === 'mode'}
-            aria-haspopup="menu"
+            aria-haspopup="listbox"
             aria-label={`${definition.label} mode`}
             data-hawk-eye-control={`${definition.id}-mode`}
             data-hawk-eye-ui="size-input-token-trigger"
             data-value={mode}
             onClick={() => toggleMenu('mode')}
+            onKeyDown={handleTriggerKeyDown}
             onPointerDown={preventSelection}
+            ref={triggerRef}
             type="button"
           >
             <span data-hawk-eye-ui="size-input-token">{SIZE_MODE_LABELS[mode]}</span>
@@ -260,19 +381,27 @@ export function SizeInput({
 
       {openMenu === 'mode' ? (
         <div
+          id={listboxId}
           data-hawk-eye-ui="size-input-menu"
           data-kind="mode"
-          role="menu"
+          role="listbox"
         >
-          {SIZE_MODE_OPTIONS.map((option) => (
+          {SIZE_MODE_OPTIONS.map((option, index) => (
             <button
+              aria-selected={option.value === mode}
               data-hawk-eye-control={`${definition.id}-mode-option-${option.value}`}
               data-hawk-eye-ui="size-input-menu-option"
               data-selected={option.value === mode ? 'true' : 'false'}
               key={option.value}
+              onFocus={() => setActiveOptionIndex(index)}
               onClick={() => handleModeSelect(option.value)}
+              onKeyDown={(event) => handleOptionKeyDown(event, index)}
               onPointerDown={preventSelection}
-              role="menuitem"
+              ref={(node) => {
+                optionRefs.current[index] = node;
+              }}
+              role="option"
+              tabIndex={index === activeOptionIndex ? 0 : -1}
               type="button"
             >
               {option.label}

@@ -1,6 +1,7 @@
 export { BoxShadowInput } from './BoxShadowInput';
 export { ColorInput } from './ColorInput';
 export { ColorPicker } from './ColorPicker';
+export { GridTrackEditor } from './GridTrackEditor';
 export { NumberInput } from './NumberInput';
 export { PerCornerControl } from './PerCornerControl';
 export { PerSideControl } from './PerSideControl';

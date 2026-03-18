@@ -72,6 +72,10 @@ function clampOpacity(rawValue: string) {
   return String(Math.min(1, Math.max(0, Math.round(nextValue * 100) / 100)));
 }
 
+function isTransformInputValue(value: string) {
+  return /^-?(?:\d+|\d*\.\d+)$/.test(value.trim());
+}
+
 function readSizeModeMetadataValue(element: HTMLElement, axis: SizeAxis) {
   return element.style.getPropertyValue(getSizeModeCssProperty(axis)).trim();
 }
@@ -366,10 +370,12 @@ export function applyDraftInputValue(
   let candidate = isOpacitySlider ? clampOpacity(rawValue.trim()) : rawValue.trim();
 
   // Handle CSS value transforms (e.g., numeric input → repeat(), or spans)
-  if (definition.cssTransform && candidate) {
+  // Only transform plain numerals; already-valid CSS like "auto" or
+  // "repeat(2, 1fr)" should pass through unchanged.
+  if (definition.cssTransform && candidate && isTransformInputValue(candidate)) {
     // Support templates like "span {value} / span {value}" or "repeat({value}, 1fr)"
-    candidate = definition.cssTransform.replace('{value}', candidate);
-  } else if ((propertyId === 'gridColumns' || propertyId === 'gridRows') && candidate) {
+    candidate = definition.cssTransform.split('{value}').join(candidate);
+  } else if (!definition.cssTransform && (propertyId === 'gridColumns' || propertyId === 'gridRows') && candidate) {
     // Legacy: grid columns/rows conversion (now should use cssTransform in definition)
     const num = parseInt(candidate, 10);
     if (!isNaN(num) && num > 0) {

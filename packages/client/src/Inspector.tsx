@@ -123,10 +123,6 @@ function getDraftLabel(draft: SelectionDraft) {
   return `${basename}:${draft.line}`;
 }
 
-function getSelectionSource(draft: SelectionDraft) {
-  return `${draft.file}:${draft.line}:${draft.column}`;
-}
-
 function canDetachDraft(draft: SelectionDraft | null) {
   if (!draft || draft.detached) {
     return false;
@@ -180,8 +176,6 @@ export function Inspector({
     0,
   );
   const showDetach = canDetachDraft(selectedDraft);
-  const selectedSource = selectedDraft ? getSelectionSource(selectedDraft) : null;
-
   useEffect(() => {
     if (pendingDrafts.length === 0) setView('properties');
   }, [pendingDrafts.length]);
@@ -245,6 +239,18 @@ export function Inspector({
   function resetDraft(draft: SelectionDraft) {
     const resetIds = new Set(getDirtyProperties(draft).map(({ resetId }) => resetId));
     resetIds.forEach((propertyId) => onResetProperty(draft.instanceKey, propertyId));
+  }
+
+  function handleResetAll() {
+    if (totalChanges === 0) {
+      return;
+    }
+
+    if (!window.confirm('Revert all unsaved changes?')) {
+      return;
+    }
+
+    onResetAll();
   }
 
   function renderTabIcon(tab: 'properties' | 'layers') {
@@ -389,22 +395,16 @@ export function Inspector({
               </div>
             )}
 
-            {selectedDraft && view !== 'changes' ? (
+            {selectedDraft && view !== 'changes' && showDetach ? (
               <div data-hawk-eye-ui="panel-meta">
-                <div data-hawk-eye-ui="panel-meta-copy">
-                  <span data-hawk-eye-ui="badge">{selectedDraft.styleMode}</span>
-                  <span data-hawk-eye-ui="panel-source">{selectedSource}</span>
-                </div>
-                {showDetach ? (
-                  <button
-                    data-hawk-eye-control="detach"
-                    data-hawk-eye-ui="panel-meta-btn"
-                    onClick={onDetach}
-                    type="button"
-                  >
-                    Detach
-                  </button>
-                ) : null}
+                <button
+                  data-hawk-eye-control="detach"
+                  data-hawk-eye-ui="panel-meta-btn"
+                  onClick={onDetach}
+                  type="button"
+                >
+                  Detach
+                </button>
               </div>
             ) : null}
 
@@ -540,7 +540,7 @@ export function Inspector({
                 <button
                   aria-label="Revert all changes"
                   data-hawk-eye-ui="footer-icon-btn"
-                  onClick={onResetAll}
+                  onClick={handleResetAll}
                   type="button"
                 >
                   <svg fill="none" height="16" viewBox="0 0 16 16" width="16" xmlns="http://www.w3.org/2000/svg">
@@ -568,7 +568,7 @@ export function Inspector({
                 <button
                   data-hawk-eye-ui="footer-revert-btn"
                   disabled={totalChanges === 0}
-                  onClick={onResetAll}
+                  onClick={handleResetAll}
                   type="button"
                 >
                   Revert
@@ -590,8 +590,10 @@ export function Inspector({
               <div data-hawk-eye-ui="panel-footer-status">
                 {saveStatusMessage ? (
                   <p
+                    aria-live="polite"
                     data-hawk-eye-ui="footer-status"
                     data-state={savePending ? 'pending' : saveResult?.success ? 'success' : 'error'}
+                    role="status"
                   >
                     {saveStatusMessage}
                   </p>

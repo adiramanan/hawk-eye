@@ -1,6 +1,7 @@
 import { type JSX, type ReactNode } from 'react';
 import {
   ColorInput,
+  GridTrackEditor,
   NumberInput,
   PerSideControl,
   SegmentedControl,
@@ -15,7 +16,6 @@ import {
 } from './editable-properties';
 import { getNextGroupIndex, isGroupNavigationKey } from './utils/keyboard-navigation';
 import type {
-  EditablePropertyDefinition,
   EditablePropertyId,
   ElementContext,
   PropertySnapshot,
@@ -131,6 +131,7 @@ function CompactCard({
       {control}
       {dirty && (
         <button
+          aria-label={`Reset ${definition.label}`}
           data-hawk-eye-ui="control-reset-mini"
           onClick={() => onResetProperty(selectedDraft.instanceKey, propertyId)}
           type="button"
@@ -350,10 +351,7 @@ function LayoutSection(props: SectionProps) {
   const isNone = displayValue === 'none';
   const isRow = isFlex && flexDirection !== 'column';
   const isColumn = isFlex && flexDirection === 'column';
-
-  // Parent context — determines whether to show flex/grid child properties
   const parentDisplay = props.selectedDraft.context.parentDisplay;
-  const parentIsFlex = parentDisplay === 'flex' || parentDisplay === 'inline-flex';
   const parentIsGrid = parentDisplay === 'grid' || parentDisplay === 'inline-grid';
 
   // Determine layout mode from display + flex-direction
@@ -571,17 +569,22 @@ function LayoutSection(props: SectionProps) {
 
         {/* Grid Layout Properties */}
         {isGrid && (
-          <>
-            <div data-hawk-eye-ui="labelled-row">
-              <div data-hawk-eye-ui="labelled-col">
-                <span data-hawk-eye-ui="input-label">Rows</span>
-                {card('gridRows', props)}
-              </div>
-              <div data-hawk-eye-ui="labelled-col">
-                <span data-hawk-eye-ui="input-label">Columns</span>
-                {card('gridColumns', props)}
-              </div>
-            </div>
+          <div data-hawk-eye-ui="labelled-single">
+            <span data-hawk-eye-ui="input-label">This Grid</span>
+            <GridTrackEditor
+              axis="columns"
+              label="Columns"
+              onChange={(value) => props.onChange('gridColumns', value)}
+              propertyId="gridColumns"
+              snapshot={props.selectedDraft.properties.gridColumns}
+            />
+            <GridTrackEditor
+              axis="rows"
+              label="Rows"
+              onChange={(value) => props.onChange('gridRows', value)}
+              propertyId="gridRows"
+              snapshot={props.selectedDraft.properties.gridRows}
+            />
             <div data-hawk-eye-ui="labelled-row">
               <div data-hawk-eye-ui="labelled-col">
                 <span data-hawk-eye-ui="input-label">Row Gap</span>
@@ -592,35 +595,26 @@ function LayoutSection(props: SectionProps) {
                 {card('columnGap', props)}
               </div>
             </div>
-          </>
-        )}
-
-        {/* Flex Child Properties — only when parent is flex */}
-        {parentIsFlex && (
-          <>
-            <div data-hawk-eye-ui="compact-row">
-              {card('flexGrow', props)}
-              {card('flexShrink', props)}
-              {card('flexBasis', props, 'Basis')}
-            </div>
-            <div data-hawk-eye-ui="compact-row-full">
-              {card('alignSelf', props)}
-            </div>
-          </>
+          </div>
         )}
 
         {/* Grid Child Properties — only when parent is grid */}
         {parentIsGrid && (
-          <>
-            <div data-hawk-eye-ui="compact-row">
-              {card('columnSpan', props)}
-              {card('rowSpan', props)}
+          <div data-hawk-eye-ui="labelled-single">
+            <span data-hawk-eye-ui="input-label">In Parent Grid</span>
+            <div data-hawk-eye-ui="labelled-row">
+              <div data-hawk-eye-ui="labelled-col">
+                <span data-hawk-eye-ui="input-label">Column Span</span>
+                {card('columnSpan', props)}
+              </div>
+              <div data-hawk-eye-ui="labelled-col">
+                <span data-hawk-eye-ui="input-label">Row Span</span>
+                {card('rowSpan', props)}
+              </div>
             </div>
-            <div data-hawk-eye-ui="compact-row-full">
-              {card('alignSelf', props)}
-            </div>
-          </>
+          </div>
         )}
+
       </div>
     </CollapsibleSection>
   );
@@ -629,6 +623,9 @@ function LayoutSection(props: SectionProps) {
 // ── Size & Spacing Section ───────────────────────────────────────────────
 
 function SizeSpacingSection(props: SectionProps) {
+  const parentDisplay = props.selectedDraft.context.parentDisplay;
+  const parentIsGrid = parentDisplay === 'grid' || parentDisplay === 'inline-grid';
+
   return (
     <CollapsibleSection
       defaultExpanded
@@ -637,40 +634,47 @@ function SizeSpacingSection(props: SectionProps) {
       title="Size & Spacing"
     >
       <div data-hawk-eye-ui="section-stack">
-        {/* Size row: W and H side by side with aspect ratio lock button */}
-        <div data-hawk-eye-ui="size-row-with-lock">
-          <div data-hawk-eye-ui="size-input-flex">
-            <SizeInput
-              definition={editablePropertyDefinitionMap.width}
-              label="W"
-              mode={props.selectedDraft.sizeControl.widthMode.value}
-              onChange={(value) => props.onChangeSizeValue('width', value)}
-              onModeChange={(mode) => props.onChangeSizeMode('width', mode)}
-              snapshot={props.selectedDraft.properties.width}
-            />
+        {!parentIsGrid && (
+          <div data-hawk-eye-ui="size-row-with-lock">
+            <div data-hawk-eye-ui="size-input-flex">
+              <SizeInput
+                definition={editablePropertyDefinitionMap.width}
+                label="W"
+                mode={props.selectedDraft.sizeControl.widthMode.value}
+                onChange={(value) => props.onChangeSizeValue('width', value)}
+                onModeChange={(mode) => props.onChangeSizeMode('width', mode)}
+                snapshot={props.selectedDraft.properties.width}
+              />
+            </div>
+            <div data-hawk-eye-ui="size-input-flex">
+              <SizeInput
+                definition={editablePropertyDefinitionMap.height}
+                label="H"
+                mode={props.selectedDraft.sizeControl.heightMode.value}
+                onChange={(value) => props.onChangeSizeValue('height', value)}
+                onModeChange={(mode) => props.onChangeSizeMode('height', mode)}
+                snapshot={props.selectedDraft.properties.height}
+              />
+            </div>
+            <button
+              aria-label={
+                props.selectedDraft.sizeControl.aspectRatioLocked
+                  ? 'Unlock aspect ratio'
+                  : 'Lock aspect ratio'
+              }
+              aria-pressed={props.selectedDraft.sizeControl.aspectRatioLocked}
+              data-hawk-eye-ui="aspect-ratio-lock-button"
+              data-locked={props.selectedDraft.sizeControl.aspectRatioLocked ? 'true' : 'false'}
+              onClick={props.onToggleAspectRatioLock}
+              type="button"
+              title="Toggle aspect ratio lock"
+            >
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg">
+                <path d="M8.5 6.5L6 4m0 0L3.5 6.5M6 4v5a3 3 0 003 3h2m0 0l2.5-2.5M14 14l2.5-2.5M14 14v-5a3 3 0 00-3-3H9" />
+              </svg>
+            </button>
           </div>
-          <div data-hawk-eye-ui="size-input-flex">
-            <SizeInput
-              definition={editablePropertyDefinitionMap.height}
-              label="H"
-              mode={props.selectedDraft.sizeControl.heightMode.value}
-              onChange={(value) => props.onChangeSizeValue('height', value)}
-              onModeChange={(mode) => props.onChangeSizeMode('height', mode)}
-              snapshot={props.selectedDraft.properties.height}
-            />
-          </div>
-          <button
-            data-hawk-eye-ui="aspect-ratio-lock-button"
-            data-locked={props.selectedDraft.sizeControl.aspectRatioLocked ? 'true' : 'false'}
-            onClick={props.onToggleAspectRatioLock}
-            type="button"
-            title="Toggle aspect ratio lock"
-          >
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg">
-              <path d="M8.5 6.5L6 4m0 0L3.5 6.5M6 4v5a3 3 0 003 3h2m0 0l2.5-2.5M14 14l2.5-2.5M14 14v-5a3 3 0 00-3-3H9" />
-            </svg>
-          </button>
-        </div>
+        )}
 
         {/* Padding PerSideCard */}
         <PerSideCard
@@ -726,7 +730,7 @@ function AppearanceSection(props: SectionProps) {
         />
 
         {/* Opacity + Blending Mode row */}
-        <div data-hawk-eye-ui="labelled-row">
+        <div data-appearance-row="true" data-hawk-eye-ui="labelled-row">
           <div data-hawk-eye-ui="labelled-col">
             <span data-hawk-eye-ui="input-label">Opacity</span>
             {card('opacity', props)}

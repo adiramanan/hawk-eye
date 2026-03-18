@@ -11,6 +11,45 @@ interface NumberInputProps {
   scrubLabel?: string;
 }
 
+function getTransformDisplayValue(definition: EditablePropertyDefinition, value: string) {
+  const trimmed = value.trim();
+
+  if ((definition.id === 'columnSpan' || definition.id === 'rowSpan') && !trimmed) {
+    return '1';
+  }
+
+  if (!trimmed || !definition.cssTransform) {
+    return value;
+  }
+
+  if (definition.id === 'columnSpan' || definition.id === 'rowSpan') {
+    if (/^-?(?:\d+|\d*\.\d+)$/.test(trimmed)) {
+      return trimmed;
+    }
+
+    if (trimmed === 'auto') {
+      return '1';
+    }
+
+    const match = trimmed.match(/^span\s+(-?\d+)\s*\/\s*span\s+(-?\d+)\s*$/);
+    if (match?.[1] && match[1] === match[2]) {
+      return match[1];
+    }
+  }
+
+  return value;
+}
+
+function getNumericDisplayValue(definition: EditablePropertyDefinition, value: string) {
+  const transformed = getTransformDisplayValue(definition, value).trim();
+
+  if (/^-?(?:\d+|\d*\.\d+)$/.test(transformed)) {
+    return Number(transformed);
+  }
+
+  return null;
+}
+
 function isKeywordUnit(unit: string) {
   return parseCssValue(`1${unit}`) === null;
 }
@@ -219,6 +258,8 @@ export function NumberInput({ definition, snapshot, onChange, scrubLabel }: Numb
   const hasSingleUnit = units.length === 1;
 
   if (units.length === 0 && !scrubLabel) {
+    const displayedValue = getTransformDisplayValue(definition, snapshot.inputValue);
+
     return (
       <input
         aria-label={definition.label}
@@ -236,7 +277,10 @@ export function NumberInput({ definition, snapshot, onChange, scrubLabel }: Numb
           if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
             e.preventDefault();
             const step = e.shiftKey ? (definition.step ?? 1) * 10 : (definition.step ?? 1);
-            const base = parseCssValue(snapshot.inputValue.trim())?.number ?? 0;
+            const base =
+              getNumericDisplayValue(definition, snapshot.inputValue) ??
+              getNumericDisplayValue(definition, snapshot.value) ??
+              0;
             let next = e.key === 'ArrowUp' ? base + step : base - step;
             if (definition.min !== undefined) next = Math.max(definition.min, next);
             if (definition.max !== undefined) next = Math.min(definition.max, next);
@@ -259,7 +303,7 @@ export function NumberInput({ definition, snapshot, onChange, scrubLabel }: Numb
         }}
         placeholder={definition.placeholder}
         type="text"
-        value={snapshot.inputValue}
+        value={displayedValue}
       />
     );
   }

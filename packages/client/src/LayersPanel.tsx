@@ -118,17 +118,17 @@ function LayerNodeComponent({
   node,
   selectedInstanceKey,
   onSelectByKey,
-  expandedKeys,
+  collapsedKeys,
   onToggle,
 }: {
   node: LayerNode;
   selectedInstanceKey: string | null;
   onSelectByKey(instanceKey: string): void;
-  expandedKeys: Set<string>;
+  collapsedKeys: Set<string>;
   onToggle(key: string): void;
 }) {
-  const isExpanded = expandedKeys.has(node.instanceKey);
   const hasChildren = node.children.length > 0;
+  const isExpanded = hasChildren ? !collapsedKeys.has(node.instanceKey) : false;
   const isSelected = node.instanceKey === selectedInstanceKey;
 
   return (
@@ -137,21 +137,30 @@ function LayerNodeComponent({
         data-depth={node.depth}
         data-hawk-eye-ui="layer-row"
         data-selected={isSelected ? 'true' : 'false'}
-        onClick={() => onSelectByKey(node.instanceKey)}
         style={{ paddingLeft: `${node.depth * 12}px` }}
       >
         <button
-          aria-label={hasChildren ? (isExpanded ? 'Collapse layer' : 'Expand layer') : 'Layer'}
+          aria-expanded={hasChildren ? isExpanded : undefined}
+          aria-label={hasChildren ? (isExpanded ? 'Collapse layer' : 'Expand layer') : undefined}
           data-hawk-eye-ui="layer-expand-btn"
-          onClick={(e) => {
-            e.stopPropagation();
+          disabled={!hasChildren}
+          onClick={() => {
             if (hasChildren) onToggle(node.instanceKey);
           }}
           type="button"
         >
           {hasChildren ? (isExpanded ? '▾' : '▸') : ' '}
         </button>
-        <span data-hawk-eye-ui="layer-label">{node.label}</span>
+        <button
+          aria-label={`Select layer ${node.label}`}
+          aria-pressed={isSelected}
+          data-hawk-eye-ui="layer-select-btn"
+          data-selected={isSelected ? 'true' : 'false'}
+          onClick={() => onSelectByKey(node.instanceKey)}
+          type="button"
+        >
+          <span data-hawk-eye-ui="layer-label">{node.label}</span>
+        </button>
       </div>
       {isExpanded &&
         node.children.map((child) => (
@@ -160,7 +169,7 @@ function LayerNodeComponent({
             node={child}
             selectedInstanceKey={selectedInstanceKey}
             onSelectByKey={onSelectByKey}
-            expandedKeys={expandedKeys}
+            collapsedKeys={collapsedKeys}
             onToggle={onToggle}
           />
         ))}
@@ -170,13 +179,16 @@ function LayerNodeComponent({
 
 export function LayersPanel({ selectedInstanceKey, onSelectByKey }: LayersPanelProps) {
   const rootNodes = buildLayerTree();
-  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
+  const [collapsedKeys, setCollapsedKeys] = useState<Set<string>>(new Set());
   const totalLayers = countNodes(rootNodes);
-  const effectiveExpandedKeys =
-    expandedKeys.size > 0 ? expandedKeys : collectExpandableKeys(rootNodes);
+  const expandableKeys = collectExpandableKeys(rootNodes);
 
   function handleToggle(key: string) {
-    setExpandedKeys((current) => {
+    if (!expandableKeys.has(key)) {
+      return;
+    }
+
+    setCollapsedKeys((current) => {
       const next = new Set(current);
       if (next.has(key)) {
         next.delete(key);
@@ -205,7 +217,7 @@ export function LayersPanel({ selectedInstanceKey, onSelectByKey }: LayersPanelP
             node={node}
             selectedInstanceKey={selectedInstanceKey}
             onSelectByKey={onSelectByKey}
-            expandedKeys={effectiveExpandedKeys}
+            collapsedKeys={collapsedKeys}
             onToggle={handleToggle}
           />
         ))}

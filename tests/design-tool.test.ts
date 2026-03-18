@@ -210,6 +210,27 @@ function keyDown(node: Element | Window | Document, key: string) {
   });
 }
 
+function dispatchBeforeUnload() {
+  const event = new window.Event('beforeunload', {
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+  }) as InstanceType<typeof window.Event> & { returnValue: string | undefined };
+
+  Object.defineProperty(event, 'returnValue', {
+    configurable: true,
+    enumerable: true,
+    value: undefined,
+    writable: true,
+  });
+
+  act(() => {
+    window.dispatchEvent(event);
+  });
+
+  return event;
+}
+
 function updateInput(input: InstanceType<typeof window.HTMLInputElement>, value: string) {
   const prototype = Object.getPrototypeOf(input);
   const setValue =
@@ -375,21 +396,20 @@ describe('DesignTool', () => {
       source: 'demo/src/App.tsx:21:13',
     });
     expect(shadowRoot.textContent).toContain('CraftKit');
-    expect(shadowRoot.textContent).toContain('demo/src/App.tsx:21:13');
+    expect(shadowRoot.querySelector('[data-hawk-eye-ui="panel-source"]')).toBeNull();
     expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="positionSize"]')).toHaveLength(1);
     expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="autoLayout"]')).toHaveLength(1);
     expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="fillOpacity"]')).toHaveLength(1);
     expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="border"]')).toHaveLength(1);
     expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="typography"]')).toHaveLength(1);
-    expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="effects"]')).toHaveLength(1);
     expect(getControl(shadowRoot, 'paddingTop').value).toBe('16');
-    expect(getControl(shadowRoot, 'borderRadius').value).toBe('14');
+    expect(getInputByLabel(shadowRoot, 'Corner Radius all sides').value).toBe('14');
     expect(getControl(shadowRoot, 'fontWeight').value).toBe('600');
     expect(shadowRoot.querySelector('[data-hawk-eye-control="backgroundColor"]')).not.toBeNull();
     expect(shadowRoot.querySelector('[data-hawk-eye-control="opacity"]')).not.toBeNull();
-    // width, positionType, fontFamily are now in the focused panel
+    // width, layout mode, and font family are now in the focused panel
     expect(shadowRoot.querySelector('[data-hawk-eye-control="width"]')).not.toBeNull();
-    expect(shadowRoot.querySelector('[data-hawk-eye-control="positionType"]')).not.toBeNull();
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="layout-none"]')).not.toBeNull();
     expect(shadowRoot.querySelector('[data-hawk-eye-control="fontFamily"]')).not.toBeNull();
 
     act(() => {
@@ -401,7 +421,7 @@ describe('DesignTool', () => {
       });
     });
 
-    expect(shadowRoot.querySelector('[data-hawk-eye-ui="badge"]')?.textContent).toBe('tailwind');
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="detach"]')).not.toBeNull();
     cleanup();
   });
 
@@ -439,7 +459,6 @@ describe('DesignTool', () => {
     setElementFromPoint(host);
     click(getButtonControl(shadowRoot, 'detach'));
 
-    expect(shadowRoot.querySelector('[data-hawk-eye-ui="badge"]')?.textContent).toBe('detached');
     expect(shadowRoot.querySelector('[data-hawk-eye-control="detach"]')).toBeNull();
     expect(target.style.paddingTop).toBe('16px');
 
@@ -452,7 +471,7 @@ describe('DesignTool', () => {
       });
     });
 
-    expect(shadowRoot.querySelector('[data-hawk-eye-ui="badge"]')?.textContent).toBe('detached');
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="detach"]')).toBeNull();
     cleanup();
   });
 
@@ -510,7 +529,15 @@ describe('DesignTool', () => {
     });
 
     expect(target.style.paddingTop).toBe('16px');
-    expect(shadowRoot.textContent).toContain('Saved to hawk-eye/design-tweaks-20260312-230000');
+    const status = shadowRoot.querySelector('[data-hawk-eye-ui="footer-status"]');
+
+    if (!(status instanceof window.HTMLParagraphElement)) {
+      throw new Error('Missing footer status');
+    }
+
+    expect(status.getAttribute('role')).toBe('status');
+    expect(status.getAttribute('aria-live')).toBe('polite');
+    expect(status.textContent).toContain('Saved to hawk-eye/design-tweaks-20260312-230000');
     expect(shadowRoot.textContent).toContain('No element selected');
     cleanup();
   });
@@ -558,8 +585,10 @@ describe('DesignTool', () => {
 
     const { cleanup, shadowRoot } = renderDesignTool();
     const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
-    const perSideModeSelects = () =>
-      shadowRoot.querySelectorAll<HTMLSelectElement>('[aria-label="All sides or each side"]');
+    const paddingToggle = () =>
+      shadowRoot.querySelector<HTMLButtonElement>(
+        '[data-property-id="padding"] [data-hawk-eye-ui="link-toggle-btn"]'
+      );
 
     click(trigger);
     click(document);
@@ -573,7 +602,6 @@ describe('DesignTool', () => {
     expect(target.style.paddingBottom).toBe('20px');
     expect(target.style.paddingLeft).toBe('20px');
 
-    updateSelect(perSideModeSelects()[1] as InstanceType<typeof window.HTMLSelectElement>, 'each');
     updateInput(
       getControl(shadowRoot, 'marginTop') as InstanceType<typeof window.HTMLInputElement>,
       '24px'
@@ -581,9 +609,9 @@ describe('DesignTool', () => {
     expect(target.style.marginTop).toBe('24px');
     expect(target.style.marginRight).toBe('4px');
 
-    updateSelect(perSideModeSelects()[0] as InstanceType<typeof window.HTMLSelectElement>, 'each');
+    click(paddingToggle() as InstanceType<typeof window.HTMLButtonElement>);
     updateInput(
-      getControl(shadowRoot, 'paddingTop') as InstanceType<typeof window.HTMLInputElement>,
+      getInputByLabel(shadowRoot, 'Padding top') as InstanceType<typeof window.HTMLInputElement>,
       '20px'
     );
     expect(target.style.paddingTop).toBe('20px');
@@ -602,6 +630,7 @@ describe('DesignTool', () => {
   });
 
   it('supports per-field reset and resetting all preview changes', () => {
+    const confirm = vi.spyOn(window, 'confirm');
     const target = document.createElement('div');
     applyBaselineStyles(target, 'demo/src/App.tsx:11:5');
     mockRect(target, { height: 56, left: 24, top: 40, width: 140 });
@@ -610,13 +639,10 @@ describe('DesignTool', () => {
 
     const { cleanup, host, shadowRoot } = renderDesignTool();
     const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
-    const paddingModeSelect = () =>
-      shadowRoot.querySelectorAll<HTMLSelectElement>('[aria-label="All sides or each side"]')[0];
 
     click(trigger);
     click(document);
 
-    updateSelect(paddingModeSelect() as InstanceType<typeof window.HTMLSelectElement>, 'each');
     updateInput(
       getControl(shadowRoot, 'paddingTop') as InstanceType<typeof window.HTMLInputElement>,
       '24px'
@@ -660,12 +686,65 @@ describe('DesignTool', () => {
       throw new Error('Missing reset all button');
     }
 
+    confirm.mockReturnValueOnce(false).mockReturnValueOnce(true);
+
+    setElementFromPoint(host);
+    click(resetAll);
+
+    expect(confirm).toHaveBeenCalledWith('Revert all unsaved changes?');
+    expect(target.style.paddingTop).toBe('24px');
+    expect(target.style.fontSize).toBe('18px');
+    expect(resetAll.disabled).toBe(false);
+
     setElementFromPoint(host);
     click(resetAll);
 
     expect(target.style.paddingTop).toBe('16px');
     expect(target.style.fontSize).toBe('18px');
     expect(resetAll.disabled).toBe(true);
+    cleanup();
+  });
+
+  it('registers a beforeunload guard only while preview changes are pending', () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const target = document.createElement('div');
+    applyBaselineStyles(target, 'demo/src/App.tsx:18:9');
+    mockRect(target, { height: 48, left: 24, top: 40, width: 120 });
+    document.body.append(target);
+    setElementFromPoint(target);
+
+    const { cleanup, host, shadowRoot } = renderDesignTool();
+    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+
+    click(trigger);
+    click(document);
+
+    const cleanEvent = dispatchBeforeUnload();
+    expect(cleanEvent.defaultPrevented).toBe(false);
+    expect(cleanEvent.returnValue).toBeUndefined();
+
+    updateInput(
+      getControl(shadowRoot, 'paddingTop') as InstanceType<typeof window.HTMLInputElement>,
+      '24px'
+    );
+
+    const dirtyEvent = dispatchBeforeUnload();
+    expect(dirtyEvent.defaultPrevented).toBe(true);
+    expect(dirtyEvent.returnValue).toBe('');
+
+    const resetAll = shadowRoot.querySelector('[data-hawk-eye-ui="footer-revert-btn"]');
+
+    if (!(resetAll instanceof window.HTMLButtonElement)) {
+      throw new Error('Missing reset all button');
+    }
+
+    setElementFromPoint(host);
+    click(resetAll);
+    expect(confirm).toHaveBeenCalledWith('Revert all unsaved changes?');
+
+    const revertedEvent = dispatchBeforeUnload();
+    expect(revertedEvent.defaultPrevented).toBe(false);
+    expect(revertedEvent.returnValue).toBeUndefined();
     cleanup();
   });
 
@@ -687,7 +766,7 @@ describe('DesignTool', () => {
     expect(target.style.width).toBe('100%');
 
     const tabs = shadowRoot.querySelectorAll('[data-hawk-eye-ui="panel-tab"]');
-    click(tabs[1] as Element);
+    click(tabs[0] as Element);
 
     const changesButton = shadowRoot.querySelector('[data-hawk-eye-ui="footer-changes-btn"]');
 
@@ -698,6 +777,96 @@ describe('DesignTool', () => {
     expect(changesButton.textContent).toContain('1 Change');
     click(changesButton);
     expect(shadowRoot.textContent).toContain('width mode');
+    cleanup();
+  });
+
+  it('keeps flex sizing behind width and height modes while grid children use spans', () => {
+    const flexParent = document.createElement('div');
+    flexParent.style.display = 'flex';
+    flexParent.style.flexDirection = 'row';
+    document.body.append(flexParent);
+
+    const flexChild = document.createElement('div');
+    applyBaselineStyles(flexChild, 'demo/src/App.tsx:16:5');
+    mockRect(flexChild, { height: 48, left: 24, top: 40, width: 120 });
+    flexParent.append(flexChild);
+
+    const gridParent = document.createElement('div');
+    gridParent.style.display = 'grid';
+    gridParent.style.gridTemplateColumns = 'repeat(2, 1fr)';
+    document.body.append(gridParent);
+
+    const gridChild = document.createElement('div');
+    applyBaselineStyles(gridChild, 'demo/src/App.tsx:18:5');
+    gridChild.style.display = 'grid';
+    gridChild.style.gridTemplateColumns = 'repeat(2, 1fr)';
+    gridChild.style.gridTemplateRows = 'fit-content(72px) fit-content(72px)';
+    mockRect(gridChild, { height: 48, left: 200, top: 40, width: 120 });
+    gridParent.append(gridChild);
+
+    const { cleanup, shadowRoot } = renderDesignTool();
+    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+
+    click(trigger);
+
+    setElementFromPoint(flexChild);
+    click(document);
+
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="flexGrow"]')).toBeNull();
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="flexShrink"]')).toBeNull();
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="flexBasis"]')).toBeNull();
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="alignSelf"]')).toBeNull();
+
+    chooseSizeMenuOption(shadowRoot, 'width-mode', 'fill');
+
+    expect(flexChild.style.width).toBe('auto');
+    expect(flexChild.style.flexGrow).toBe('1');
+    expect(flexChild.style.flexBasis).toBe('0px');
+
+    setElementFromPoint(gridChild);
+    click(document);
+
+    expect(shadowRoot.textContent).toContain('This Grid');
+    expect(shadowRoot.textContent).toContain('In Parent Grid');
+    expect(getControl(shadowRoot, 'gridColumns-mode-0').value).toBe('fill');
+    expect(getControl(shadowRoot, 'gridColumns-value-0').value).toBe('1');
+    expect(getControl(shadowRoot, 'gridRows-mode-0').value).toBe('hug');
+    expect(getControl(shadowRoot, 'gridRows-value-0').value).toBe('72');
+    expect(getControl(shadowRoot, 'columnSpan').value).toBe('1');
+    expect(getControl(shadowRoot, 'rowSpan').value).toBe('1');
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="alignSelf"]')).toBeNull();
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="width-mode"]')).toBeNull();
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="height-mode"]')).toBeNull();
+
+    updateInput(
+      getControl(shadowRoot, 'gridColumns-value-0') as InstanceType<typeof window.HTMLInputElement>,
+      '0.75'
+    );
+    click(getButtonControl(shadowRoot, 'gridColumns-add'));
+    updateSelect(
+      getControl(shadowRoot, 'gridRows-mode-1') as InstanceType<typeof window.HTMLSelectElement>,
+      'fixed'
+    );
+    updateInput(
+      getControl(shadowRoot, 'gridRows-value-1') as InstanceType<typeof window.HTMLInputElement>,
+      '96'
+    );
+    click(getButtonControl(shadowRoot, 'gridRows-add'));
+    click(getButtonControl(shadowRoot, 'gridRows-remove-0'));
+
+    updateInput(
+      getControl(shadowRoot, 'columnSpan') as InstanceType<typeof window.HTMLInputElement>,
+      '2'
+    );
+    updateInput(
+      getControl(shadowRoot, 'rowSpan') as InstanceType<typeof window.HTMLInputElement>,
+      '3'
+    );
+
+    expect(gridChild.style.gridTemplateColumns).toBe('0.75fr 1fr 1fr');
+    expect(gridChild.style.gridTemplateRows).toBe('96px 96px');
+    expect(gridChild.style.gridColumn).toBe('span 2 / span 2');
+    expect(gridChild.style.gridRow).toBe('span 3 / span 3');
     cleanup();
   });
 
@@ -860,8 +1029,8 @@ describe('DesignTool', () => {
 
     expect(first.style.paddingTop).toBe('24px');
     expect(second.style.marginTop).toBe('12px');
-    expect(shadowRoot.textContent).toContain('unknown');
-    expect(shadowRoot.textContent).toContain('demo/src/App.tsx:38:9');
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="detach"]')).toBeNull();
+    expect(shadowRoot.querySelector('[data-hawk-eye-ui="panel-source"]')).toBeNull();
 
     setElementFromPoint(first);
     click(document);
@@ -944,7 +1113,7 @@ describe('DesignTool', () => {
     cleanup();
   });
 
-  it('supports focused fill, typography, design, and effects controls', () => {
+  it('supports focused fill, typography, appearance, and border controls', () => {
     const target = document.createElement('div');
     applyBaselineStyles(target, 'demo/src/App.tsx:44:11');
     mockRect(target, { height: 44, left: 24, top: 40, width: 132 });
@@ -972,22 +1141,25 @@ describe('DesignTool', () => {
     setElementFromPoint(host);
     click(getButtonControl(shadowRoot, 'textAlign-center'));
     updateInput(
-      getControl(shadowRoot, 'borderRadius') as InstanceType<typeof window.HTMLInputElement>,
+      getInputByLabel(shadowRoot, 'Corner Radius all sides') as InstanceType<typeof window.HTMLInputElement>,
       '22'
     );
     updateInput(
-      getControl(shadowRoot, 'boxShadow-blur') as InstanceType<typeof window.HTMLInputElement>,
-      '20px'
+      getControl(shadowRoot, 'borderColor') as InstanceType<typeof window.HTMLInputElement>,
+      '#445566'
     );
-    click(getButtonControl(shadowRoot, 'boxShadow-inset'));
+    updateInput(
+      getInputByLabel(shadowRoot, 'Stroke Weight all sides') as InstanceType<typeof window.HTMLInputElement>,
+      '2'
+    );
 
     expect(target.style.backgroundColor).toBe('rgb(17, 34, 51)');
     expect(target.style.fontWeight).toBe('700');
     expect(target.style.fontSize).toBe('24px');
     expect(target.style.textAlign).toBe('center');
-    expect(target.style.borderRadius).toBe('22px');
-    expect(target.style.boxShadow).toContain('20px');
-    expect(target.style.boxShadow).toContain('inset');
+    expect(target.style.borderTopLeftRadius).toBe('22px');
+    expect(target.style.borderColor).toBe('rgb(68, 85, 102)');
+    expect(target.style.borderTopWidth).toBe('2px');
     cleanup();
   });
 
@@ -1011,10 +1183,9 @@ describe('DesignTool', () => {
     expect(shadowRoot.querySelector('[data-hawk-eye-control="userSelect"]')).toBeNull();
     expect(shadowRoot.querySelector('[data-hawk-eye-control="overflow"]')).toBeNull();
     // segmented and select controls are present via their concrete control ids
-    expect(shadowRoot.querySelector('[data-hawk-eye-control="display-none"]')).not.toBeNull();
-    expect(shadowRoot.querySelector('[data-hawk-eye-control="positionType"]')).not.toBeNull();
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="layout-none"]')).not.toBeNull();
     expect(shadowRoot.querySelector('[data-hawk-eye-control="fontFamily"]')).not.toBeNull();
-    expect(shadowRoot.querySelector('[data-hawk-eye-control="filter"]')).not.toBeNull();
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="mixBlendMode"]')).not.toBeNull();
     expect(shadowRoot.querySelector('[data-hawk-eye-control="borderTopWidth"]')).toBeNull();
     cleanup();
   });
@@ -1044,14 +1215,18 @@ describe('DesignTool', () => {
 
     expect(target.style.textAlign).toBe('center');
 
+    const initialPanelHeight = `${window.innerHeight - 64}px`;
+
     expect(panel.style.getPropertyValue('--hawk-eye-panel-width')).toBe('320px');
-    expect(panel.style.getPropertyValue('--hawk-eye-panel-height')).toBe('792px');
+    expect(panel.style.getPropertyValue('--hawk-eye-panel-height')).toBe(initialPanelHeight);
 
     keyDown(resizeHandle, 'ArrowLeft');
     keyDown(resizeHandle, 'ArrowUp');
 
     expect(panel.style.getPropertyValue('--hawk-eye-panel-width')).toBe('320px');
-    expect(panel.style.getPropertyValue('--hawk-eye-panel-height')).toBe('720px');
+    expect(panel.style.getPropertyValue('--hawk-eye-panel-height')).toBe(
+      `${window.innerHeight - 88}px`
+    );
     cleanup();
   });
 });

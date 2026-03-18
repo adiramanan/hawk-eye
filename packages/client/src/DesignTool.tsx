@@ -487,6 +487,11 @@ function DesignToolRuntime() {
         return current;
       }
 
+      const parentDisplay = currentDraft.context.parentDisplay;
+      if (parentDisplay === 'grid' || parentDisplay === 'inline-grid') {
+        return current;
+      }
+
       const propertyId = getAxisPropertyId(axis);
       const axisMode = getSizeModeSnapshot(currentDraft.sizeControl, axis).value;
 
@@ -616,6 +621,11 @@ function DesignToolRuntime() {
       const currentDraft = current[instanceKey];
 
       if (!currentDraft) {
+        return current;
+      }
+
+      const parentDisplayFromDraft = currentDraft.context.parentDisplay;
+      if (parentDisplayFromDraft === 'grid' || parentDisplayFromDraft === 'inline-grid') {
         return current;
       }
 
@@ -1123,6 +1133,25 @@ function DesignToolRuntime() {
 
     return left.source.localeCompare(right.source) || left.instanceKey.localeCompare(right.instanceKey);
   });
+  const hasPendingDrafts = pendingDrafts.length > 0;
+
+  useEffect(() => {
+    if (!hasPendingDrafts) {
+      return;
+    }
+
+    function handleBeforeUnload(event: { preventDefault(): void; returnValue: string }) {
+      event.preventDefault();
+      event.returnValue = '';
+      return '';
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [hasPendingDrafts]);
 
   function savePendingDrafts() {
     if (savePending) {
