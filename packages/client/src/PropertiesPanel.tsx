@@ -201,6 +201,36 @@ interface SectionProps {
   onToggleAspectRatioLock(): void;
 }
 
+const TEXT_ONLY_APPEARANCE_TAGS = new Set([
+  'p',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'span',
+  'a',
+  'label',
+  'caption',
+  'blockquote',
+  'cite',
+  'code',
+  'pre',
+  'em',
+  'strong',
+  'small',
+  'sub',
+  'sup',
+  'dt',
+  'dd',
+  'figcaption',
+]);
+
+function shouldShowAppearanceFill(context: ElementContext) {
+  return !TEXT_ONLY_APPEARANCE_TAGS.has(context.tagName);
+}
+
 function card(
   propertyId: EditablePropertyId,
   props: SectionProps,
@@ -703,6 +733,8 @@ function SizeSpacingSection(props: SectionProps) {
 // ── Appearance Section ───────────────────────────────────────────────────
 
 function AppearanceSection(props: SectionProps) {
+  const showBackgroundFill = shouldShowAppearanceFill(props.selectedDraft.context);
+
   return (
     <CollapsibleSection
       defaultExpanded
@@ -712,7 +744,7 @@ function AppearanceSection(props: SectionProps) {
     >
       <div data-hawk-eye-ui="section-stack">
         {/* Fill colour — full width */}
-        {card('backgroundColor', props)}
+        {showBackgroundFill ? card('backgroundColor', props) : null}
 
         {/* Corner Radius — PerSideCard */}
         <PerSideCard
@@ -801,6 +833,11 @@ function TypographySection(props: SectionProps) {
         {/* Font family — full width */}
         <div data-hawk-eye-ui="compact-row-full">
           {card('fontFamily', props)}
+        </div>
+
+        {/* Text fill — full width */}
+        <div data-hawk-eye-ui="compact-row-full">
+          {card('color', props)}
         </div>
 
         {/* Weight | Size — equal columns */}

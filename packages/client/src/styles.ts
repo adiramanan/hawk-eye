@@ -148,8 +148,19 @@ export const hawkEyeStyles = `
   [data-hawk-eye-ui="panel-brand-mark"] {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
     color: var(--he-fg);
     opacity: 0.88;
+  }
+
+  [data-hawk-eye-ui="panel-brand-image"] {
+    display: block;
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
   }
 
   [data-hawk-eye-ui="panel-brand-copy"] {
@@ -263,7 +274,7 @@ export const hawkEyeStyles = `
   }
 
   [data-hawk-eye-ui="footer-apply-btn"]:disabled {
-    cursor: progress;
+    cursor: not-allowed;
     opacity: 0.5;
   }
 
@@ -288,6 +299,12 @@ export const hawkEyeStyles = `
 
   [data-hawk-eye-ui="footer-revert-btn"]:hover {
     background: #e8e8e8;
+  }
+
+  [data-hawk-eye-ui="footer-revert-btn"]:disabled,
+  [data-hawk-eye-ui="footer-icon-btn"]:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
   }
 
   [data-hawk-eye-ui="footer-reset-btn"] {
@@ -345,54 +362,6 @@ export const hawkEyeStyles = `
 
   [data-hawk-eye-ui="panel-footer-status"] {
     padding: 0 16px 12px;
-  }
-
-  [data-hawk-eye-ui="close-guard-backdrop"] {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: flex-end;
-    padding: 16px;
-    background: rgba(8, 8, 8, 0.68);
-    backdrop-filter: blur(6px);
-    z-index: 30;
-  }
-
-  [data-hawk-eye-ui="close-guard-dialog"] {
-    width: 100%;
-    display: grid;
-    gap: 12px;
-    padding: 16px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 16px;
-    background: rgba(35, 35, 35, 0.98);
-    box-shadow:
-      0 18px 44px rgba(0, 0, 0, 0.42),
-      inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  }
-
-  [data-hawk-eye-ui="close-guard-title"] {
-    margin: 0;
-    color: var(--he-fg);
-    font-family: var(--he-font-ui);
-    font-size: 15px;
-    font-weight: 600;
-    line-height: 1.2;
-  }
-
-  [data-hawk-eye-ui="close-guard-body"] {
-    margin: 0;
-    color: var(--he-fg);
-    font-family: var(--he-font-ui);
-    font-size: 13px;
-    line-height: 1.45;
-  }
-
-  [data-hawk-eye-ui="close-guard-actions"] {
-    display: grid;
-    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto;
-    gap: 8px;
-    align-items: stretch;
   }
 
   /* ── Changes view ────────────────────────────────────────────── */
@@ -623,13 +592,15 @@ export const hawkEyeStyles = `
   }
 
   [data-hawk-eye-ui="control"][data-dirty="true"] [data-hawk-eye-ui="text-input"],
-  [data-hawk-eye-ui="control"][data-dirty="true"] [data-hawk-eye-ui="select-input"] {
+  [data-hawk-eye-ui="control"][data-dirty="true"] [data-hawk-eye-ui="select-input"],
+  [data-hawk-eye-ui="control"][data-dirty="true"] [data-hawk-eye-ui="number-input-shell"] {
     background: var(--he-dirty-bg);
     border: 1px solid var(--he-dirty-border);
   }
 
   [data-hawk-eye-ui="control"][data-invalid="true"] [data-hawk-eye-ui="text-input"],
-  [data-hawk-eye-ui="control"][data-invalid="true"] [data-hawk-eye-ui="select-input"] {
+  [data-hawk-eye-ui="control"][data-invalid="true"] [data-hawk-eye-ui="select-input"],
+  [data-hawk-eye-ui="control"][data-invalid="true"] [data-hawk-eye-ui="number-input-shell"] {
     border: 1px solid var(--he-destructive-border);
   }
 
@@ -669,8 +640,9 @@ export const hawkEyeStyles = `
     background: var(--he-input);
     color: var(--he-fg);
     font-family: var(--he-font-ui);
-    font-size: 13px;
+    font-size: 13.5px;
     letter-spacing: -0.25px;
+    line-height: normal;
     transition: border-color 100ms ease, background 100ms ease;
   }
 
@@ -754,17 +726,77 @@ export const hawkEyeStyles = `
 
   /* ── Number input row ────────────────────────────────────────── */
 
-  [data-hawk-eye-ui="number-input-row"] {
-    display: grid;
-    gap: 4px;
-    grid-template-columns: minmax(0, 1fr) auto;
+  [data-hawk-eye-ui="number-input-shell"] {
+    display: flex;
     align-items: center;
+    gap: 4px;
+    min-width: 0;
+    min-height: 32px;
+    padding: 8px 10px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: var(--he-input);
+    transition: border-color 100ms ease, background 100ms ease, box-shadow 100ms ease;
   }
 
-  [data-hawk-eye-ui="number-input-row"] [data-hawk-eye-ui="select-input"] {
+  [data-hawk-eye-ui="number-input-shell"]:hover {
+    background: var(--he-input-hover);
+  }
+
+  [data-hawk-eye-ui="number-input-shell"]:focus-within {
+    border-color: var(--he-ring);
+    background: var(--he-bg);
+    box-shadow: 0 0 0 2px rgba(13, 135, 247, 0.2);
+  }
+
+  [data-hawk-eye-ui="number-input-shell"] [data-hawk-eye-ui="text-input"] {
+    flex: 1 1 0;
     min-width: 0;
+    min-height: 0;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    color: #ffffff;
+  }
+
+  [data-hawk-eye-ui="number-input-shell"] [data-hawk-eye-ui="text-input"]:hover,
+  [data-hawk-eye-ui="number-input-shell"] [data-hawk-eye-ui="text-input"]:focus-visible {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    outline: none;
+  }
+
+  [data-hawk-eye-ui="number-input-shell"] [data-hawk-eye-ui="text-input"]::placeholder {
+    color: var(--he-muted);
+  }
+
+  [data-hawk-eye-ui="number-input-shell"] [data-hawk-eye-ui="text-input"]:disabled {
+    background: transparent;
+  }
+
+  [data-hawk-eye-ui="number-input-shell"] [data-hawk-eye-ui="select-input"] {
     width: auto;
-    padding-right: 18px;
+    min-width: 0;
+    min-height: 0;
+    padding: 0 14px 0 0;
+    border: none;
+    border-radius: 0;
+    background-color: transparent;
+    background-position: right 0 center;
+    color: var(--he-label);
+    box-shadow: none;
+    flex-shrink: 0;
+  }
+
+  [data-hawk-eye-ui="number-input-shell"] [data-hawk-eye-ui="select-input"]:hover,
+  [data-hawk-eye-ui="number-input-shell"] [data-hawk-eye-ui="select-input"]:focus-visible {
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+    outline: none;
   }
 
   /* Hide the unit dropdown for properties that have a fixed unit */
@@ -1055,25 +1087,31 @@ export const hawkEyeStyles = `
     bottom: 24px;
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    min-height: 44px;
-    padding: 0 16px;
-    border: 0;
+    gap: 4px;
+    min-height: 50px;
+    padding: 16px;
+    border: 1.5px solid #494949;
     border-radius: 999px;
-    background: var(--he-trigger-bg);
-    color: #ffffff;
+    overflow: clip;
+    background: rgba(0, 0, 0, 0.75);
+    color: var(--he-fg);
     cursor: pointer;
     pointer-events: auto;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.24);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
     font-family: var(--he-font-ui);
-    font-size: 13px;
-    font-weight: 500;
-    transition: background 120ms ease, transform 120ms ease;
+    font-size: 17px;
+    font-weight: 400;
+    letter-spacing: -0.25px;
+    line-height: 1;
+    transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
   }
 
   [data-hawk-eye-ui="trigger"]:hover {
-    background: var(--he-trigger-hover);
-    transform: translateY(-1px);
+    background: rgba(17, 17, 17, 0.82);
+    border-color: #5a5a5a;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
   }
 
   [data-hawk-eye-ui="trigger"]:focus-visible {
@@ -1081,12 +1119,28 @@ export const hawkEyeStyles = `
     outline-offset: 3px;
   }
 
-  [data-hawk-eye-ui="trigger-dot"] {
-    width: 8px;
-    height: 8px;
-    border-radius: 999px;
-    background: #ffffff;
-    opacity: 0.7;
+  [data-hawk-eye-ui="trigger-brand-mark"] {
+    display: inline-flex;
+    width: 24px;
+    height: 24px;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--he-fg);
+    opacity: 0.92;
+  }
+
+  [data-hawk-eye-ui="trigger-brand-image"] {
+    display: block;
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+  }
+
+  [data-hawk-eye-ui="trigger-copy"] {
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
   }
 
   /* ── Select input ────────────────────────────────────────────── */
@@ -1094,19 +1148,20 @@ export const hawkEyeStyles = `
   [data-hawk-eye-ui="select-input"] {
     width: 100%;
     min-height: 32px;
-    padding: 8px 26px 8px 10px;
+    padding: 8px 24px 8px 10px;
     border: 1px solid transparent;
     border-radius: 8px;
     background: var(--he-input);
     color: var(--he-fg);
     font-family: var(--he-font-ui);
-    font-size: 13px;
+    font-size: 13.5px;
     letter-spacing: -0.25px;
+    line-height: normal;
     cursor: pointer;
     appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' fill='none' stroke='%238c8c8c' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
-    background-position: right 8px center;
+    background-position: right 10px center;
     transition: border-color 100ms ease, background 100ms ease;
   }
 
@@ -1584,12 +1639,14 @@ export const hawkEyeStyles = `
     display: flex;
     flex-direction: column;
     gap: 6px;
+    width: 100%;
   }
 
   [data-hawk-eye-ui="per-side-row"] {
     display: flex;
-    align-items: stretch;
+    align-items: flex-end;
     gap: 6px;
+    width: 100%;
   }
 
   /* Mode dropdown: "All" / "Each" — narrow version of select-input */
@@ -1608,10 +1665,13 @@ export const hawkEyeStyles = `
     align-items: center;
     gap: 4px;
     background: var(--he-input);
+    border: 1px solid transparent;
     border-radius: 8px;
-    padding: 8px 10px;
-    min-height: 32px;
+    box-sizing: border-box;
+    height: 32px;
+    padding: 8px;
     min-width: 0;
+    transition: border-color 100ms ease, background 100ms ease, box-shadow 100ms ease;
   }
 
   [data-hawk-eye-ui="per-side-all-input"] [data-hawk-eye-ui="text-input"] {
@@ -1623,13 +1683,16 @@ export const hawkEyeStyles = `
     padding: 0;
     min-height: 0;
     box-shadow: none;
+    font-size: 13.5px;
+    letter-spacing: -0.25px;
+    line-height: normal;
   }
 
   /* "Each" mode: 4 separate rounded pill inputs */
   [data-hawk-eye-ui="per-side-each-pills"] {
     flex: 1;
     display: flex;
-    gap: 4px;
+    gap: 2px;
     min-width: 0;
   }
 
@@ -1639,10 +1702,13 @@ export const hawkEyeStyles = `
     align-items: center;
     gap: 4px;
     background: var(--he-input);
+    border: 1px solid transparent;
     border-radius: 8px;
-    padding: 8px 6px;
+    box-sizing: border-box;
+    height: 32px;
+    padding: 8px;
     min-width: 0;
-    min-height: 32px;
+    transition: border-color 100ms ease, background 100ms ease, box-shadow 100ms ease;
   }
 
   [data-hawk-eye-ui="per-side-pill"] [data-hawk-eye-ui="text-input"] {
@@ -1654,7 +1720,17 @@ export const hawkEyeStyles = `
     padding: 0;
     min-height: 0;
     box-shadow: none;
-    font-size: 12px;
+    color: #ffffff;
+    font-size: 13.5px;
+    letter-spacing: -0.25px;
+    line-height: normal;
+  }
+
+  [data-hawk-eye-ui="per-side-all-input"]:focus-within,
+  [data-hawk-eye-ui="per-side-pill"]:focus-within {
+    border-color: var(--he-ring);
+    background: var(--he-bg);
+    box-shadow: 0 0 0 2px rgba(13, 135, 247, 0.2);
   }
 
   /* Link / Broken-link toggle button for per-side controls */
@@ -1687,6 +1763,11 @@ export const hawkEyeStyles = `
     background: #c4e4ff;
   }
 
+  [data-hawk-eye-ui="link-toggle-btn"]:focus-visible {
+    outline: 2px solid var(--he-ring);
+    outline-offset: 2px;
+  }
+
   [data-hawk-eye-ui="link-toggle-btn"] svg {
     width: 20px;
     height: 20px;
@@ -1696,8 +1777,9 @@ export const hawkEyeStyles = `
   [data-hawk-eye-ui="input-unit-label"] {
     color: var(--he-label);
     font-family: var(--he-font-ui);
-    font-size: 13px;
+    font-size: 13.5px;
     letter-spacing: -0.25px;
+    line-height: normal;
     white-space: nowrap;
     flex-shrink: 0;
     pointer-events: none;
@@ -1729,6 +1811,25 @@ export const hawkEyeStyles = `
     color: var(--he-fg);
   }
 
+  [data-hawk-eye-ui="number-input-shell"] [data-hawk-eye-ui="scrub-label"] {
+    min-width: 12px;
+    min-height: 0;
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--he-label);
+    font-family: var(--he-font-ui);
+    font-size: 13.5px;
+    font-weight: 400;
+    letter-spacing: -0.25px;
+    line-height: normal;
+  }
+
+  [data-hawk-eye-ui="number-input-shell"] [data-hawk-eye-ui="scrub-label"]:hover {
+    background: transparent;
+    color: var(--he-fg);
+  }
+
   [data-hawk-eye-ui="number-input-with-scrub"] {
     display: grid;
     grid-template-columns: 22px minmax(0, 1fr) auto;
@@ -1738,6 +1839,10 @@ export const hawkEyeStyles = `
 
   [data-hawk-eye-ui="number-input-with-scrub"][data-scrubbing="true"] [data-hawk-eye-ui="scrub-label"] {
     background: var(--he-accent);
+    color: #ffffff;
+  }
+
+  [data-hawk-eye-ui="number-input-shell"][data-scrubbing="true"] [data-hawk-eye-ui="scrub-label"] {
     color: #ffffff;
   }
 
@@ -2064,13 +2169,15 @@ export const hawkEyeStyles = `
   }
 
   [data-hawk-eye-ui="compact-card"][data-dirty="true"] [data-hawk-eye-ui="text-input"],
-  [data-hawk-eye-ui="compact-card"][data-dirty="true"] [data-hawk-eye-ui="select-input"] {
+  [data-hawk-eye-ui="compact-card"][data-dirty="true"] [data-hawk-eye-ui="select-input"],
+  [data-hawk-eye-ui="compact-card"][data-dirty="true"] [data-hawk-eye-ui="number-input-shell"] {
     background: var(--he-dirty-bg);
     border: 1px solid var(--he-dirty-border);
   }
 
   [data-hawk-eye-ui="compact-card"][data-invalid="true"] [data-hawk-eye-ui="text-input"],
-  [data-hawk-eye-ui="compact-card"][data-invalid="true"] [data-hawk-eye-ui="select-input"] {
+  [data-hawk-eye-ui="compact-card"][data-invalid="true"] [data-hawk-eye-ui="select-input"],
+  [data-hawk-eye-ui="compact-card"][data-invalid="true"] [data-hawk-eye-ui="number-input-shell"] {
     border: 1px solid var(--he-destructive-border);
   }
 
@@ -2558,8 +2665,8 @@ export const hawkEyeStyles = `
     [data-hawk-eye-ui="trigger"] {
       right: 16px;
       bottom: 16px;
-      min-height: 40px;
-      padding: 0 14px;
+      min-height: 46px;
+      padding: 14px;
     }
 
     [data-hawk-eye-ui="control-grid"] {

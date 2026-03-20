@@ -16,8 +16,8 @@ export default function App() {
                 </h1>
                 <p className="mt-4 text-base leading-7 text-slate-600">
                   Open the inspector, click any card below, and use the public `hawk-eye`
-                  runtime. The demo enables branch saves so you can test the full prerelease flow
-                  end to end.
+                  runtime. The demo previews style edits live and writes them back when you click
+                  Update Design.
                 </p>
               </div>
               <div className="rounded-2xl bg-slate-950 px-4 py-3 text-sm text-slate-200 shadow-lg">
@@ -56,7 +56,7 @@ export default function App() {
                       Open inspector
                     </button>
                     <button className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-white">
-                      Save to Branch
+                      Update Design
                     </button>
                   </div>
                 </div>
@@ -75,8 +75,8 @@ export default function App() {
                       <span className="font-medium text-emerald-700">Active</span>
                     </li>
                     <li className="flex items-center justify-between gap-4">
-                      <span>Branch save</span>
-                      <span className="font-medium text-amber-700">Opt-in</span>
+                      <span>Source update</span>
+                      <span className="font-medium text-sky-700">Manual</span>
                     </li>
                   </ul>
                 </div>
@@ -85,7 +85,7 @@ export default function App() {
 
             <aside className="rounded-3xl border border-slate-200 bg-slate-950 p-6 text-slate-100 shadow-sm">
               <p className="text-sm font-medium text-sky-300">Review queue</p>
-              <h2 className="mt-2 text-2xl font-semibold">Drafts ready for branch save</h2>
+              <h2 className="mt-2 text-2xl font-semibold">Drafts ready to update source</h2>
               <div className="mt-6 space-y-4">
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                   <p className="text-sm font-medium text-white">Marketing hero</p>
@@ -115,7 +115,7 @@ export default function App() {
                 accent: 'from-sky-500 to-cyan-400',
                 eyebrow: 'Campaign card',
                 title: 'Launch checklist',
-                body: 'Tight spacing, stronger hierarchy, and a saved branch for review.',
+                body: 'Tight spacing, stronger hierarchy, and source updates queued from the panel.',
               },
               {
                 accent: 'from-violet-500 to-fuchsia-400',

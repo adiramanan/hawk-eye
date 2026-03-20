@@ -16,7 +16,7 @@ As of 2026-03-18, this repository has completed the prerelease hardening pass:
 - The inspector now requests server-side AST analysis to classify selections as inline, tailwind, mixed, or unknown.
 - The Vite plugin now includes focused-property Tailwind CSS/class mapping utilities and a ts-morph AST writer for source mutations.
 - Tailwind and mixed selections can now be detached into focused inline preview styles from the inspector.
-- Dirty drafts can be saved to a review branch when save is explicitly enabled in `hawkeyePlugin({ enableSave: true })`.
+- Dirty drafts can be written directly back to source from the inspector's `Update Design` action when writes are explicitly enabled in `hawkeyePlugin({ enableSave: true })`.
 - Preview changes stay in the current browser session, survive switching between selected elements, and can be reset per field or all at once.
 
 This repo is not published to npm yet. The current entrypoint for evaluation is the local demo app.
@@ -61,21 +61,35 @@ pnpm build
 - Tailwind CSS-to-class mapping utilities for the focused property set
 - AST source mutation primitives for Tailwind swaps, inline style writes, mixed-mode fallback, and detached writes
 - A detach-from-classes preview flow that keeps focused properties inline and marks the draft as `detached`
-- A save-to-branch workflow with dirty-worktree guards, automatic review-branch creation, commit generation, and inspector feedback when enabled
+- An explicit `Update Design` source-write workflow with AST-backed edits and inspector feedback when enabled
 - DOM-only live preview with session-scoped pending changes, per-field reset, and global reset
 - Automated coverage for source injection, HMR payload validation, and the client runtime
 
 ## What Does Not Work Yet
 
 - Dynamic `className` and dynamic `style` expressions still fall back or warn instead of being rewritten structurally
-- No built-in diff/PR review surface yet; the save flow returns a branch name and commit SHA only
+- No built-in diff or review surface yet for live source writes
 
 Those are the main remaining limitations before broader polish.
+
+## Agent Memory
+
+- `AGENTS.md` is the repo entrypoint for agent instructions.
+- Canonical shared memory lives in `.memory/`.
+- No bootstrap command is required for day-to-day memory handling.
+- Agents can work directly with `.memory/sessions/`, `.memory/notes/`, `.memory/attachments/`, and `.memory/receipts.jsonl`.
+- `pnpm memory:migrate` and `pnpm memory:doctor` remain available as optional helper tooling.
+- `.agents/` remains in the repo only as legacy migration input.
 
 ## Repository Layout
 
 ```text
 hawk-eye/
+├── AGENTS.md           # Agent entrypoint and memory workflow
+├── CLAUDE.md           # Claude bridge into AGENTS.md
+├── CODEX.md            # Codex bridge into AGENTS.md
+├── GEMINI.md           # Gemini bridge into AGENTS.md
+├── .memory/            # Canonical repo memory contract
 ├── packages/
 │   ├── client/        # Internal React runtime package
 │   ├── vite-plugin/   # Internal Vite integration package
@@ -83,7 +97,7 @@ hawk-eye/
 ├── demo/              # Local React + Tailwind demo app
 ├── docs/              # Architecture notes
 ├── tests/             # Vitest coverage
-└── .agents/           # Multi-agent handoff state
+└── .agents/           # Legacy migration input for older handoff files
 ```
 
 ## Roadmap
@@ -91,15 +105,16 @@ hawk-eye/
 1. Phase 4: Hardening, documentation, and release prep
 2. Future: broader framework support and deeper design-tool parity
 
-Detailed status lives in [`.agents/PHASE_STATUS.md`](./.agents/PHASE_STATUS.md).
+Detailed status lives in [`.memory/PHASE_STATUS.md`](./.memory/PHASE_STATUS.md).
 
 ## Resources
 
 - [Specification](./spec.md)
 - [Architecture](./docs/ARCHITECTURE.md)
 - [Contributing](./CONTRIBUTING.md)
-- [Current Context](./.agents/CURRENT_CONTEXT.md)
-- [Decisions Log](./.agents/DECISIONS.md)
+- [Agent Instructions](./AGENTS.md)
+- [Current Context](./.memory/CURRENT_CONTEXT.md)
+- [Decisions Log](./.memory/DECISIONS.md)
 
 ## License
 

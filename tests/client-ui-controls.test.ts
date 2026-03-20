@@ -275,6 +275,48 @@ describe('client UI controls', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it('renders unit-bearing number inputs inside a single shared shell', () => {
+    const multiUnitSnapshot: PropertySnapshot = {
+      baseline: '18px',
+      inlineValue: '18px',
+      inputValue: '18px',
+      invalid: false,
+      value: '18px',
+    };
+    const singleUnitSnapshot: PropertySnapshot = {
+      baseline: '1px',
+      inlineValue: '1px',
+      inputValue: '1px',
+      invalid: false,
+      value: '1px',
+    };
+    const onChange = vi.fn();
+    const view = renderComponent(
+      React.createElement(NumberInput, {
+        definition: editablePropertyDefinitionMap.fontSize,
+        snapshot: multiUnitSnapshot,
+        onChange,
+      })
+    );
+
+    expect(view.container.querySelectorAll('[data-hawk-eye-ui="number-input-shell"]')).toHaveLength(1);
+    expect(view.container.querySelector('[data-hawk-eye-control="fontSize"]')).not.toBeNull();
+    expect(view.container.querySelector('[data-hawk-eye-control="fontSize-unit"]')).not.toBeNull();
+
+    view.render(
+      React.createElement(NumberInput, {
+        definition: editablePropertyDefinitionMap.borderTopWidth,
+        snapshot: singleUnitSnapshot,
+        onChange,
+      })
+    );
+
+    expect(view.container.querySelectorAll('[data-hawk-eye-ui="number-input-shell"]')).toHaveLength(1);
+    expect(view.container.querySelector('[data-hawk-eye-control="borderTopWidth"]')).not.toBeNull();
+    expect(view.container.querySelector('[data-hawk-eye-control="borderTopWidth-unit"]')).toBeNull();
+    expect(view.container.querySelector('[data-hawk-eye-ui="input-unit-label"]')?.textContent).toBe('px');
+  });
+
   it('renders editable grid track rows for columns and rows', () => {
     const onChange = vi.fn();
     const view = renderComponent(

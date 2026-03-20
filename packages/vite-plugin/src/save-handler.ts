@@ -1,5 +1,3 @@
-import { realpathSync } from 'node:fs';
-import { relative, resolve } from 'node:path';
 import type { HMRBroadcasterClient, ViteDevServer } from 'vite';
 import {
   HAWK_EYE_SAVE_EVENT,
@@ -11,40 +9,14 @@ import {
   type SizeModeMetadata,
 } from '../../../shared/protocol';
 import { getEditableCssProperty } from '../../../shared/property-map';
-import {
-  commitChanges,
-  createBranch,
-  getCurrentBranch,
-  getGitRoot,
-  hasUncommittedChanges,
-  restoreStashedWorkingTree,
-  restoreOriginalBranch,
-  stashWorkingTree,
-} from './git-ops';
 import type { ElementMutation, PropertyMutation } from './mutations';
 import { resolveWorkspaceFile } from './path-security';
 import { hasValidSaveCapability, type HawkEyeServerState } from './plugin-state';
-import { analyzeStyleAtPosition, createStyleAnalysisFingerprint } from './style-analyzer';
+import {
+  analyzeStyleAtPosition,
+  createStyleAnalysisFingerprint,
+} from './style-analyzer';
 import { writeSourceMutations } from './source-writer';
-
-function normalizeFilePath(filePath: string) {
-  return filePath.replace(/\\/g, '/');
-}
-
-function createTimestamp(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  const seconds = String(date.getSeconds()).padStart(2, '0');
-
-  return `${year}${month}${day}-${hours}${minutes}${seconds}`;
-}
-
-function createBranchName(date = new Date()) {
-  return `hawk-eye/design-tweaks-${createTimestamp(date)}`;
-}
 
 function isClientPropertyMutation(value: unknown): value is ClientPropertyMutation {
   if (!value || typeof value !== 'object') {
@@ -107,25 +79,12 @@ function isClientSavePayload(value: unknown): value is ClientSavePayload {
   );
 }
 
-function buildErrorResult(
-  error: string,
-  warnings: MutationWarning[] = [],
-  branch?: string
-): SaveResult {
+function buildErrorResult(error: string, warnings: MutationWarning[] = []): SaveResult {
   return {
     success: false,
     error,
-    branch,
     warnings,
   };
-}
-
-function toGitRelativeFiles(viteRoot: string, gitRoot: string, files: string[]) {
-  const resolvedGitRoot = realpathSync(gitRoot);
-
-  return files.map((file) =>
-    normalizeFilePath(relative(resolvedGitRoot, realpathSync(resolve(viteRoot, file))))
-  );
 }
 
 function normalizePropertyMutation(
@@ -153,7 +112,7 @@ function normalizePropertyMutation(
         line,
         column,
         propertyId: mutation.propertyId,
-        message: `Skipped ${mutation.propertyId} because it is not an editable save property.`,
+        message: `Skipped ${mutation.propertyId} because it is not an editable source-write property.`,
       },
     };
   }
@@ -192,7 +151,7 @@ function normalizeSavePayload(
       return {
         ok: false,
         result: buildErrorResult(
-          `Save aborted because ${mutation.file} is not a valid writable source target.`,
+          `Write aborted because ${mutation.file} is not a valid writable source target.`,
           [
             {
               code: 'path-outside-root',
@@ -221,7 +180,7 @@ function normalizeSavePayload(
       return {
         ok: false,
         result: buildErrorResult(
-          `Save aborted because the current source at ${mutation.file}:${mutation.line}:${mutation.column} could not be analyzed.`,
+          `Write aborted because the current source at ${mutation.file}:${mutation.line}:${mutation.column} could not be analyzed.`,
           []
         ),
       };
@@ -233,7 +192,7 @@ function normalizeSavePayload(
       return {
         ok: false,
         result: buildErrorResult(
-          `Save aborted because ${mutation.file}:${mutation.line}:${mutation.column} changed after selection. Re-select the element and try again.`,
+          `Write aborted because ${mutation.file}:${mutation.line}:${mutation.column} changed after selection. Re-select the element and try again.`,
           [
             {
               code: 'stale-selection',
@@ -285,25 +244,31 @@ function normalizeSavePayload(
   };
 }
 
-export function saveToBranch(state: HawkEyeServerState, payload: ClientSavePayload): SaveResult {
+export function applySourceChanges(
+  state: HawkEyeServerState,
+  payload: ClientSavePayload
+): SaveResult {
   if (!state.saveEnabled) {
-    return buildErrorResult('Save to branch is disabled. Enable `enableSave` in `hawkeyePlugin()` to use it.', [
-      {
-        code: 'save-disabled',
-        file: '',
-        line: 0,
-        column: 0,
-        message: 'Save to branch is disabled for this Vite plugin instance.',
-      },
-    ]);
+    return buildErrorResult(
+      'Direct source writes are disabled. Enable `enableSave` in `hawkeyePlugin()` to use them.',
+      [
+        {
+          code: 'save-disabled',
+          file: '',
+          line: 0,
+          column: 0,
+          message: 'Direct source writes are disabled for this Vite plugin instance.',
+        },
+      ]
+    );
   }
 
   if (!isClientSavePayload(payload)) {
-    return buildErrorResult('Invalid save payload.');
+    return buildErrorResult('Invalid write payload.');
   }
 
   if (payload.mutations.length === 0) {
-    return buildErrorResult('There are no pending mutations to save.');
+    return buildErrorResult('There are no pending mutations to write.');
   }
 
   const normalizedPayload = normalizeSavePayload(state, payload);
@@ -312,92 +277,21 @@ export function saveToBranch(state: HawkEyeServerState, payload: ClientSavePaylo
     return normalizedPayload.result;
   }
 
-  let gitRoot: string;
+  const writeResult = writeSourceMutations(state.root, normalizedPayload.value);
+  const warnings = [...normalizedPayload.warnings, ...writeResult.warnings];
 
-  try {
-    gitRoot = getGitRoot(state.root);
-  } catch (error) {
+  if (writeResult.modifiedFiles.length === 0) {
     return buildErrorResult(
-      error instanceof Error ? error.message : 'Could not resolve the git repository root.',
-      normalizedPayload.warnings
+      'Write aborted because the writer did not produce any source changes.',
+      warnings
     );
   }
 
-  const originalBranch = getCurrentBranch(gitRoot);
-  const branchName = createBranchName();
-  let branchCreated = false;
-  let stashedWorkingTreeRef: string | null = null;
-  let writeWarnings: MutationWarning[] = [...normalizedPayload.warnings];
-
-  try {
-    if (hasUncommittedChanges(gitRoot)) {
-      stashedWorkingTreeRef = stashWorkingTree(
-        gitRoot,
-        `hawk-eye-save-${branchName}`
-      );
-    }
-
-    createBranch(gitRoot, branchName);
-    branchCreated = true;
-
-    const writeResult = writeSourceMutations(state.root, normalizedPayload.value);
-    writeWarnings = [...writeWarnings, ...writeResult.warnings];
-
-    if (writeResult.modifiedFiles.length === 0) {
-      restoreOriginalBranch(gitRoot, originalBranch);
-      if (stashedWorkingTreeRef) {
-        restoreStashedWorkingTree(gitRoot, stashedWorkingTreeRef);
-        stashedWorkingTreeRef = null;
-      }
-
-      return buildErrorResult(
-        'Save aborted because the writer did not produce any source changes.',
-        writeWarnings
-      );
-    }
-
-    const gitFiles = toGitRelativeFiles(state.root, gitRoot, writeResult.modifiedFiles);
-    const commitSha = commitChanges(gitRoot, gitFiles, 'Apply Hawk-Eye design changes');
-
-    restoreOriginalBranch(gitRoot, originalBranch);
-    if (stashedWorkingTreeRef) {
-      restoreStashedWorkingTree(gitRoot, stashedWorkingTreeRef);
-      stashedWorkingTreeRef = null;
-    }
-
-    return {
-      success: true,
-      branch: branchName,
-      commitSha,
-      modifiedFiles: writeResult.modifiedFiles,
-      warnings: writeWarnings,
-    };
-  } catch (error) {
-    let errorMessage =
-      error instanceof Error ? error.message : 'Save failed while creating the review branch.';
-
-    if (branchCreated) {
-      try {
-        if (!hasUncommittedChanges(gitRoot) && getCurrentBranch(gitRoot) !== originalBranch) {
-          restoreOriginalBranch(gitRoot, originalBranch);
-        } else {
-          errorMessage = `${errorMessage} Branch ${branchName} may still be checked out.`;
-        }
-      } catch {
-        errorMessage = `${errorMessage} Branch ${branchName} may still be checked out.`;
-      }
-    }
-
-    if (stashedWorkingTreeRef) {
-      try {
-        restoreStashedWorkingTree(gitRoot, stashedWorkingTreeRef);
-      } catch {
-        errorMessage = `${errorMessage} Your original uncommitted changes could not be restored automatically.`;
-      }
-    }
-
-    return buildErrorResult(errorMessage, writeWarnings, branchCreated ? branchName : undefined);
-  }
+  return {
+    success: true,
+    modifiedFiles: writeResult.modifiedFiles,
+    warnings,
+  };
 }
 
 export function handleSaveRequest(
@@ -406,20 +300,23 @@ export function handleSaveRequest(
   data: unknown
 ) {
   if (!isClientSavePayload(data) || !hasValidSaveCapability(state, client, data.capability)) {
-    const result = buildErrorResult('Save aborted because the current client is not authorized to write source changes.', [
-      {
-        code: 'invalid-capability',
-        file: '',
-        line: 0,
-        column: 0,
-        message: 'The save capability was missing, stale, or did not belong to the current client.',
-      },
-    ]);
+    const result = buildErrorResult(
+      'Write aborted because the current client is not authorized to edit source files.',
+      [
+        {
+          code: 'invalid-capability',
+          file: '',
+          line: 0,
+          column: 0,
+          message: 'The save capability was missing, stale, or did not belong to the current client.',
+        },
+      ]
+    );
     client.send(HAWK_EYE_SAVE_RESULT_EVENT, result);
     return result;
   }
 
-  const result = saveToBranch(state, data);
+  const result = applySourceChanges(state, data);
   client.send(HAWK_EYE_SAVE_RESULT_EVENT, result);
   return result;
 }

@@ -303,6 +303,16 @@ function getButtonControl(
   return button;
 }
 
+function getFooterApplyButton(shadowRoot: { querySelector(selectors: string): Element | null }) {
+  const button = shadowRoot.querySelector('[data-hawk-eye-ui="footer-apply-btn"]');
+
+  if (!(button instanceof window.HTMLButtonElement)) {
+    throw new Error('Could not find footer apply button');
+  }
+
+  return button;
+}
+
 function chooseSizeMenuOption(
   shadowRoot: { querySelector(selectors: string): Element | null },
   triggerId: string,
@@ -348,7 +358,7 @@ afterEach(() => {
 
 describe('DesignTool', () => {
   it('toggles inspector mode from the floating trigger', () => {
-    const { cleanup, shadowRoot } = renderDesignTool();
+    const { cleanup, host, shadowRoot } = renderDesignTool();
     const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]');
 
     expect(shadowRoot.textContent).toContain('Inspect with Hawk-Eye');
@@ -375,7 +385,7 @@ describe('DesignTool', () => {
     document.body.append(target);
     setElementFromPoint(target);
 
-    const { cleanup, shadowRoot } = renderDesignTool();
+    const { cleanup, host, shadowRoot } = renderDesignTool();
     const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
 
     click(trigger);
@@ -429,6 +439,42 @@ describe('DesignTool', () => {
     });
 
     expect(shadowRoot.querySelector('[data-hawk-eye-control="detach"]')).not.toBeNull();
+    cleanup();
+  });
+
+  it('hides the Appearance fill control for plain text selections while keeping text color available', () => {
+    const hot = createHotStub();
+    globalThis.__HAWK_EYE_HOT__ = hot;
+
+    const target = document.createElement('span');
+    target.textContent = 'Headline';
+    applyBaselineStyles(target, 'demo/src/App.tsx:23:15');
+    mockRect(target, { height: 28, left: 40, top: 96, width: 120 });
+    document.body.append(target);
+    setElementFromPoint(target);
+
+    const { cleanup, shadowRoot } = renderDesignTool();
+    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+
+    click(trigger);
+    pointerMove(document);
+    click(document);
+
+    act(() => {
+      hot.emit('hawk-eye:selection', {
+        source: 'demo/src/App.tsx:23:15',
+        file: 'demo/src/App.tsx',
+        line: 23,
+        column: 15,
+        saveCapability: SAVE_CAPABILITY,
+        saveEnabled: true,
+      });
+    });
+
+    expect(shadowRoot.querySelectorAll('[data-hawk-eye-section="fillOpacity"]')).toHaveLength(1);
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="backgroundColor"]')).toBeNull();
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="opacity"]')).not.toBeNull();
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="color"]')).not.toBeNull();
     cleanup();
   });
 
@@ -490,7 +536,7 @@ describe('DesignTool', () => {
     cleanup();
   });
 
-  it('sends save payloads for dirty drafts and clears previews after a successful save result', () => {
+  it('applies dirty drafts to source only after clicking Update Design and keeps the selection active after a successful write', () => {
     const hot = createHotStub();
     globalThis.__HAWK_EYE_HOT__ = hot;
 
@@ -531,8 +577,16 @@ describe('DesignTool', () => {
       '24px'
     );
 
+    expect(target.style.paddingTop).toBe('24px');
+    expect(
+      hot.send.mock.calls.filter(([event]) => event === HAWK_EYE_SAVE_EVENT)
+    ).toHaveLength(0);
+
+    const applyButton = getFooterApplyButton(shadowRoot);
+    expect(applyButton.textContent).toContain('Update Design');
+
     setElementFromPoint(host);
-    click(getButtonControl(shadowRoot, 'save'));
+    click(applyButton);
 
     expect(hot.send).toHaveBeenCalledWith(HAWK_EYE_SAVE_EVENT, {
       capability: SAVE_CAPABILITY,
@@ -554,17 +608,17 @@ describe('DesignTool', () => {
       ],
     });
 
+    expect(shadowRoot.textContent).toContain('Syncing source…');
+
     act(() => {
       hot.emit('hawk-eye:save-result', {
         success: true,
-        branch: 'hawk-eye/design-tweaks-20260312-230000',
-        commitSha: 'abcdef1234567890',
         modifiedFiles: ['demo/src/App.tsx'],
         warnings: [],
       });
     });
 
-    expect(target.style.paddingTop).toBe('16px');
+    expect(target.style.paddingTop).toBe('24px');
     const status = shadowRoot.querySelector('[data-hawk-eye-ui="footer-status"]');
 
     if (!(status instanceof window.HTMLParagraphElement)) {
@@ -573,8 +627,8 @@ describe('DesignTool', () => {
 
     expect(status.getAttribute('role')).toBe('status');
     expect(status.getAttribute('aria-live')).toBe('polite');
-    expect(status.textContent).toContain('Saved to hawk-eye/design-tweaks-20260312-230000');
-    expect(shadowRoot.textContent).toContain('No element selected');
+    expect(status.textContent).toContain('Updated demo/src/App.tsx.');
+    expect(shadowRoot.textContent).not.toContain('No element selected');
     cleanup();
   });
 
@@ -737,7 +791,7 @@ describe('DesignTool', () => {
 
     expect(target.style.paddingTop).toBe('16px');
     expect(target.style.fontSize).toBe('18px');
-    expect(resetAll.disabled).toBe(true);
+    expect(shadowRoot.querySelector('[data-hawk-eye-ui="footer-revert-btn"]')).toBeNull();
     cleanup();
   });
 
@@ -1110,7 +1164,10 @@ describe('DesignTool', () => {
     cleanup();
   });
 
-  it('opens a close guard on Escape and discards session previews when requested', () => {
+  it('blocks closing while a source write is still in flight', () => {
+    const hot = createHotStub();
+    globalThis.__HAWK_EYE_HOT__ = hot;
+
     const target = document.createElement('div');
     applyBaselineStyles(target, 'demo/src/App.tsx:14:3');
     mockRect(target, { height: 44, left: 24, top: 40, width: 132 });
@@ -1122,6 +1179,27 @@ describe('DesignTool', () => {
 
     click(trigger);
     click(document);
+
+    act(() => {
+      hot.emit('hawk-eye:selection', {
+        source: 'demo/src/App.tsx:14:3',
+        file: 'demo/src/App.tsx',
+        line: 14,
+        column: 3,
+        saveCapability: SAVE_CAPABILITY,
+        saveEnabled: true,
+      });
+      hot.emit('hawk-eye:style-analysis', {
+        source: 'demo/src/App.tsx:14:3',
+        mode: 'tailwind',
+        classNames: ['pt-4'],
+        inlineStyles: {},
+        fingerprint: 'fp-14-3',
+        saveCapability: SAVE_CAPABILITY,
+        saveEnabled: true,
+      });
+    });
+
     updateInput(
       getControl(shadowRoot, 'paddingTop') as InstanceType<typeof window.HTMLInputElement>,
       '28px'
@@ -1130,16 +1208,9 @@ describe('DesignTool', () => {
     expect(target.style.paddingTop).toBe('28px');
     pressEscape();
 
-    expect(shadowRoot.textContent).toContain('Unsaved Changes');
-    click(
-      shadowRoot.querySelector(
-        '[data-hawk-eye-ui="close-guard-dialog"] [data-hawk-eye-ui="footer-revert-btn"]'
-      ) as Element
-    );
-
-    expect(target.style.paddingTop).toBe('16px');
-    expect(shadowRoot.textContent).toContain('Inspect with Hawk-Eye');
-    expect(shadowRoot.textContent).not.toContain('Reset all changes');
+    expect(shadowRoot.textContent).toContain('Apply or revert changes before closing the inspector.');
+    expect(shadowRoot.textContent).toContain('Hawk-Eye');
+    expect(shadowRoot.querySelector('[data-hawk-eye-ui="panel"]')).not.toBeNull();
     cleanup();
   });
 
@@ -1181,6 +1252,10 @@ describe('DesignTool', () => {
       getControl(shadowRoot, 'fontSize') as InstanceType<typeof window.HTMLInputElement>,
       '24'
     );
+    updateInput(
+      getControl(shadowRoot, 'color') as InstanceType<typeof window.HTMLInputElement>,
+      '#778899'
+    );
     setElementFromPoint(host);
     click(getButtonControl(shadowRoot, 'textAlign-center'));
     updateInput(
@@ -1197,6 +1272,7 @@ describe('DesignTool', () => {
     );
 
     expect(target.style.backgroundColor).toBe('rgb(17, 34, 51)');
+    expect(target.style.color).toBe('rgb(119, 136, 153)');
     expect(target.style.fontWeight).toBe('700');
     expect(target.style.fontSize).toBe('24px');
     expect(target.style.textAlign).toBe('center');

@@ -143,6 +143,23 @@ interface ScrubNumberInputProps {
   onUnitChange(nextUnit: string): void;
 }
 
+function NumberInputShell({
+  children,
+  isScrubbing = false,
+}: {
+  children: React.ReactNode;
+  isScrubbing?: boolean;
+}) {
+  return (
+    <div
+      data-hawk-eye-ui="number-input-shell"
+      data-scrubbing={isScrubbing ? 'true' : 'false'}
+    >
+      {children}
+    </div>
+  );
+}
+
 function ScrubNumberInput({
   definition,
   snapshot,
@@ -215,7 +232,7 @@ function ScrubNumberInput({
   }
 
   return (
-    <div data-hawk-eye-ui="number-input-with-scrub" data-scrubbing={isScrubbing ? 'true' : 'false'}>
+    <NumberInputShell isScrubbing={isScrubbing}>
       <span {...labelProps}>{scrubLabel}</span>
       <input
         aria-label={definition.label}
@@ -249,7 +266,7 @@ function ScrubNumberInput({
       {hasSingleUnit && (
         <span data-hawk-eye-ui="input-unit-label">{selectedUnit}</span>
       )}
-    </div>
+    </NumberInputShell>
   );
 }
 
@@ -426,40 +443,59 @@ export function NumberInput({ definition, snapshot, onChange, scrubLabel }: Numb
     );
   }
 
+  if (units.length > 0) {
+    return (
+      <NumberInputShell>
+        <input
+          aria-label={definition.label}
+          data-hawk-eye-control={definition.id}
+          data-hawk-eye-ui="text-input"
+          disabled={keywordMode}
+          inputMode="decimal"
+          onBlur={handleBlur}
+          onChange={(event) => handleValueChange(event.currentTarget.value)}
+          onFocus={(e) => e.currentTarget.select()}
+          onKeyDown={handleKeyDown}
+          placeholder={keywordMode ? selectedUnit : definition.placeholder}
+          type="text"
+          value={displayedValue}
+        />
+        {!hasSingleUnit && (
+          <select
+            aria-label={`${definition.label} unit`}
+            data-hawk-eye-control={`${definition.id}-unit`}
+            data-hawk-eye-ui="select-input"
+            onChange={(event) => handleUnitChange(event.currentTarget.value)}
+            value={selectedUnit}
+          >
+            {units.map((unit) => (
+              <option key={unit} value={unit}>
+                {unit}
+              </option>
+            ))}
+          </select>
+        )}
+        {hasSingleUnit && (
+          <span data-hawk-eye-ui="input-unit-label">{selectedUnit}</span>
+        )}
+      </NumberInputShell>
+    );
+  }
+
   return (
-    <div data-hawk-eye-ui="number-input-row">
-      <input
-        aria-label={definition.label}
-        data-hawk-eye-control={definition.id}
-        data-hawk-eye-ui="text-input"
-        disabled={keywordMode}
-        inputMode="decimal"
-        onBlur={handleBlur}
-        onChange={(event) => handleValueChange(event.currentTarget.value)}
-        onFocus={(e) => e.currentTarget.select()}
-        onKeyDown={handleKeyDown}
-        placeholder={keywordMode ? selectedUnit : definition.placeholder}
-        type="text"
-        value={displayedValue}
-      />
-      {units.length > 0 && !hasSingleUnit && (
-        <select
-          aria-label={`${definition.label} unit`}
-          data-hawk-eye-control={`${definition.id}-unit`}
-          data-hawk-eye-ui="select-input"
-          onChange={(event) => handleUnitChange(event.currentTarget.value)}
-          value={selectedUnit}
-        >
-          {units.map((unit) => (
-            <option key={unit} value={unit}>
-              {unit}
-            </option>
-          ))}
-        </select>
-      )}
-      {hasSingleUnit && (
-        <span data-hawk-eye-ui="input-unit-label">{selectedUnit}</span>
-      )}
-    </div>
+    <input
+      aria-label={definition.label}
+      data-hawk-eye-control={definition.id}
+      data-hawk-eye-ui="text-input"
+      disabled={keywordMode}
+      inputMode="decimal"
+      onBlur={handleBlur}
+      onChange={(event) => handleValueChange(event.currentTarget.value)}
+      onFocus={(e) => e.currentTarget.select()}
+      onKeyDown={handleKeyDown}
+      placeholder={keywordMode ? selectedUnit : definition.placeholder}
+      type="text"
+      value={displayedValue}
+    />
   );
 }

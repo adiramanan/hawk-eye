@@ -92,6 +92,153 @@ function buildSavePayload(drafts: SelectionDraft[]): SavePayload {
   };
 }
 
+function mutationMatchesDraft(
+  draft: SelectionDraft,
+  mutation: SavePayload['mutations'][number]
+) {
+  return (
+    draft.file === mutation.file &&
+    draft.line === mutation.line &&
+    draft.column === mutation.column
+  );
+}
+
+function commitPersistedPropertySnapshot(
+  snapshot: SelectionDraft['properties'][EditablePropertyId],
+  persistedValue: string
+) {
+  if (snapshot.invalid) {
+    return {
+      ...snapshot,
+      baseline: persistedValue,
+      inlineValue: persistedValue,
+    };
+  }
+
+  if (snapshot.value !== persistedValue) {
+    return {
+      ...snapshot,
+      baseline: persistedValue,
+      inlineValue: persistedValue,
+    };
+  }
+
+  return {
+    ...snapshot,
+    baseline: persistedValue,
+    inlineValue: persistedValue,
+    inputValue: persistedValue,
+    invalid: false,
+    value: persistedValue,
+  };
+}
+
+function commitPersistedSizeModeSnapshot(
+  snapshot: SizeControlState['widthMode'],
+  persistedValue: SizeMode
+) {
+  if (snapshot.value !== persistedValue) {
+    return {
+      ...snapshot,
+      baseline: persistedValue,
+      inlineValue: persistedValue,
+    };
+  }
+
+  return {
+    ...snapshot,
+    baseline: persistedValue,
+    inlineValue: persistedValue,
+    value: persistedValue,
+  };
+}
+
+function commitPersistedDrafts(
+  currentDrafts: Record<string, SelectionDraft>,
+  payload: SavePayload
+) {
+  let changed = false;
+  const nextDrafts = { ...currentDrafts };
+
+  for (const [instanceKey, draft] of Object.entries(currentDrafts)) {
+    const matchingMutation = payload.mutations.find((mutation) =>
+      mutationMatchesDraft(draft, mutation)
+    );
+
+    if (!matchingMutation) {
+      continue;
+    }
+
+    changed = true;
+    let nextSizeControl = draft.sizeControl;
+    let nextProperties = draft.properties;
+
+    for (const propertyMutation of matchingMutation.properties) {
+      const propertyId = propertyMutation.propertyId as EditablePropertyId;
+      const currentSnapshot = nextProperties[propertyId];
+
+      if (!currentSnapshot) {
+        continue;
+      }
+
+      nextProperties = {
+        ...nextProperties,
+        [propertyId]: commitPersistedPropertySnapshot(
+          currentSnapshot,
+          propertyMutation.newValue
+        ),
+      };
+    }
+
+    if (matchingMutation.sizeModeMetadata?.width) {
+      nextSizeControl = {
+        ...nextSizeControl,
+        widthMode: commitPersistedSizeModeSnapshot(
+          nextSizeControl.widthMode,
+          matchingMutation.sizeModeMetadata.width
+        ),
+      };
+    }
+
+    if (matchingMutation.sizeModeMetadata?.height) {
+      nextSizeControl = {
+        ...nextSizeControl,
+        heightMode: commitPersistedSizeModeSnapshot(
+          nextSizeControl.heightMode,
+          matchingMutation.sizeModeMetadata.height
+        ),
+      };
+    }
+
+    nextDrafts[instanceKey] = {
+      ...draft,
+      analysisFingerprint: '',
+      properties: nextProperties,
+      sizeControl: nextSizeControl,
+      styleAnalysisResolved: false,
+    };
+  }
+
+  return changed ? nextDrafts : currentDrafts;
+}
+
+function collectMutationSources(
+  currentDrafts: Record<string, SelectionDraft>,
+  payload: SavePayload
+) {
+  const sources = new Set<string>();
+
+  for (const draft of Object.values(currentDrafts)) {
+    if (
+      payload.mutations.some((mutation) => mutationMatchesDraft(draft, mutation))
+    ) {
+      sources.add(draft.source);
+    }
+  }
+
+  return Array.from(sources);
+}
+
 function parseSourceToken(source: string) {
   const match = /^(.*):(\d+):(\d+)(?::[a-f0-9]+)?$/.exec(source);
 
@@ -324,8 +471,6 @@ function createShadowPortalRoot() {
 }
 
 function DesignToolRuntime() {
-  const [closeAfterSave, setCloseAfterSave] = useState(false);
-  const [closeGuardOpen, setCloseGuardOpen] = useState(false);
   const [enabled, setEnabled] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, SelectionDraft>>({});
   const [hovered, setHovered] = useState<MeasuredElement | null>(null);
@@ -333,9 +478,9 @@ function DesignToolRuntime() {
   const [saveResult, setSaveResult] = useState<SaveResult | null>(null);
   const [selected, setSelected] = useState<MeasuredElement | null>(null);
   const [selectedInstanceKey, setSelectedInstanceKey] = useState<string | null>(null);
-  const closeAfterSaveRef = useRef(false);
   const draftsRef = useRef<Record<string, SelectionDraft>>({});
   const hoverFrameRef = useRef(0);
+  const pendingSavePayloadRef = useRef<SavePayload | null>(null);
   const pointerRef = useRef<{ x: number; y: number } | null>(null);
   const selectedInstanceKeyRef = useRef<string | null>(null);
   const syncMeasurementsFrameRef = useRef(0);
@@ -348,13 +493,11 @@ function DesignToolRuntime() {
     selectedInstanceKeyRef.current = selectedInstanceKey;
   }, [selectedInstanceKey]);
 
-  useEffect(() => {
-    closeAfterSaveRef.current = closeAfterSave;
-  }, [closeAfterSave]);
-
   function clearSessionDrafts() {
     for (const draft of Object.values(draftsRef.current)) {
-      clearDraftOverrides(draft);
+      if (hasDraftChanges(draft)) {
+        clearDraftOverrides(draft);
+      }
     }
 
     setDrafts({});
@@ -365,6 +508,18 @@ function DesignToolRuntime() {
 
   function clearSaveFeedback() {
     setSaveResult(null);
+  }
+
+  function getCloseBlockedMessage() {
+    if (savePending) {
+      return 'Wait for Update Design to finish before closing the inspector.';
+    }
+
+    if (getDirtyDrafts(draftsRef.current).length > 0) {
+      return 'Apply or revert changes before closing the inspector.';
+    }
+
+    return null;
   }
 
   function refreshSelectedMeasurement(instanceKey: string, draftOverride?: SelectionDraft) {
@@ -924,6 +1079,23 @@ function DesignToolRuntime() {
     }
   }
 
+  function applyPendingDrafts() {
+    if (!enabled || savePending || saveBlockedReason) {
+      return;
+    }
+
+    const payload = buildSavePayload(getDirtyDrafts(draftsRef.current));
+
+    if (!payload.capability || payload.mutations.length === 0) {
+      return;
+    }
+
+    pendingSavePayloadRef.current = payload;
+    setSavePending(true);
+    setSaveResult(null);
+    requestSave(payload);
+  }
+
   useEffect(() => {
     const unsubscribeSelection = subscribeToSelection((payload) => {
       startTransition(() => {
@@ -1002,16 +1174,18 @@ function DesignToolRuntime() {
 
     const unsubscribeSaveResult = subscribeToSaveResult((payload: SaveResult) => {
       startTransition(() => {
+        const pendingPayload = pendingSavePayloadRef.current;
+        pendingSavePayloadRef.current = null;
         setSavePending(false);
         setSaveResult(payload);
 
-        if (payload.success) {
-          clearSessionDrafts();
+        if (payload.success && pendingPayload) {
+          const sources = collectMutationSources(draftsRef.current, pendingPayload);
 
-          if (closeAfterSaveRef.current) {
-            setCloseAfterSave(false);
-            setCloseGuardOpen(false);
-            setEnabled(false);
+          setDrafts((current) => commitPersistedDrafts(current, pendingPayload));
+
+          for (const source of sources) {
+            requestStyleAnalysis({ source });
           }
         }
       });
@@ -1051,8 +1225,7 @@ function DesignToolRuntime() {
   useEffect(() => {
     if (!enabled) {
       clearSessionDrafts();
-      setCloseAfterSave(false);
-      setCloseGuardOpen(false);
+      pendingSavePayloadRef.current = null;
       setSavePending(false);
       setSaveResult(null);
       return;
@@ -1145,8 +1318,14 @@ function DesignToolRuntime() {
       }
 
       event.preventDefault();
-      if (getDirtyDrafts(draftsRef.current).length > 0) {
-        setCloseGuardOpen(true);
+      const closeBlockedMessage = getCloseBlockedMessage();
+
+      if (closeBlockedMessage) {
+        setSaveResult({
+          success: false,
+          error: closeBlockedMessage,
+          warnings: [],
+        });
         return;
       }
 
@@ -1270,13 +1449,13 @@ function DesignToolRuntime() {
     (draft) => draft.saveEnabled && Boolean(draft.saveCapability)
   );
   const saveBlockedReason = hasPendingStyleAnalysis
-    ? 'Finish style analysis for the selected element before saving to a branch.'
+    ? 'Finishing style analysis before Update Design can apply the latest source changes.'
     : !saveEnabled
-      ? 'Save to branch is disabled. Enable `enableSave` in `hawkeyePlugin()` to persist source changes.'
+      ? 'Direct source writes are disabled. Enable `enableSave` in `hawkeyePlugin()` to use Update Design.'
       : null;
 
   useEffect(() => {
-    if (!hasPendingDrafts) {
+    if (!hasPendingDrafts && !savePending) {
       return;
     }
 
@@ -1291,45 +1470,22 @@ function DesignToolRuntime() {
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [hasPendingDrafts]);
-
-  function savePendingDrafts() {
-    if (savePending) {
-      return;
-    }
-
-    if (saveBlockedReason) {
-      setSaveResult({
-        success: false,
-        error: saveBlockedReason,
-        warnings: [],
-      });
-      return;
-    }
-
-    const payload = buildSavePayload(getDirtyDrafts(draftsRef.current));
-
-    if (!payload.capability || payload.mutations.length === 0) {
-      return;
-    }
-
-    setSavePending(true);
-    setSaveResult(null);
-    requestSave(payload);
-  }
+  }, [hasPendingDrafts, savePending]);
 
   function attemptToggleInspector() {
-    if (savePending) {
-      return;
-    }
-
     if (!enabled) {
       setEnabled(true);
       return;
     }
 
-    if (getDirtyDrafts(draftsRef.current).length > 0) {
-      setCloseGuardOpen(true);
+    const closeBlockedMessage = getCloseBlockedMessage();
+
+    if (closeBlockedMessage) {
+      setSaveResult({
+        success: false,
+        error: closeBlockedMessage,
+        warnings: [],
+      });
       return;
     }
 
@@ -1355,25 +1511,13 @@ function DesignToolRuntime() {
     <Inspector
       enabled={enabled}
       hovered={hovered}
-      closeGuardOpen={closeGuardOpen}
       onChange={updateDraftProperty}
-      onCloseGuardCancel={() => setCloseGuardOpen(false)}
-      onCloseGuardDiscard={() => {
-        setCloseAfterSave(false);
-        setCloseGuardOpen(false);
-        setEnabled(false);
-      }}
-      onCloseGuardSave={() => {
-        setCloseAfterSave(true);
-        setCloseGuardOpen(false);
-        savePendingDrafts();
-      }}
       onChangeSizeMode={updateSizeMode}
       onChangeSizeValue={updateSizeProperty}
       onDetach={detachSelectedDraft}
       onResetAll={resetAllChanges}
       onResetProperty={resetProperty}
-      onSave={savePendingDrafts}
+      onSave={applyPendingDrafts}
       onSelectByKey={selectByKey}
       onToggleAspectRatioLock={toggleAspectRatioLock}
       onToggle={attemptToggleInspector}

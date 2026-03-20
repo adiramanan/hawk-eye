@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { LayersPanel } from './LayersPanel';
+import triggerLogo from './assets/brand/Logo-White.svg';
 import { PropertiesPanel } from './PropertiesPanel';
 import type { EditablePropertyId, MeasuredElement, SaveResult, SelectionDraft, SizeAxis, SizeMode } from './types';
 
 interface InspectorProps {
-  closeGuardOpen: boolean;
   enabled: boolean;
   hovered: MeasuredElement | null;
   pendingDrafts: SelectionDraft[];
@@ -15,9 +14,6 @@ interface InspectorProps {
   selectedDraft: SelectionDraft | null;
   selectedInstanceKey: string | null;
   onChange(propertyId: EditablePropertyId, value: string): void;
-  onCloseGuardCancel(): void;
-  onCloseGuardDiscard(): void;
-  onCloseGuardSave(): void;
   onChangeSizeMode(axis: SizeAxis, mode: SizeMode): void;
   onChangeSizeValue(axis: SizeAxis, value: string): void;
   onDetach(): void;
@@ -36,10 +32,10 @@ interface DragState {
   startPanelY: number;
 }
 
-type InspectorView = 'properties' | 'changes' | 'layers';
+type InspectorView = 'properties' | 'changes';
 
 const PANEL_HEIGHT = 792;
-const PANEL_WIDTH = 320;
+const PANEL_WIDTH = 360;
 const PANEL_VIEWPORT_GUTTER = 24;
 
 function getDefaultPanelPos() {
@@ -72,7 +68,7 @@ function toMeasureStyle(measured: MeasuredElement): CSSProperties {
 
 function getSaveStatusMessage(savePending: boolean, saveResult: SaveResult | null) {
   if (savePending) {
-    return 'Saving…';
+    return 'Syncing source…';
   }
 
   if (!saveResult) {
@@ -80,12 +76,16 @@ function getSaveStatusMessage(savePending: boolean, saveResult: SaveResult | nul
   }
 
   if (saveResult.success) {
+    const targetLabel =
+      saveResult.modifiedFiles.length === 1
+        ? saveResult.modifiedFiles[0]
+        : `${saveResult.modifiedFiles.length} files`;
     const warningSuffix =
       saveResult.warnings.length > 0 ? ` ${saveResult.warnings.length} warning(s).` : '';
-    return `Saved to ${saveResult.branch} @ ${saveResult.commitSha.slice(0, 7)}. Review with git show ${saveResult.branch}.${warningSuffix}`;
+    return `Updated ${targetLabel}.${warningSuffix}`;
   }
 
-  return saveResult.branch ? `${saveResult.error} (${saveResult.branch})` : saveResult.error;
+  return saveResult.error;
 }
 
 function getDirtyProperties(
@@ -132,7 +132,6 @@ function canDetachDraft(draft: SelectionDraft | null) {
 }
 
 export function Inspector({
-  closeGuardOpen,
   enabled,
   hovered,
   pendingDrafts,
@@ -143,9 +142,6 @@ export function Inspector({
   selectedDraft,
   selectedInstanceKey,
   onChange,
-  onCloseGuardCancel,
-  onCloseGuardDiscard,
-  onCloseGuardSave,
   onChangeSizeMode,
   onChangeSizeValue,
   onDetach,
@@ -170,8 +166,6 @@ export function Inspector({
     0,
   );
   const showDetach = canDetachDraft(selectedDraft);
-  const saveButtonLabel = savePending ? 'Saving…' : 'Save to Branch';
-  const saveDisabled = savePending || totalChanges === 0 || Boolean(saveBlockedReason);
   useEffect(() => {
     if (pendingDrafts.length === 0) setView('properties');
   }, [pendingDrafts.length]);
@@ -229,7 +223,7 @@ export function Inspector({
   }
 
   function handleResetAll() {
-    if (totalChanges === 0) {
+    if (savePending || totalChanges === 0) {
       return;
     }
 
@@ -238,46 +232,6 @@ export function Inspector({
     }
 
     onResetAll();
-  }
-
-  function renderTabIcon(tab: 'properties' | 'layers') {
-    if (tab === 'properties') {
-      return (
-        <svg fill="none" height="14" viewBox="0 0 14 14" width="14" xmlns="http://www.w3.org/2000/svg">
-          <path
-            d="M2.2 2.2h9.6v9.6H2.2zM5 4.6h4M5 7h4M5 9.4h2.8"
-            stroke="currentColor"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="1.2"
-          />
-        </svg>
-      );
-    }
-
-    return (
-      <svg fill="none" height="14" viewBox="0 0 14 14" width="14" xmlns="http://www.w3.org/2000/svg">
-        <path
-          d="M7 1.8L11.8 4.4L7 7L2.2 4.4L7 1.8ZM2.2 6.8L7 9.4L11.8 6.8M2.2 9.2L7 11.8L11.8 9.2"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="1.2"
-        />
-      </svg>
-    );
-  }
-
-  function renderBrandMark() {
-    return (
-      <svg fill="none" height="18" viewBox="0 0 18 18" width="18" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="9" cy="9" opacity="0.18" r="8" stroke="currentColor" strokeWidth="1.2" />
-        <path
-          d="M9 2.8L10.5 5.4L13.4 6L11.4 8.1L11.8 11L9 9.6L6.2 11L6.6 8.1L4.6 6L7.5 5.4L9 2.8Z"
-          fill="currentColor"
-        />
-      </svg>
-    );
   }
 
   return (
@@ -332,7 +286,9 @@ export function Inspector({
                   'Changes Done'
                 ) : (
                   <span data-hawk-eye-ui="panel-brand">
-                    <span data-hawk-eye-ui="panel-brand-mark">{renderBrandMark()}</span>
+                    <span data-hawk-eye-ui="panel-brand-mark">
+                      <img alt="" data-hawk-eye-ui="panel-brand-image" src={triggerLogo} />
+                    </span>
                     <span data-hawk-eye-ui="panel-brand-copy">Hawk-Eye</span>
                   </span>
                 )}
@@ -358,29 +314,6 @@ export function Inspector({
                 </button>
               )}
             </div>
-
-            {view !== 'changes' && (
-              <div data-hawk-eye-ui="panel-tabs">
-                <button
-                  data-active={view === 'layers' ? 'true' : 'false'}
-                  data-hawk-eye-ui="panel-tab"
-                  onClick={() => setView('layers')}
-                  type="button"
-                >
-                  <span data-hawk-eye-ui="panel-tab-icon">{renderTabIcon('layers')}</span>
-                  Layers
-                </button>
-                <button
-                  data-active={view === 'properties' ? 'true' : 'false'}
-                  data-hawk-eye-ui="panel-tab"
-                  onClick={() => setView('properties')}
-                  type="button"
-                >
-                  <span data-hawk-eye-ui="panel-tab-icon">{renderTabIcon('properties')}</span>
-                  Properties
-                </button>
-              </div>
-            )}
 
             {selectedDraft && view !== 'changes' && showDetach ? (
               <div data-hawk-eye-ui="panel-meta">
@@ -460,11 +393,6 @@ export function Inspector({
                     );
                   })}
                 </div>
-              ) : view === 'layers' ? (
-                <LayersPanel
-                  selectedInstanceKey={selectedInstanceKey}
-                  onSelectByKey={onSelectByKey}
-                />
               ) : selectedDraft ? (
                 <PropertiesPanel
                   context={selectedDraft.context}
@@ -492,7 +420,7 @@ export function Inspector({
                   </svg>
                   <p data-hawk-eye-ui="empty-state-title">No element selected</p>
                   <p data-hawk-eye-ui="empty-state-body">
-                    Hover any element on the page and click to lock it. Properties and branch-save actions will appear here.
+                    Hover any element on the page and click to lock it. Property edits preview instantly and update source when you click Update Design.
                   </p>
                 </div>
               )}
@@ -500,15 +428,6 @@ export function Inspector({
 
             {view === 'changes' ? (
               <div data-hawk-eye-ui="panel-footer">
-                <button
-                  data-hawk-eye-control="save"
-                  data-hawk-eye-ui="footer-apply-btn"
-                  disabled={saveDisabled}
-                  onClick={onSave}
-                  type="button"
-                >
-                  {saveButtonLabel}
-                </button>
                 <button
                   aria-label="Back to properties"
                   data-hawk-eye-ui="footer-icon-btn"
@@ -525,50 +444,39 @@ export function Inspector({
                   </svg>
                 </button>
                 <button
-                  aria-label="Revert all changes"
-                  data-hawk-eye-ui="footer-icon-btn"
-                  onClick={handleResetAll}
-                  type="button"
-                >
-                  <svg fill="none" height="16" viewBox="0 0 16 16" width="16" xmlns="http://www.w3.org/2000/svg">
-                    <path
-                      d="M3 8a5 5 0 1 0 1.5-3.5L3 3v3h3L4.5 4.5"
-                      stroke="currentColor"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="1.4"
-                    />
-                  </svg>
-                </button>
-              </div>
-            ) : view === 'properties' && selectedDraft ? (
-              <div data-hawk-eye-ui="panel-footer">
-                <button
-                  data-hawk-eye-control="save"
-                  data-hawk-eye-ui="footer-apply-btn"
-                  disabled={saveDisabled}
-                  onClick={onSave}
-                  type="button"
-                >
-                  {saveButtonLabel}
-                </button>
-                <button
                   data-hawk-eye-ui="footer-revert-btn"
-                  disabled={totalChanges === 0}
+                  disabled={savePending || totalChanges === 0}
                   onClick={handleResetAll}
                   type="button"
                 >
                   Revert
                 </button>
-              </div>
-            ) : view === 'layers' && totalChanges > 0 ? (
-              <div data-hawk-eye-ui="panel-footer">
                 <button
-                  data-hawk-eye-ui="footer-changes-btn"
-                  onClick={() => setView('changes')}
+                  data-hawk-eye-ui="footer-apply-btn"
+                  disabled={savePending || Boolean(saveBlockedReason) || totalChanges === 0}
+                  onClick={onSave}
                   type="button"
                 >
-                  {totalChanges} {totalChanges === 1 ? 'Change' : 'Changes'} ›
+                  {savePending ? 'Updating…' : 'Update Design'}
+                </button>
+              </div>
+            ) : view === 'properties' && selectedDraft && totalChanges > 0 ? (
+              <div data-hawk-eye-ui="panel-footer">
+                <button
+                  data-hawk-eye-ui="footer-revert-btn"
+                  disabled={savePending || totalChanges === 0}
+                  onClick={handleResetAll}
+                  type="button"
+                >
+                  Revert
+                </button>
+                <button
+                  data-hawk-eye-ui="footer-apply-btn"
+                  disabled={savePending || Boolean(saveBlockedReason) || totalChanges === 0}
+                  onClick={onSave}
+                  type="button"
+                >
+                  {savePending ? 'Updating…' : 'Update Design'}
                 </button>
               </div>
             ) : null}
@@ -596,47 +504,15 @@ export function Inspector({
                 ) : null}
               </div>
             ) : null}
-
-            {closeGuardOpen ? (
-              <div data-hawk-eye-ui="close-guard-backdrop">
-                <div
-                  aria-labelledby="hawk-eye-close-guard-title"
-                  aria-modal="true"
-                  data-hawk-eye-ui="close-guard-dialog"
-                  role="dialog"
-                >
-                  <h3 data-hawk-eye-ui="close-guard-title" id="hawk-eye-close-guard-title">
-                    Unsaved Changes
-                  </h3>
-                  <p data-hawk-eye-ui="close-guard-body">
-                    You have unsaved preview changes. Save them to a review branch, discard them, or keep editing.
-                  </p>
-                  <div data-hawk-eye-ui="close-guard-actions">
-                    <button
-                      data-hawk-eye-ui="footer-apply-btn"
-                      disabled={saveDisabled}
-                      onClick={onCloseGuardSave}
-                      type="button"
-                    >
-                      {saveButtonLabel}
-                    </button>
-                    <button data-hawk-eye-ui="footer-revert-btn" onClick={onCloseGuardDiscard} type="button">
-                      Discard
-                    </button>
-                    <button data-hawk-eye-ui="footer-reset-btn" onClick={onCloseGuardCancel} type="button">
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : null}
           </aside>
         ) : null}
 
         {!enabled ? (
           <button data-hawk-eye-ui="trigger" onClick={onToggle} type="button">
-            <span data-hawk-eye-ui="trigger-dot" />
-            Inspect with Hawk-Eye
+            <span data-hawk-eye-ui="trigger-brand-mark">
+              <img alt="" data-hawk-eye-ui="trigger-brand-image" src={triggerLogo} />
+            </span>
+            <span data-hawk-eye-ui="trigger-copy">Hawk-Eye</span>
           </button>
         ) : null}
       </div>

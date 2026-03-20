@@ -109,7 +109,7 @@ Not implemented:
 
 - publish one installable package under `hawk-eye`
 - keep the internal client/plugin split
-- keep save opt-in through `hawkeyePlugin({ enableSave: true })`
+- keep direct source writes opt-in through `hawkeyePlugin({ enableSave: true })`
 
 ## Phase 0 Acceptance Criteria
 

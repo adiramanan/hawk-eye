@@ -28,7 +28,12 @@ pnpm build
 
 ```text
 hawk-eye/
-├── .agents/             # Multi-agent handoff files
+├── AGENTS.md            # Agent entrypoint and memory workflow
+├── CLAUDE.md            # Claude bridge into AGENTS.md
+├── CODEX.md             # Codex bridge into AGENTS.md
+├── GEMINI.md            # Gemini bridge into AGENTS.md
+├── .memory/             # Canonical shared memory files
+├── .agents/             # Legacy migration input
 ├── packages/
 │   ├── client/          # Internal React runtime
 │   ├── vite-plugin/     # Internal Vite integration
@@ -41,20 +46,34 @@ hawk-eye/
 └── tsup.config.ts       # Shared package build config
 ```
 
-## Multi-Agent Handoff Ritual
+## Agent Memory Workflow
 
-When starting work:
+Read [`AGENTS.md`](./AGENTS.md) first. Then:
 
-1. Read [`.agents/CURRENT_CONTEXT.md`](./.agents/CURRENT_CONTEXT.md)
-2. Read [`.agents/MEMORY.md`](./.agents/MEMORY.md)
-3. Skim [`.agents/BLOCKERS.md`](./.agents/BLOCKERS.md)
-4. Check [`.agents/PHASE_STATUS.md`](./.agents/PHASE_STATUS.md)
+1. Read [`.memory/CURRENT_CONTEXT.md`](./.memory/CURRENT_CONTEXT.md)
+2. Read [`.memory/MEMORY.md`](./.memory/MEMORY.md)
+3. Skim [`.memory/BLOCKERS.md`](./.memory/BLOCKERS.md)
+4. Check [`.memory/PHASE_STATUS.md`](./.memory/PHASE_STATUS.md)
 
-When ending work:
+No bootstrap command is required. The repo already contains the canonical memory protocol.
 
-1. Update `CURRENT_CONTEXT.md`
-2. Record durable learnings in `MEMORY.md` or `DECISIONS.md`
-3. Add blockers if any new ones were discovered
+Default workflow:
+
+1. Create or continue one session file in [`.memory/sessions/`](./.memory/sessions/) using [`.memory/templates/session.md`](./.memory/templates/session.md)
+2. Append one receipt when opening and one when closing the session in [`.memory/receipts.jsonl`](./.memory/receipts.jsonl)
+3. Store durable notes in [`.memory/notes/`](./.memory/notes/) using [`.memory/templates/note.md`](./.memory/templates/note.md)
+4. Update [`.memory/CURRENT_CONTEXT.md`](./.memory/CURRENT_CONTEXT.md) when closing the session
+
+Optional helpers:
+
+```bash
+pnpm memory:migrate
+pnpm memory:doctor
+```
+
+Compatibility helpers remain available for one transition cycle, but they are not the required workflow.
+
+`.agents/` is kept only as legacy import input for older clones and should not be treated as the live memory contract.
 
 ## Git Workflow
 
