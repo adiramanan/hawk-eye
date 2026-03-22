@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { DesignTool } from '../packages/client/src';
 import hawkeyePlugin from '../packages/vite-plugin/src';
@@ -48,5 +49,13 @@ describe('workspace smoke tests', () => {
       'hawk-eye:analyze-style',
       'hawk-eye:save',
     ]);
+  });
+
+  it('declares a public CLI bin for installer usage', () => {
+    const packageJson = JSON.parse(
+      readFileSync(new URL('../packages/hawk-eye/package.json', import.meta.url), 'utf8')
+    ) as { bin?: Record<string, string> };
+
+    expect(packageJson.bin?.['hawk-eye']).toBe('./dist/cli.js');
   });
 });

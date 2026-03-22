@@ -54,6 +54,7 @@ describe('inspect request handling', () => {
     const state = createHawkEyeServerState({ enableSave: true });
     const client = { send: vi.fn() };
     const payload = resolveSelectionPayload(state, client as never, {
+      clientId: 'preview-a',
       source: createSignedSourceToken(state, 'demo/src/App.tsx', 1, 1),
     });
 
@@ -71,6 +72,7 @@ describe('inspect request handling', () => {
     const state = createHawkEyeServerState({ enableSave: true });
     const client = { send: vi.fn() };
     const payload = resolveSelectionPayload(state, client as never, {
+      clientId: 'preview-a',
       source: createSignedSourceToken(state, '../secrets.tsx', 1, 1),
     });
 
@@ -84,6 +86,7 @@ describe('inspect request handling', () => {
     };
 
     const payload = handleInspectRequest(state, client as never, {
+      clientId: 'preview-a',
       source: createSignedSourceToken(state, 'demo/src/App.tsx', 1, 1),
     });
 
@@ -104,6 +107,7 @@ describe('inspect request handling', () => {
     };
 
     const payload = handleStyleAnalysisRequest(workspace.state, client as never, {
+      clientId: 'preview-a',
       source: workspace.sourceToken,
     });
 
@@ -111,11 +115,39 @@ describe('inspect request handling', () => {
       source: workspace.sourceToken,
       mode: 'tailwind',
       classNames: ['px-4', 'py-2', 'rounded-lg'],
+      classAttributeState: 'literal',
       inlineStyles: {},
+      styleAttributeState: 'missing',
       fingerprint: expect.any(String),
       saveCapability: expect.any(String),
       saveEnabled: true,
     });
     expect(client.send).toHaveBeenCalledWith(HAWK_EYE_STYLE_ANALYSIS_EVENT, payload);
+  });
+
+  it('replays cached style analysis with the requesting client session capability', () => {
+    const workspace = createTempWorkspace(`
+      export function App() {
+        return (
+          <button className="px-4 py-2 rounded-lg">Save</button>
+        );
+      }
+    `);
+    const firstClient = { send: vi.fn() };
+    const secondClient = { send: vi.fn() };
+
+    const firstPayload = handleStyleAnalysisRequest(workspace.state, firstClient as never, {
+      clientId: 'preview-a',
+      source: workspace.sourceToken,
+    });
+    const secondPayload = handleStyleAnalysisRequest(workspace.state, secondClient as never, {
+      clientId: 'preview-b',
+      source: workspace.sourceToken,
+    });
+
+    expect(firstPayload?.fingerprint).toBe(secondPayload?.fingerprint);
+    expect(firstPayload?.saveCapability).toEqual(expect.any(String));
+    expect(secondPayload?.saveCapability).toEqual(expect.any(String));
+    expect(firstPayload?.saveCapability).not.toBe(secondPayload?.saveCapability);
   });
 });

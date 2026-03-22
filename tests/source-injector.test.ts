@@ -45,4 +45,10 @@ describe('source injector', () => {
       new RegExp(`${HAWK_EYE_SOURCE_ATTRIBUTE}="src/Card.tsx:3:10:[a-f0-9]{16}"`)
     );
   });
+
+  it('fails closed when Babel cannot parse the source', () => {
+    const code = `export function App() {\n  return <div>\n}\n`;
+
+    expect(injectSourceMetadata(code, '/repo/src/Broken.tsx', repoRoot, serverState)).toBeNull();
+  });
 });

@@ -19,15 +19,16 @@ Implemented:
 - inspector trigger, hover overlay, click-to-lock selection, and repo-relative source display
 - guided property controls for spacing, radius, colors, typography, and opacity
 - live DOM preview with session-scoped pending changes and reset controls
+- direct source write-back from the inspector when `hawkeyePlugin({ enableSave: true })` is enabled
+- AST-backed style analysis and source mutation for supported tailwind and inline cases
 
 Not implemented:
 
 - Framer-level design panel with rich controls (color picker, per-side, selects, segmented, toggles)
 - comprehensive CSS property coverage (60-80 properties across 10+ groups)
 - collapsible section system
-- style-strategy-specific source mutation
-- writing changes back to source files
 - durable diff/apply workflows
+- fully structural rewrites for every dynamic `className` and `style` expression shape
 
 ## Phase Plan
 
@@ -110,6 +111,7 @@ Not implemented:
 - publish one installable package under `hawk-eye`
 - keep the internal client/plugin split
 - keep direct source writes opt-in through `hawkeyePlugin({ enableSave: true })`
+- keep the demo consuming the workspace-built public package output
 
 ## Phase 0 Acceptance Criteria
 

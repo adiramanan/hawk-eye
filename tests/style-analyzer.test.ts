@@ -51,6 +51,8 @@ describe('style analyzer', () => {
           <span className="p-4 text-sm" style={{ color: '#fff' }}>Mixed</span>
           <article className="w-full rounded-lg" style={{ '--hawk-eye-width-mode': 'relative', '--hawk-eye-height-mode': 'fill' }}>Metadata</article>
           <p className={getClassName()}>Dynamic class</p>
+          <aside style={styles}>Dynamic style</aside>
+          <em style="color:red">Legacy style attribute</em>
           <img className="card card--hero" />
         </section>
       );
@@ -64,42 +66,74 @@ describe('style analyzer', () => {
     const spanPosition = getLineAndColumn(fixtureSource, '<span');
     const articlePosition = getLineAndColumn(fixtureSource, '<article');
     const dynamicPosition = getLineAndColumn(fixtureSource, '<p');
+    const expressionStylePosition = getLineAndColumn(fixtureSource, '<aside');
+    const dynamicStylePosition = getLineAndColumn(fixtureSource, '<em');
     const customPosition = getLineAndColumn(fixtureSource, '<img');
 
     expect(analyzeStyleAtPosition(filePath, divPosition.line, divPosition.column)).toEqual({
       mode: 'tailwind',
       classNames: ['px-4', 'py-2', 'bg-white', 'text-gray-900', 'rounded-lg', 'shadow-sm'],
+      classAttributeState: 'literal',
       inlineStyles: {},
+      styleAttributeState: 'missing',
     });
     expect(analyzeStyleAtPosition(filePath, buttonPosition.line, buttonPosition.column)).toEqual({
       mode: 'inline',
       classNames: [],
+      classAttributeState: 'missing',
       inlineStyles: {
         'background-color': '#112233',
         'font-size': '18',
       },
+      styleAttributeState: 'object',
     });
     expect(analyzeStyleAtPosition(filePath, spanPosition.line, spanPosition.column)).toEqual({
       mode: 'mixed',
       classNames: ['p-4', 'text-sm'],
+      classAttributeState: 'literal',
       inlineStyles: {
         color: '#fff',
       },
+      styleAttributeState: 'object',
     });
     expect(analyzeStyleAtPosition(filePath, articlePosition.line, articlePosition.column)).toEqual({
       mode: 'tailwind',
       classNames: ['w-full', 'rounded-lg'],
+      classAttributeState: 'literal',
       inlineStyles: {},
+      styleAttributeState: 'object',
     });
     expect(analyzeStyleAtPosition(filePath, dynamicPosition.line, dynamicPosition.column)).toEqual({
       mode: 'unknown',
       classNames: [],
+      classAttributeState: 'dynamic',
       inlineStyles: {},
+      styleAttributeState: 'missing',
+    });
+    expect(
+      analyzeStyleAtPosition(filePath, expressionStylePosition.line, expressionStylePosition.column)
+    ).toEqual({
+      mode: 'unknown',
+      classNames: [],
+      classAttributeState: 'missing',
+      inlineStyles: {},
+      styleAttributeState: 'expression',
+    });
+    expect(
+      analyzeStyleAtPosition(filePath, dynamicStylePosition.line, dynamicStylePosition.column)
+    ).toEqual({
+      mode: 'unknown',
+      classNames: [],
+      classAttributeState: 'missing',
+      inlineStyles: {},
+      styleAttributeState: 'dynamic',
     });
     expect(analyzeStyleAtPosition(filePath, customPosition.line, customPosition.column)).toEqual({
       mode: 'unknown',
       classNames: ['card', 'card--hero'],
+      classAttributeState: 'literal',
       inlineStyles: {},
+      styleAttributeState: 'missing',
     });
   });
 });

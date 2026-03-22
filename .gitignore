@@ -39,5 +39,7 @@ Thumbs.db
 # Demo outputs
 demo/dist/
 demo/.vite/
+output/
+.playwright-cli/
 
 .claude/

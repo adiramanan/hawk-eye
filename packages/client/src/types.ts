@@ -1,9 +1,12 @@
 import type {
+  ClassAttributeState,
   SelectionPayload,
   SizeMode,
+  StyleAttributeState,
   StyleMode,
 } from '../../../shared/protocol';
 export type {
+  ClassAttributeState,
   ClientPropertyMutation as PropertyMutationPayload,
   ElementMutationRequest as ElementMutationPayload,
   InspectRequest,
@@ -13,6 +16,7 @@ export type {
   SelectionPayload,
   SizeMode,
   SizeModeMetadata as SizeModeMetadataPayload,
+  StyleAttributeState,
   StyleAnalysisPayload,
   StyleMode,
 } from '../../../shared/protocol';
@@ -21,9 +25,11 @@ export interface SelectionDetails extends SelectionPayload {
   analysisFingerprint: string;
   instanceKey: string;
   classNames: string[];
+  classAttributeState: ClassAttributeState;
   inlineStyles: Record<string, string>;
   saveCapability: string | null;
   saveEnabled: boolean;
+  styleAttributeState: StyleAttributeState;
   styleAnalysisResolved: boolean;
   styleMode: StyleMode;
   tagName: string;

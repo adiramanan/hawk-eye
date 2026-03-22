@@ -18,7 +18,12 @@ import {
   resetDraftProperty,
   resetDraftSizeMode,
 } from './drafts';
-import { Inspector } from './Inspector';
+import {
+  Inspector,
+  type InspectorMotionTimings,
+  type InspectorShellState,
+  type ToggleIntent,
+} from './Inspector';
 import {
   formatSizeValue,
   getNumericMemoryValue,
@@ -54,9 +59,16 @@ export interface DesignToolProps {
   // Phase 2 keeps the public API zero-config.
 }
 
-function buildSavePayload(drafts: SelectionDraft[]): SavePayload {
+type PendingSavePayload = Omit<SavePayload, 'clientId'>;
+
+const SHELL_HANDOFF_DURATION_MS = 220;
+const VIEW_TRANSITION_DURATION_MS = 180;
+const STATUS_TRANSITION_DURATION_MS = 160;
+const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
+
+function buildSavePayload(drafts: SelectionDraft[]): PendingSavePayload {
   const capability = drafts.find((draft) => draft.saveCapability)?.saveCapability;
-  const mutations: SavePayload['mutations'] = [];
+  const mutations: PendingSavePayload['mutations'] = [];
 
   for (const draft of drafts) {
     const propertyIds = draft.detached
@@ -80,9 +92,7 @@ function buildSavePayload(drafts: SelectionDraft[]): SavePayload {
       detached: draft.detached,
       fingerprint: draft.analysisFingerprint,
       properties,
-      ...(sizeModeMetadata.width || sizeModeMetadata.height
-        ? { sizeModeMetadata }
-        : {}),
+      ...(sizeModeMetadata.width || sizeModeMetadata.height ? { sizeModeMetadata } : {}),
     });
   }
 
@@ -94,12 +104,10 @@ function buildSavePayload(drafts: SelectionDraft[]): SavePayload {
 
 function mutationMatchesDraft(
   draft: SelectionDraft,
-  mutation: SavePayload['mutations'][number]
+  mutation: PendingSavePayload['mutations'][number]
 ) {
   return (
-    draft.file === mutation.file &&
-    draft.line === mutation.line &&
-    draft.column === mutation.column
+    draft.file === mutation.file && draft.line === mutation.line && draft.column === mutation.column
   );
 }
 
@@ -155,7 +163,7 @@ function commitPersistedSizeModeSnapshot(
 
 function commitPersistedDrafts(
   currentDrafts: Record<string, SelectionDraft>,
-  payload: SavePayload
+  payload: PendingSavePayload
 ) {
   let changed = false;
   const nextDrafts = { ...currentDrafts };
@@ -183,10 +191,7 @@ function commitPersistedDrafts(
 
       nextProperties = {
         ...nextProperties,
-        [propertyId]: commitPersistedPropertySnapshot(
-          currentSnapshot,
-          propertyMutation.newValue
-        ),
+        [propertyId]: commitPersistedPropertySnapshot(currentSnapshot, propertyMutation.newValue),
       };
     }
 
@@ -224,19 +229,23 @@ function commitPersistedDrafts(
 
 function collectMutationSources(
   currentDrafts: Record<string, SelectionDraft>,
-  payload: SavePayload
+  payload: PendingSavePayload
 ) {
   const sources = new Set<string>();
 
   for (const draft of Object.values(currentDrafts)) {
-    if (
-      payload.mutations.some((mutation) => mutationMatchesDraft(draft, mutation))
-    ) {
+    if (payload.mutations.some((mutation) => mutationMatchesDraft(draft, mutation))) {
       sources.add(draft.source);
     }
   }
 
   return Array.from(sources);
+}
+
+function hasInvalidCapabilityWarning(payload: SaveResult) {
+  return (
+    !payload.success && payload.warnings.some((warning) => warning.code === 'invalid-capability')
+  );
 }
 
 function parseSourceToken(source: string) {
@@ -449,8 +458,37 @@ function buildSelectionDetails(
     styleAnalysisResolved: false,
     tagName: measured.element.tagName.toLowerCase(),
     classNames: [],
+    classAttributeState: 'missing',
     inlineStyles: {},
+    styleAttributeState: 'missing',
   };
+}
+
+const DYNAMIC_CLASS_INLINE_FALLBACK_MESSAGE =
+  'Dynamic className: edits will be written to inline styles.';
+const DYNAMIC_CLASS_STYLE_WRAP_FALLBACK_MESSAGE =
+  'Dynamic className + dynamic style: edits will be persisted by wrapping the style prop.';
+const DYNAMIC_CLASS_UNSUPPORTED_STYLE_MESSAGE =
+  'Dynamic className + unsupported style prop: Update Design cannot persist edits for this element yet.';
+
+function getDynamicClassPersistenceState(draft: SelectionDraft | null) {
+  if (!draft || draft.detached || !draft.styleAnalysisResolved) {
+    return null;
+  }
+
+  if (draft.classAttributeState !== 'dynamic') {
+    return null;
+  }
+
+  if (draft.styleAttributeState === 'expression') {
+    return 'style-wrap-fallback';
+  }
+
+  if (draft.styleAttributeState === 'dynamic') {
+    return 'unsupported-dynamic-style';
+  }
+
+  return 'inline-fallback';
 }
 
 function createShadowPortalRoot() {
@@ -474,14 +512,21 @@ function DesignToolRuntime() {
   const [enabled, setEnabled] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, SelectionDraft>>({});
   const [hovered, setHovered] = useState<MeasuredElement | null>(null);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const [savePending, setSavePending] = useState(false);
   const [saveResult, setSaveResult] = useState<SaveResult | null>(null);
   const [selected, setSelected] = useState<MeasuredElement | null>(null);
   const [selectedInstanceKey, setSelectedInstanceKey] = useState<string | null>(null);
+  const [shellState, setShellState] = useState<InspectorShellState>('closed');
   const draftsRef = useRef<Record<string, SelectionDraft>>({});
   const hoverFrameRef = useRef(0);
-  const pendingSavePayloadRef = useRef<SavePayload | null>(null);
+  const pendingSavePayloadRef = useRef<PendingSavePayload | null>(null);
   const pointerRef = useRef<{ x: number; y: number } | null>(null);
+  const retrySavePayloadRef = useRef<PendingSavePayload | null>(null);
+  const retrySaveSourceRef = useRef<string | null>(null);
+  const saveRetriedRef = useRef(false);
+  const shellTimerRef = useRef<number | null>(null);
+  const selectedRef = useRef<MeasuredElement | null>(null);
   const selectedInstanceKeyRef = useRef<string | null>(null);
   const syncMeasurementsFrameRef = useRef(0);
 
@@ -492,6 +537,89 @@ function DesignToolRuntime() {
   useEffect(() => {
     selectedInstanceKeyRef.current = selectedInstanceKey;
   }, [selectedInstanceKey]);
+
+  useEffect(() => {
+    selectedRef.current = selected;
+  }, [selected]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia(REDUCED_MOTION_QUERY);
+    const syncReducedMotion = () => {
+      setPrefersReducedMotion(mediaQuery.matches);
+    };
+
+    syncReducedMotion();
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', syncReducedMotion);
+      return () => {
+        mediaQuery.removeEventListener('change', syncReducedMotion);
+      };
+    }
+
+    mediaQuery.addListener(syncReducedMotion);
+    return () => {
+      mediaQuery.removeListener(syncReducedMotion);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (shellTimerRef.current) {
+        window.clearTimeout(shellTimerRef.current);
+      }
+    };
+  }, []);
+
+  function clearShellTimer() {
+    if (!shellTimerRef.current) {
+      return;
+    }
+
+    window.clearTimeout(shellTimerRef.current);
+    shellTimerRef.current = null;
+  }
+
+  function settleShellState(nextState: InspectorShellState) {
+    clearShellTimer();
+    setShellState(nextState);
+  }
+
+  function scheduleShellState(settlingState: InspectorShellState) {
+    clearShellTimer();
+    shellTimerRef.current = window.setTimeout(() => {
+      shellTimerRef.current = null;
+      setShellState(settlingState);
+    }, SHELL_HANDOFF_DURATION_MS);
+  }
+
+  function openInspector(intent: ToggleIntent) {
+    setEnabled(true);
+
+    if (intent === 'pointer' && !prefersReducedMotion) {
+      setShellState('opening');
+      scheduleShellState('open');
+      return;
+    }
+
+    settleShellState('open');
+  }
+
+  function closeInspector(intent: ToggleIntent) {
+    setEnabled(false);
+
+    if (intent === 'pointer' && !prefersReducedMotion) {
+      setShellState('closing');
+      scheduleShellState('closed');
+      return;
+    }
+
+    settleShellState('closed');
+  }
 
   function clearSessionDrafts() {
     for (const draft of Object.values(draftsRef.current)) {
@@ -510,6 +638,64 @@ function DesignToolRuntime() {
     setSaveResult(null);
   }
 
+  function rebindSelectedDraftToMeasurement(
+    previousInstanceKey: string,
+    nextMeasurement: MeasuredElement
+  ) {
+    const currentDraft = draftsRef.current[previousInstanceKey];
+
+    if (!currentDraft) {
+      return;
+    }
+
+    if (
+      currentDraft.source === nextMeasurement.source &&
+      previousInstanceKey === nextMeasurement.instanceKey
+    ) {
+      return;
+    }
+
+    const nextDetails = buildSelectionDetails(nextMeasurement, null);
+
+    if (!nextDetails) {
+      return;
+    }
+
+    setDrafts((current) => {
+      const draft = current[previousInstanceKey];
+
+      if (!draft) {
+        return current;
+      }
+
+      const nextDraft = {
+        ...draft,
+        source: nextDetails.source,
+        file: nextDetails.file,
+        line: nextDetails.line,
+        column: nextDetails.column,
+        instanceKey: nextMeasurement.instanceKey,
+        analysisFingerprint: '',
+        styleAnalysisResolved: false,
+      };
+
+      if (previousInstanceKey === nextMeasurement.instanceKey) {
+        return {
+          ...current,
+          [previousInstanceKey]: nextDraft,
+        };
+      }
+
+      const nextDrafts = { ...current };
+      delete nextDrafts[previousInstanceKey];
+      nextDrafts[nextMeasurement.instanceKey] = nextDraft;
+      return nextDrafts;
+    });
+
+    setSelectedInstanceKey(nextMeasurement.instanceKey);
+    requestSelection({ source: nextMeasurement.source });
+  }
+
   function getCloseBlockedMessage() {
     if (savePending) {
       return 'Wait for Update Design to finish before closing the inspector.';
@@ -523,9 +709,14 @@ function DesignToolRuntime() {
   }
 
   function refreshSelectedMeasurement(instanceKey: string, draftOverride?: SelectionDraft) {
-    const nextMeasurement = measureElementByKey(instanceKey);
+    const nextMeasurement =
+      (selectedRef.current?.instanceKey === instanceKey
+        ? measureElement(selectedRef.current.element)
+        : null) ?? measureElementByKey(instanceKey);
 
     if (nextMeasurement) {
+      rebindSelectedDraftToMeasurement(instanceKey, nextMeasurement);
+
       const nextDraft = draftOverride ?? draftsRef.current[instanceKey];
 
       if (nextDraft) {
@@ -842,9 +1033,10 @@ function DesignToolRuntime() {
       const parentIsGrid = parentDisplay === 'grid' || parentDisplay === 'inline-grid';
 
       // Determine if this axis is the main axis of the parent flex container
-      const parentFlexDirection = parentIsFlex && element.parentElement
-        ? window.getComputedStyle(element.parentElement).flexDirection
-        : '';
+      const parentFlexDirection =
+        parentIsFlex && element.parentElement
+          ? window.getComputedStyle(element.parentElement).flexDirection
+          : '';
       const isMainAxis =
         (parentFlexDirection === 'row' && axis === 'width') ||
         (parentFlexDirection === 'column' && axis === 'height') ||
@@ -1090,6 +1282,9 @@ function DesignToolRuntime() {
       return;
     }
 
+    retrySavePayloadRef.current = null;
+    retrySaveSourceRef.current = null;
+    saveRetriedRef.current = false;
     pendingSavePayloadRef.current = payload;
     setSavePending(true);
     setSaveResult(null);
@@ -1118,7 +1313,9 @@ function DesignToolRuntime() {
                 styleAnalysisResolved: false,
                 tagName: draft.tagName,
                 classNames: draft.classNames,
+                classAttributeState: draft.classAttributeState,
                 inlineStyles: draft.inlineStyles,
+                styleAttributeState: draft.styleAttributeState,
               }),
             ] as const;
           });
@@ -1156,9 +1353,11 @@ function DesignToolRuntime() {
                 styleMode: payload.mode,
                 styleAnalysisResolved: true,
                 classNames: payload.classNames,
+                classAttributeState: payload.classAttributeState,
                 inlineStyles: payload.inlineStyles,
                 saveCapability: payload.saveCapability,
                 saveEnabled: payload.saveEnabled,
+                styleAttributeState: payload.styleAttributeState,
               },
             ] as const;
           });
@@ -1169,13 +1368,49 @@ function DesignToolRuntime() {
 
           return Object.fromEntries(nextEntries);
         });
+
+        if (
+          retrySavePayloadRef.current &&
+          retrySaveSourceRef.current === payload.source &&
+          payload.saveCapability
+        ) {
+          const retryPayload = {
+            ...retrySavePayloadRef.current,
+            capability: payload.saveCapability,
+          };
+
+          retrySavePayloadRef.current = null;
+          retrySaveSourceRef.current = null;
+          pendingSavePayloadRef.current = retryPayload;
+          requestSave(retryPayload);
+        }
       });
     });
 
     const unsubscribeSaveResult = subscribeToSaveResult((payload: SaveResult) => {
       startTransition(() => {
         const pendingPayload = pendingSavePayloadRef.current;
+
+        if (pendingPayload && !saveRetriedRef.current && hasInvalidCapabilityWarning(payload)) {
+          const recoverySource =
+            collectMutationSources(draftsRef.current, pendingPayload)[0] ?? null;
+
+          if (recoverySource) {
+            saveRetriedRef.current = true;
+            retrySavePayloadRef.current = pendingPayload;
+            retrySaveSourceRef.current = recoverySource;
+            pendingSavePayloadRef.current = null;
+            setSavePending(true);
+            setSaveResult(null);
+            requestStyleAnalysis({ source: recoverySource });
+            return;
+          }
+        }
+
         pendingSavePayloadRef.current = null;
+        retrySavePayloadRef.current = null;
+        retrySaveSourceRef.current = null;
+        saveRetriedRef.current = false;
         setSavePending(false);
         setSaveResult(payload);
 
@@ -1226,6 +1461,9 @@ function DesignToolRuntime() {
     if (!enabled) {
       clearSessionDrafts();
       pendingSavePayloadRef.current = null;
+      retrySavePayloadRef.current = null;
+      retrySaveSourceRef.current = null;
+      saveRetriedRef.current = false;
       setSavePending(false);
       setSaveResult(null);
       return;
@@ -1283,9 +1521,11 @@ function DesignToolRuntime() {
 
     const handleClick = (event: MouseEvent) => {
       if (
-        event.composedPath().some(
-          (target): target is Element => target instanceof Element && isHawkEyeElement(target)
-        )
+        event
+          .composedPath()
+          .some(
+            (target): target is Element => target instanceof Element && isHawkEyeElement(target)
+          )
       ) {
         return;
       }
@@ -1329,7 +1569,7 @@ function DesignToolRuntime() {
         return;
       }
 
-      setEnabled(false);
+      closeInspector('escape');
     };
 
     document.addEventListener('pointermove', handlePointerMove, true);
@@ -1361,13 +1601,57 @@ function DesignToolRuntime() {
   }, [enabled]);
 
   useEffect(() => {
-    const activeDrafts = Object.values(drafts).filter(hasDraftChanges);
-
     if (
       !enabled ||
-      activeDrafts.length === 0 ||
+      !selectedInstanceKey ||
+      !selected?.element ||
       typeof window.MutationObserver === 'undefined'
     ) {
+      return;
+    }
+
+    const observedRoot = selected.element.parentElement ?? selected.element;
+    let frame = 0;
+
+    const syncSelectionSource = () => {
+      frame = 0;
+      const lockedInstanceKey = selectedInstanceKeyRef.current;
+
+      if (!lockedInstanceKey) {
+        return;
+      }
+
+      refreshSelectedMeasurement(lockedInstanceKey);
+    };
+
+    const observer = new window.MutationObserver(() => {
+      if (frame) {
+        return;
+      }
+
+      frame = window.requestAnimationFrame(syncSelectionSource);
+    });
+
+    observer.observe(observedRoot, {
+      attributes: true,
+      attributeFilter: [HAWK_EYE_SOURCE_ATTRIBUTE],
+      childList: true,
+      subtree: true,
+    });
+
+    return () => {
+      observer.disconnect();
+
+      if (frame) {
+        window.cancelAnimationFrame(frame);
+      }
+    };
+  }, [enabled, selected?.element, selectedInstanceKey]);
+
+  useEffect(() => {
+    const activeDrafts = Object.values(drafts).filter(hasDraftChanges);
+
+    if (!enabled || activeDrafts.length === 0 || typeof window.MutationObserver === 'undefined') {
       return;
     }
 
@@ -1441,18 +1725,48 @@ function DesignToolRuntime() {
       return 1;
     }
 
-    return left.source.localeCompare(right.source) || left.instanceKey.localeCompare(right.instanceKey);
+    return (
+      left.source.localeCompare(right.source) || left.instanceKey.localeCompare(right.instanceKey)
+    );
   });
   const hasPendingDrafts = pendingDrafts.length > 0;
   const hasPendingStyleAnalysis = pendingDrafts.some((draft) => !draft.styleAnalysisResolved);
   const saveEnabled = pendingDrafts.every(
     (draft) => draft.saveEnabled && Boolean(draft.saveCapability)
   );
-  const saveBlockedReason = hasPendingStyleAnalysis
-    ? 'Finishing style analysis before Update Design can apply the latest source changes.'
-    : !saveEnabled
-      ? 'Direct source writes are disabled. Enable `enableSave` in `hawkeyePlugin()` to use Update Design.'
-      : null;
+  const selectedDynamicClassPersistenceState = getDynamicClassPersistenceState(selectedDraft);
+  const hasUnsupportedDynamicStyleDraft = pendingDrafts.some(
+    (draft) => getDynamicClassPersistenceState(draft) === 'unsupported-dynamic-style'
+  );
+
+  let saveBlockedReason: string | null = null;
+  let saveBlockedState: 'error' | 'pending' = 'pending';
+
+  if (hasPendingStyleAnalysis) {
+    saveBlockedReason =
+      'Finishing style analysis before Update Design can apply the latest source changes.';
+    saveBlockedState = 'pending';
+  } else if (!saveEnabled) {
+    saveBlockedReason =
+      'Direct source writes are disabled. Enable `enableSave` in `hawkeyePlugin()` to use Update Design.';
+    saveBlockedState = 'pending';
+  } else if (hasUnsupportedDynamicStyleDraft) {
+    saveBlockedReason = DYNAMIC_CLASS_UNSUPPORTED_STYLE_MESSAGE;
+    saveBlockedState = 'error';
+  }
+
+  let saveInfoMessage: string | null = null;
+  let saveInfoState: 'error' | 'info' = 'info';
+
+  if (!saveBlockedReason) {
+    if (selectedDynamicClassPersistenceState === 'inline-fallback') {
+      saveInfoMessage = DYNAMIC_CLASS_INLINE_FALLBACK_MESSAGE;
+      saveInfoState = 'info';
+    } else if (selectedDynamicClassPersistenceState === 'style-wrap-fallback') {
+      saveInfoMessage = DYNAMIC_CLASS_STYLE_WRAP_FALLBACK_MESSAGE;
+      saveInfoState = 'info';
+    }
+  }
 
   useEffect(() => {
     if (!hasPendingDrafts && !savePending) {
@@ -1472,9 +1786,9 @@ function DesignToolRuntime() {
     };
   }, [hasPendingDrafts, savePending]);
 
-  function attemptToggleInspector() {
+  function attemptToggleInspector(intent: ToggleIntent = 'pointer') {
     if (!enabled) {
-      setEnabled(true);
+      openInspector(intent);
       return;
     }
 
@@ -1489,8 +1803,14 @@ function DesignToolRuntime() {
       return;
     }
 
-    setEnabled(false);
+    closeInspector(intent);
   }
+
+  const motionTimings: InspectorMotionTimings = {
+    shell: prefersReducedMotion ? 0 : SHELL_HANDOFF_DURATION_MS,
+    status: prefersReducedMotion ? 0 : STATUS_TRANSITION_DURATION_MS,
+    view: prefersReducedMotion ? 0 : VIEW_TRANSITION_DURATION_MS,
+  };
 
   function selectByKey(instanceKey: string) {
     const element = getInspectableElementByKey(instanceKey);
@@ -1511,6 +1831,7 @@ function DesignToolRuntime() {
     <Inspector
       enabled={enabled}
       hovered={hovered}
+      motionTimings={motionTimings}
       onChange={updateDraftProperty}
       onChangeSizeMode={updateSizeMode}
       onChangeSizeValue={updateSizeProperty}
@@ -1522,9 +1843,14 @@ function DesignToolRuntime() {
       onToggleAspectRatioLock={toggleAspectRatioLock}
       onToggle={attemptToggleInspector}
       pendingDrafts={pendingDrafts}
+      prefersReducedMotion={prefersReducedMotion}
       saveBlockedReason={saveBlockedReason}
+      saveBlockedState={saveBlockedState}
+      saveInfoMessage={saveInfoMessage}
+      saveInfoState={saveInfoState}
       savePending={savePending}
       saveResult={saveResult}
+      shellState={shellState}
       selected={selected}
       selectedDraft={selectedDraft}
       selectedInstanceKey={selectedInstanceKey}

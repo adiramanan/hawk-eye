@@ -183,6 +183,38 @@ describe('source writer', () => {
     expect(nextSource).toContain('backgroundColor: "#112233"');
   });
 
+  it('persists fill edits by flattening background images inline', () => {
+    const source = `
+      export function App() {
+        return (
+          <div style={{ backgroundImage: "linear-gradient(red, blue)" }}>Inline</div>
+        );
+      }
+    `;
+    const { filePath, root } = writeFixture(source);
+    const position = getLineAndColumn(source, '<div');
+
+    writeSourceMutations(root, {
+      mutations: [
+        {
+          file: 'src/App.tsx',
+          line: position.line,
+          column: position.column,
+          styleMode: 'inline',
+          detached: false,
+          properties: [
+            createPropertyMutation('backgroundColor', 'transparent', '#112233'),
+          ],
+        },
+      ],
+    });
+
+    const nextSource = readFixture(filePath);
+
+    expect(nextSource).toContain('backgroundColor: "#112233"');
+    expect(nextSource).toContain('backgroundImage: "none"');
+  });
+
   it('keeps mixed-mode class swaps in className and writes the rest inline', () => {
     const source = `
       export function App() {
@@ -294,15 +326,58 @@ describe('source writer', () => {
     expect(nextSource).toContain('style={{ borderRadius: "0.5rem" }}');
   });
 
-  it('warns when inline fallback is blocked by a dynamic style expression', () => {
+  it('merges inline styles when className is dynamic and style is an object literal', () => {
     const source = `
       export function App() {
         return (
-          <button className="font-semibold" style={styles}>Blocked</button>
+          <button className={getClassName()} style={{ ...styles, color: '#111827' }}>Dynamic</button>
         );
       }
     `;
-    const { root } = writeFixture(source);
+    const { filePath, root } = writeFixture(source);
+    const position = getLineAndColumn(source, '<button');
+    const result = writeSourceMutations(root, {
+      mutations: [
+        {
+          file: 'src/App.tsx',
+          line: position.line,
+          column: position.column,
+          styleMode: 'tailwind',
+          detached: false,
+          properties: [
+            createPropertyMutation('borderRadius', '0px', '0.5rem'),
+          ],
+        },
+      ],
+    });
+    const nextSource = readFixture(filePath);
+
+    expect(result.warnings).toEqual([
+      {
+        code: 'unsupported-dynamic-class',
+        file: 'src/App.tsx',
+        line: position.line,
+        column: position.column,
+        propertyId: 'borderRadius',
+        message:
+          'Fell back to inline styles for borderRadius because className is dynamic.',
+      },
+    ]);
+    expect(nextSource).toContain('className={getClassName()}');
+    expect(nextSource).toContain(`...styles`);
+    expect(nextSource).toContain(`style={{ ...styles, color: '#111827'`);
+    expect(nextSource).toContain(`borderRadius: "0.5rem"`);
+  });
+
+  it('wraps dynamic style expressions when className is dynamic and inline fallback is needed', () => {
+    const source = `
+      export function App() {
+        return (
+          <button className={getClassName()} style={styles}>Wrapped</button>
+        );
+      }
+    `;
+    const { filePath, root } = writeFixture(source);
     const position = getLineAndColumn(source, '<button');
     const result = writeSourceMutations(root, {
       mutations: [
@@ -318,26 +393,111 @@ describe('source writer', () => {
         },
       ],
     });
+    const nextSource = readFixture(filePath);
 
     expect(result.warnings).toEqual([
       {
-        code: 'inline-fallback',
+        code: 'unsupported-dynamic-class',
         file: 'src/App.tsx',
         line: position.line,
         column: position.column,
         propertyId: 'fontWeight',
         message:
-          'Fell back to inline styles for fontWeight because no Tailwind class could represent 550.',
+          'Fell back to inline styles for fontWeight because className is dynamic.',
       },
+    ]);
+    expect(nextSource).toContain('className={getClassName()}');
+    expect(nextSource).toContain('style={{ ...styles, fontWeight: "550" }}');
+  });
+
+  it('wraps call-expression style values before appending persisted inline properties', () => {
+    const source = `
+      export function App(props) {
+        return (
+          <button className={getClassName()} style={getStyles(props)}>Wrapped</button>
+        );
+      }
+    `;
+    const { filePath, root } = writeFixture(source);
+    const position = getLineAndColumn(source, '<button');
+    const result = writeSourceMutations(root, {
+      mutations: [
+        {
+          file: 'src/App.tsx',
+          line: position.line,
+          column: position.column,
+          styleMode: 'tailwind',
+          detached: false,
+          properties: [
+            createPropertyMutation('paddingTop', '1rem', '1.5rem'),
+          ],
+        },
+      ],
+    });
+    const nextSource = readFixture(filePath);
+
+    expect(result.warnings).toEqual([
       {
-        code: 'unsupported-dynamic-style',
+        code: 'unsupported-dynamic-class',
         file: 'src/App.tsx',
         line: position.line,
         column: position.column,
-        propertyId: 'fontWeight',
-        message: 'Skipped fontWeight because the style prop is not an object literal.',
+        propertyId: 'paddingTop',
+        message:
+          'Fell back to inline styles for paddingTop because className is dynamic.',
       },
     ]);
+    expect(nextSource).toContain('className={getClassName()}');
+    expect(nextSource).toContain('style={{ ...getStyles(props), paddingTop: "1.5rem" }}');
+  });
+
+  it('updates previously wrapped style expressions without re-wrapping them', () => {
+    const source = `
+      export function App() {
+        return (
+          <button className={getClassName()} style={styles}>Wrapped</button>
+        );
+      }
+    `;
+    const { filePath, root } = writeFixture(source);
+    const position = getLineAndColumn(source, '<button');
+
+    writeSourceMutations(root, {
+      mutations: [
+        {
+          file: 'src/App.tsx',
+          line: position.line,
+          column: position.column,
+          styleMode: 'tailwind',
+          detached: false,
+          properties: [
+            createPropertyMutation('borderRadius', '0px', '0.5rem'),
+          ],
+        },
+      ],
+    });
+
+    writeSourceMutations(root, {
+      mutations: [
+        {
+          file: 'src/App.tsx',
+          line: position.line,
+          column: position.column,
+          styleMode: 'tailwind',
+          detached: false,
+          properties: [
+            createPropertyMutation('borderRadius', '0.5rem', '1rem'),
+          ],
+        },
+      ],
+    });
+
+    const nextSource = readFixture(filePath);
+
+    expect(nextSource).toContain('className={getClassName()}');
+    expect(nextSource).toContain('borderRadius: "1rem"');
+    expect(nextSource).not.toContain('borderRadius: "0.5rem"');
+    expect(nextSource.match(/\.\.\.styles/g)?.length ?? 0).toBe(1);
   });
 
   it('persists size mode metadata as inline custom properties', () => {

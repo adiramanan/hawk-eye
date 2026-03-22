@@ -32,16 +32,13 @@ The Vite plugin owns dev-server integration. In the current state it owns:
 
 - intrinsic JSX source injection with signed `data-hawk-eye-source` metadata
 - source-token validation
+- style-strategy detection and source mutation for supported writes
 - selection payload replies over the Vite HMR channel
-
-In later phases it will also own:
-
-- style-strategy detection
 - source-file mutation and HMR refresh
 
 ### Demo app
 
-The demo app is the integration harness. It proves that the local packages install, build, and run together inside a React + Vite + Tailwind environment.
+The demo app is the integration harness. It proves that the local packages install, build, and run together inside a React + Vite + Tailwind environment, and it resolves the public `hawk-eye` package output from the workspace build.
 
 ## Build and Verification
 
@@ -54,8 +51,8 @@ The demo app is the integration harness. It proves that the local packages insta
 
 ## Next Architectural Step
 
-Phase 3 adds the source-writer layer:
+The next architectural step is hardening the source-writer layer:
 
-1. detect the styling strategy behind the selected element
-2. translate pending preview changes into source-level mutations
-3. write changes safely and trigger the appropriate Vite refresh path
+1. improve structural rewrites for fully dynamic `className` and `style` expressions
+2. add diff/review UX for source writes before persistence
+3. expand source mutation coverage and recovery paths

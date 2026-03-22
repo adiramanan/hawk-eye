@@ -4,6 +4,7 @@ import {
   HAWK_EYE_SAVE_RESULT_EVENT,
   type ClientPropertyMutation,
   type MutationWarning,
+  type MutationWarningCode,
   type SavePayload as ClientSavePayload,
   type SaveResult,
   type SizeModeMetadata,
@@ -56,6 +57,7 @@ function isClientSavePayload(value: unknown): value is ClientSavePayload {
   const candidate = value as Record<string, unknown>;
 
   return (
+    typeof candidate.clientId === 'string' &&
     typeof candidate.capability === 'string' &&
     Array.isArray(candidate.mutations) &&
     candidate.mutations.every((mutation) => {
@@ -85,6 +87,52 @@ function buildErrorResult(error: string, warnings: MutationWarning[] = []): Save
     error,
     warnings,
   };
+}
+
+function getWarningPriority(code: MutationWarningCode) {
+  switch (code) {
+    case 'unsupported-dynamic-style':
+      return 100;
+    case 'element-not-found':
+      return 90;
+    case 'path-outside-root':
+      return 80;
+    case 'unsupported-dynamic-class':
+      return 70;
+    case 'inline-fallback':
+      return 60;
+    case 'unsupported-tailwind-property':
+      return 50;
+    case 'file-not-found':
+      return 40;
+    case 'save-disabled':
+      return 30;
+    case 'stale-selection':
+      return 20;
+    case 'invalid-capability':
+      return 10;
+    default:
+      return 0;
+  }
+}
+
+function deriveErrorMessageFromWarnings(
+  warnings: MutationWarning[],
+  fallback: string
+) {
+  let bestWarning: MutationWarning | null = null;
+  let bestPriority = -1;
+
+  for (const warning of warnings) {
+    const priority = getWarningPriority(warning.code);
+
+    if (priority > bestPriority) {
+      bestWarning = warning;
+      bestPriority = priority;
+    }
+  }
+
+  return bestWarning?.message || fallback;
 }
 
 function normalizePropertyMutation(
@@ -282,7 +330,10 @@ export function applySourceChanges(
 
   if (writeResult.modifiedFiles.length === 0) {
     return buildErrorResult(
-      'Write aborted because the writer did not produce any source changes.',
+      deriveErrorMessageFromWarnings(
+        warnings,
+        'Write aborted because the writer did not produce any source changes.'
+      ),
       warnings
     );
   }
@@ -299,7 +350,7 @@ export function handleSaveRequest(
   client: HMRBroadcasterClient,
   data: unknown
 ) {
-  if (!isClientSavePayload(data) || !hasValidSaveCapability(state, client, data.capability)) {
+  if (!isClientSavePayload(data)) {
     const result = buildErrorResult(
       'Write aborted because the current client is not authorized to edit source files.',
       [
@@ -308,7 +359,26 @@ export function handleSaveRequest(
           file: '',
           line: 0,
           column: 0,
-          message: 'The save capability was missing, stale, or did not belong to the current client.',
+          message:
+            'The save capability was missing, stale, or did not belong to the current client session.',
+        },
+      ]
+    );
+    client.send(HAWK_EYE_SAVE_RESULT_EVENT, result);
+    return result;
+  }
+
+  if (!hasValidSaveCapability(state, data.clientId, data.capability)) {
+    const result = buildErrorResult(
+      'Write aborted because the current client is not authorized to edit source files.',
+      [
+        {
+          code: 'invalid-capability',
+          file: '',
+          line: 0,
+          column: 0,
+          message:
+            'The save capability was missing, stale, or did not belong to the current client session.',
         },
       ]
     );

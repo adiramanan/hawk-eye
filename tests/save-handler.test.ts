@@ -55,9 +55,14 @@ function createTempWorkspace(source: string) {
 
 function createAuthorizedClient(
   state: ReturnType<typeof createHawkEyeServerState>,
-  client = { send: vi.fn() }
+  options: {
+    client?: { send: ReturnType<typeof vi.fn> };
+    clientId?: string;
+  } = {}
 ) {
-  const capability = issueSaveCapability(state, client as never);
+  const client = options.client ?? { send: vi.fn() };
+  const clientId = options.clientId ?? 'client-a';
+  const capability = issueSaveCapability(state, clientId);
 
   if (!capability) {
     throw new Error('Expected save capability to be issued.');
@@ -66,6 +71,7 @@ function createAuthorizedClient(
   return {
     capability,
     client,
+    clientId,
   };
 }
 
@@ -96,12 +102,13 @@ describe('save handler', () => {
     const workspace = createTempWorkspace(source);
     const position = getLineAndColumn(source, '<button');
     const state = createSaveState();
-    const { capability, client } = createAuthorizedClient(state);
+    const { capability, client, clientId } = createAuthorizedClient(state);
     const fingerprint = createFingerprint(workspace.filePath, position.line, position.column);
 
     state.root = workspace.root;
 
     const result = handleSaveRequest(state, client as never, {
+      clientId,
       capability,
       mutations: [
         {
@@ -147,6 +154,7 @@ describe('save handler', () => {
     state.root = workspace.root;
 
     const result = handleSaveRequest(state, client as never, {
+      clientId: 'client-a',
       capability: 'stale-capability',
       mutations: [
         {
@@ -175,11 +183,120 @@ describe('save handler', () => {
           file: '',
           line: 0,
           column: 0,
-          message: 'The save capability was missing, stale, or did not belong to the current client.',
+          message:
+            'The save capability was missing, stale, or did not belong to the current client session.',
         },
       ],
     });
     expect(client.send).toHaveBeenCalledWith(HAWK_EYE_SAVE_RESULT_EVENT, result);
+  });
+
+  it('accepts issued save capabilities after the websocket client identity changes', () => {
+    const source = `
+      export function App() {
+        return (
+          <button className="pt-4 bg-white">Save</button>
+        );
+      }
+    `;
+    const workspace = createTempWorkspace(source);
+    const position = getLineAndColumn(source, '<button');
+    const state = createSaveState();
+    const originalClient = { send: vi.fn() };
+    const { capability, clientId } = createAuthorizedClient(state, {
+      client: originalClient,
+      clientId: 'preview-a',
+    });
+    const nextClient = { send: vi.fn() };
+    const fingerprint = createFingerprint(workspace.filePath, position.line, position.column);
+
+    state.root = workspace.root;
+
+    const result = handleSaveRequest(state, nextClient as never, {
+      clientId,
+      capability,
+      mutations: [
+        {
+          file: 'src/App.tsx',
+          line: position.line,
+          column: position.column,
+          detached: false,
+          fingerprint,
+          properties: [
+            {
+              propertyId: 'paddingTop',
+              oldValue: '1rem',
+              newValue: '1.5rem',
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      success: true,
+      modifiedFiles: ['src/App.tsx'],
+      warnings: [],
+    });
+    expect(nextClient.send).toHaveBeenCalledWith(HAWK_EYE_SAVE_RESULT_EVENT, result);
+    expect(readFileSync(workspace.filePath, 'utf8')).toContain('className="pt-6 bg-white"');
+  });
+
+  it('rejects capabilities issued to a different client session', () => {
+    const source = `
+      export function App() {
+        return (
+          <button className="pt-4 bg-white">Save</button>
+        );
+      }
+    `;
+    const workspace = createTempWorkspace(source);
+    const position = getLineAndColumn(source, '<button');
+    const state = createSaveState();
+    const { capability } = createAuthorizedClient(state, {
+      clientId: 'preview-a',
+    });
+    const nextClient = { send: vi.fn() };
+    const fingerprint = createFingerprint(workspace.filePath, position.line, position.column);
+
+    state.root = workspace.root;
+
+    const result = handleSaveRequest(state, nextClient as never, {
+      clientId: 'preview-b',
+      capability,
+      mutations: [
+        {
+          file: 'src/App.tsx',
+          line: position.line,
+          column: position.column,
+          detached: false,
+          fingerprint,
+          properties: [
+            {
+              propertyId: 'paddingTop',
+              oldValue: '1rem',
+              newValue: '1.5rem',
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error: 'Write aborted because the current client is not authorized to edit source files.',
+      warnings: [
+        {
+          code: 'invalid-capability',
+          file: '',
+          line: 0,
+          column: 0,
+          message:
+            'The save capability was missing, stale, or did not belong to the current client session.',
+        },
+      ],
+    });
+    expect(nextClient.send).toHaveBeenCalledWith(HAWK_EYE_SAVE_RESULT_EVENT, result);
   });
 
   it('rejects direct writes until the plugin is explicitly configured to allow them', () => {
@@ -198,6 +315,7 @@ describe('save handler', () => {
     state.root = workspace.root;
 
     const result = applySourceChanges(state, {
+      clientId: 'client-a',
       capability: 'unused',
       mutations: [
         {
@@ -241,7 +359,7 @@ describe('save handler', () => {
     const workspace = createTempWorkspace(source);
     const position = getLineAndColumn(source, '<button');
     const state = createSaveState();
-    const { capability, client } = createAuthorizedClient(state);
+    const { capability, client, clientId } = createAuthorizedClient(state);
     const fingerprint = createFingerprint(workspace.filePath, position.line, position.column);
 
     writeFileSync(
@@ -253,6 +371,7 @@ describe('save handler', () => {
     state.root = workspace.root;
 
     const result = handleSaveRequest(state, client as never, {
+      clientId,
       capability,
       mutations: [
         {
@@ -306,6 +425,7 @@ describe('save handler', () => {
     state.root = workspace.root;
 
     const result = applySourceChanges(state, {
+      clientId: 'client-a',
       capability: 'unused',
       mutations: [
         {
@@ -332,5 +452,104 @@ describe('save handler', () => {
     const updatedSource = readFileSync(workspace.filePath, 'utf8');
     expect(updatedSource).toContain('"--hawk-eye-width-mode": "relative"');
     expect(updatedSource).toContain('"--hawk-eye-height-mode": "fill"');
+  });
+
+  it('writes dynamic className edits by wrapping the existing style expression', () => {
+    const source = `
+      export function App() {
+        return (
+          <button className={getClassName()} style={styles}>Wrapped</button>
+        );
+      }
+    `;
+    const workspace = createTempWorkspace(source);
+    const position = getLineAndColumn(source, '<button');
+    const state = createSaveState();
+    const fingerprint = createFingerprint(workspace.filePath, position.line, position.column);
+
+    state.root = workspace.root;
+
+    const result = applySourceChanges(state, {
+      clientId: 'client-a',
+      capability: 'unused',
+      mutations: [
+        {
+          file: 'src/App.tsx',
+          line: position.line,
+          column: position.column,
+          detached: false,
+          fingerprint,
+          properties: [
+            {
+              propertyId: 'paddingTop',
+              oldValue: '1rem',
+              newValue: '1.5rem',
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      success: true,
+      modifiedFiles: ['src/App.tsx'],
+      warnings: [],
+    });
+
+    expect(readFileSync(workspace.filePath, 'utf8')).toContain(
+      'style={{ ...styles, paddingTop: "1.5rem" }}'
+    );
+  });
+
+  it('surfaces the highest-signal warning when inline fallback cannot rewrite the style prop', () => {
+    const source = `
+      export function App() {
+        return (
+          <button className="font-semibold" style="color:red">Blocked</button>
+        );
+      }
+    `;
+    const workspace = createTempWorkspace(source);
+    const position = getLineAndColumn(source, '<button');
+    const state = createSaveState();
+    const fingerprint = createFingerprint(workspace.filePath, position.line, position.column);
+
+    state.root = workspace.root;
+
+    const result = applySourceChanges(state, {
+      clientId: 'client-a',
+      capability: 'unused',
+      mutations: [
+        {
+          file: 'src/App.tsx',
+          line: position.line,
+          column: position.column,
+          detached: false,
+          fingerprint,
+          properties: [
+            {
+              propertyId: 'fontWeight',
+              oldValue: '600',
+              newValue: '550',
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error: 'Skipped fontWeight because the style prop is not an object literal.',
+      warnings: [
+        {
+          code: 'unsupported-dynamic-style',
+          file: 'src/App.tsx',
+          line: position.line,
+          column: position.column,
+          propertyId: 'fontWeight',
+          message: 'Skipped fontWeight because the style prop is not an object literal.',
+        },
+      ],
+    });
   });
 });

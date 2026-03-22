@@ -77,60 +77,66 @@ export function injectSourceMetadata(
     return null;
   }
 
-  const result = transformSync(code, {
-    ast: false,
-    babelrc: false,
-    code: true,
-    configFile: false,
-    filename: stripQuery(id),
-    parserOpts: {
-      plugins: ['jsx', 'typescript'],
-      sourceType: 'module',
-    },
-    sourceMaps: true,
-    plugins: [
-      () =>
-        ({
-          name: 'hawk-eye-source-injector',
-          visitor: {
-            JSXOpeningElement(path: NodePath<t.JSXOpeningElement>) {
-              if (!isIntrinsicElementName(path.node.name)) {
-                return;
-              }
+  let result;
 
-              const start = path.node.loc?.start;
+  try {
+    result = transformSync(code, {
+      ast: false,
+      babelrc: false,
+      code: true,
+      configFile: false,
+      filename: stripQuery(id),
+      parserOpts: {
+        plugins: ['jsx', 'typescript'],
+        sourceType: 'module',
+      },
+      sourceMaps: true,
+      plugins: [
+        () =>
+          ({
+            name: 'hawk-eye-source-injector',
+            visitor: {
+              JSXOpeningElement(path: NodePath<t.JSXOpeningElement>) {
+                if (!isIntrinsicElementName(path.node.name)) {
+                  return;
+                }
 
-              if (!start) {
-                return;
-              }
+                const start = path.node.loc?.start;
 
-              const sourceToken = createSignedSourceToken(
-                state,
-                relativePath,
-                start.line,
-                start.column + 1
-              );
-              const existingIndex = path.node.attributes.findIndex(
-                (attribute) =>
-                  t.isJSXAttribute(attribute) &&
-                  t.isJSXIdentifier(attribute.name, { name: HAWK_EYE_SOURCE_ATTRIBUTE })
-              );
-              const nextAttribute = t.jsxAttribute(
-                t.jsxIdentifier(HAWK_EYE_SOURCE_ATTRIBUTE),
-                t.stringLiteral(sourceToken)
-              );
+                if (!start) {
+                  return;
+                }
 
-              if (existingIndex === -1) {
-                path.node.attributes.push(nextAttribute);
-                return;
-              }
+                const sourceToken = createSignedSourceToken(
+                  state,
+                  relativePath,
+                  start.line,
+                  start.column + 1
+                );
+                const existingIndex = path.node.attributes.findIndex(
+                  (attribute) =>
+                    t.isJSXAttribute(attribute) &&
+                    t.isJSXIdentifier(attribute.name, { name: HAWK_EYE_SOURCE_ATTRIBUTE })
+                );
+                const nextAttribute = t.jsxAttribute(
+                  t.jsxIdentifier(HAWK_EYE_SOURCE_ATTRIBUTE),
+                  t.stringLiteral(sourceToken)
+                );
 
-              path.node.attributes[existingIndex] = nextAttribute;
+                if (existingIndex === -1) {
+                  path.node.attributes.push(nextAttribute);
+                  return;
+                }
+
+                path.node.attributes[existingIndex] = nextAttribute;
+              },
             },
-          },
-        }) satisfies PluginObj,
-    ],
-  });
+          }) satisfies PluginObj,
+      ],
+    });
+  } catch {
+    return null;
+  }
 
   if (!result?.code) {
     return null;

@@ -11,6 +11,14 @@ interface NumberInputProps {
   scrubLabel?: string;
 }
 
+function isOpacityPercentage(definition: EditablePropertyDefinition) {
+  return definition.id === 'opacity' && definition.cssProperty === 'opacity';
+}
+
+function formatOpacityPercentage(value: number) {
+  return String(Number((value * 100).toFixed(2)));
+}
+
 function getTransformDisplayValue(definition: EditablePropertyDefinition, value: string) {
   const trimmed = value.trim();
 
@@ -42,6 +50,14 @@ function getTransformDisplayValue(definition: EditablePropertyDefinition, value:
 
 function getNumericDisplayValue(definition: EditablePropertyDefinition, value: string) {
   const transformed = getTransformDisplayValue(definition, value).trim();
+
+  if (isOpacityPercentage(definition)) {
+    const parsed = parseCssValue(transformed);
+
+    if (parsed) {
+      return Number(formatOpacityPercentage(parsed.number));
+    }
+  }
 
   if (/^-?(?:\d+|\d*\.\d+)$/.test(transformed)) {
     return Number(transformed);
@@ -111,6 +127,30 @@ function getDisplayedValue(value: string, selectedUnit: string) {
   }
 
   return String(parsed.number);
+}
+
+function getDisplayedValueForDefinition(
+  definition: EditablePropertyDefinition,
+  value: string,
+  selectedUnit: string
+) {
+  if (isOpacityPercentage(definition)) {
+    const trimmed = value.trim();
+
+    if (!trimmed) {
+      return value;
+    }
+
+    const parsed = parseCssValue(trimmed);
+
+    if (!parsed) {
+      return value;
+    }
+
+    return parsed.unit === '%' ? String(parsed.number) : formatOpacityPercentage(parsed.number);
+  }
+
+  return getDisplayedValue(value, selectedUnit);
 }
 
 /** Safely evaluate a math expression string. Returns null if invalid. */
@@ -334,13 +374,22 @@ export function NumberInput({ definition, snapshot, onChange, scrubLabel }: Numb
   );
   const keywordMode =
     isKeywordUnit(selectedUnit) && snapshot.inputValue.trim() === selectedUnit;
-  const displayedValue = getDisplayedValue(snapshot.inputValue, selectedUnit);
+  const displayedValue = getDisplayedValueForDefinition(
+    definition,
+    snapshot.inputValue,
+    selectedUnit
+  );
 
   function handleValueChange(rawValue: string) {
     const trimmed = rawValue.trim();
 
     if (!trimmed) {
       onChange(rawValue);
+      return;
+    }
+
+    if (isOpacityPercentage(definition)) {
+      onChange(trimmed);
       return;
     }
 
@@ -394,15 +443,19 @@ export function NumberInput({ definition, snapshot, onChange, scrubLabel }: Numb
     if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
       e.preventDefault();
       const step = e.shiftKey ? (definition.step ?? 1) * 10 : (definition.step ?? 1);
-      const base = parseCssValue(snapshot.inputValue.trim())?.number
-        ?? parseCssValue(snapshot.value.trim())?.number
+      const base = getNumericDisplayValue(definition, snapshot.inputValue)
+        ?? getNumericDisplayValue(definition, snapshot.value)
         ?? 0;
       let next = e.key === 'ArrowUp' ? base + step : base - step;
       if (definition.min !== undefined) next = Math.max(definition.min, next);
       if (definition.max !== undefined) next = Math.min(definition.max, next);
       const decimals = step < 1 ? String(step).split('.')[1]?.length ?? 2 : 0;
       next = Number(next.toFixed(decimals));
-      onChange(formatCssValue(next, isKeywordUnit(selectedUnit) ? (definition.defaultUnit ?? 'px') : selectedUnit));
+      if (isOpacityPercentage(definition)) {
+        onChange(String(next));
+      } else {
+        onChange(formatCssValue(next, isKeywordUnit(selectedUnit) ? (definition.defaultUnit ?? 'px') : selectedUnit));
+      }
       return;
     }
     if (e.key === 'Enter') {
@@ -410,7 +463,11 @@ export function NumberInput({ definition, snapshot, onChange, scrubLabel }: Numb
       if (hasMathOperator(raw)) {
         const result = evalMathExpr(raw);
         if (result !== null) {
-          onChange(formatCssValue(result, isKeywordUnit(selectedUnit) ? (definition.defaultUnit ?? 'px') : selectedUnit));
+          if (isOpacityPercentage(definition)) {
+            onChange(String(result));
+          } else {
+            onChange(formatCssValue(result, isKeywordUnit(selectedUnit) ? (definition.defaultUnit ?? 'px') : selectedUnit));
+          }
         }
       }
       e.currentTarget.blur();
@@ -422,7 +479,11 @@ export function NumberInput({ definition, snapshot, onChange, scrubLabel }: Numb
     if (hasMathOperator(raw)) {
       const result = evalMathExpr(raw);
       if (result !== null) {
-        onChange(formatCssValue(result, isKeywordUnit(selectedUnit) ? (definition.defaultUnit ?? 'px') : selectedUnit));
+        if (isOpacityPercentage(definition)) {
+          onChange(String(result));
+        } else {
+          onChange(formatCssValue(result, isKeywordUnit(selectedUnit) ? (definition.defaultUnit ?? 'px') : selectedUnit));
+        }
       }
     }
   }

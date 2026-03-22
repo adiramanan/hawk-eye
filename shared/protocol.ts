@@ -10,8 +10,11 @@ export const HAWK_EYE_SAVE_RESULT_EVENT = 'hawk-eye:save-result';
 export type StyleMode = 'inline' | 'tailwind' | 'mixed' | 'detached' | 'unknown';
 export type SaveCapability = string;
 export type SizeMode = 'fixed' | 'hug' | 'fill' | 'relative';
+export type ClassAttributeState = 'literal' | 'dynamic' | 'missing';
+export type StyleAttributeState = 'object' | 'expression' | 'dynamic' | 'missing';
 
 export interface InspectRequest {
+  clientId: string;
   source: string;
 }
 
@@ -29,6 +32,8 @@ export interface StyleAnalysisPayload {
   mode: StyleMode;
   classNames: string[];
   inlineStyles: Record<string, string>;
+  classAttributeState: ClassAttributeState;
+  styleAttributeState: StyleAttributeState;
   fingerprint: string;
   saveCapability: SaveCapability | null;
   saveEnabled: boolean;
@@ -56,6 +61,7 @@ export interface ElementMutationRequest {
 }
 
 export interface SavePayload {
+  clientId: string;
   capability: SaveCapability;
   mutations: ElementMutationRequest[];
 }

@@ -7,40 +7,33 @@ import {
   HAWK_EYE_STYLE_ANALYSIS_EVENT,
   type InspectRequest,
   type SelectionPayload,
-  type StyleAnalysisPayload,
   type StyleMode,
 } from '../../../shared/protocol';
-import { issueSaveCapability, parseSignedSourceToken, type HawkEyeServerState } from './plugin-state';
-import { resolveWorkspaceFile } from './path-security';
 import {
-  analyzeStyleAtPosition,
-  createStyleAnalysisFingerprint,
-} from './style-analyzer';
+  cacheStyleAnalysis,
+  getCachedStyleAnalysis,
+  issueSaveCapability,
+  parseSignedSourceToken,
+  type CachedStyleAnalysis,
+  type HawkEyeServerState,
+} from './plugin-state';
+import { resolveWorkspaceFile } from './path-security';
+import { analyzeStyleAtPosition, createStyleAnalysisFingerprint } from './style-analyzer';
 
-const styleAnalysisCache = new Map<
-  string,
-  {
-    payload: StyleAnalysisPayload;
-  }
->();
-
-function createUnknownStylePayload(
-  source: string,
-  saveCapability: string | null,
-  saveEnabled: boolean
-): StyleAnalysisPayload {
+function createUnknownStyleAnalysis(): CachedStyleAnalysis {
   return {
-    source,
     mode: 'unknown' satisfies StyleMode,
     classNames: [],
     inlineStyles: {},
+    classAttributeState: 'missing',
+    styleAttributeState: 'missing',
     fingerprint: createStyleAnalysisFingerprint({
       mode: 'unknown',
       classNames: [],
       inlineStyles: {},
+      classAttributeState: 'missing',
+      styleAttributeState: 'missing',
     }),
-    saveCapability,
-    saveEnabled,
   };
 }
 
@@ -49,7 +42,7 @@ export function resolveSelectionPayload(
   client: HMRBroadcasterClient,
   data: InspectRequest
 ) {
-  if (!data?.source) {
+  if (!data?.source || !data.clientId) {
     return null;
   }
 
@@ -65,7 +58,7 @@ export function resolveSelectionPayload(
     return null;
   }
 
-  const saveCapability = issueSaveCapability(state, client);
+  const saveCapability = issueSaveCapability(state, data.clientId);
 
   return {
     source: parsedSource.source,
@@ -111,45 +104,41 @@ export function resolveStyleAnalysisPayload(
 
   const mtimeMs = statSync(resolvedFile.value.absoluteFile).mtimeMs;
   const cacheKey = `${resolvedFile.value.absoluteFile}:${mtimeMs}:${selection.line}:${selection.column}`;
-  const cachedEntry = styleAnalysisCache.get(cacheKey);
+  const cachedAnalysis = getCachedStyleAnalysis(state, cacheKey);
 
-  if (cachedEntry) {
-    return cachedEntry.payload;
-  }
-
-  let payload: StyleAnalysisPayload;
-
-  try {
-    payload = {
+  if (cachedAnalysis) {
+    return {
       source: selection.source,
-      ...(() => {
-        const analysis = analyzeStyleAtPosition(
-          resolvedFile.value.absoluteFile,
-          selection.line,
-          selection.column
-        );
-
-        return {
-          ...analysis,
-          fingerprint: createStyleAnalysisFingerprint(analysis),
-        };
-      })(),
+      ...cachedAnalysis,
       saveCapability: selection.saveCapability,
       saveEnabled: selection.saveEnabled,
     };
-  } catch {
-    payload = createUnknownStylePayload(
-      selection.source,
-      selection.saveCapability,
-      selection.saveEnabled
-    );
   }
 
-  styleAnalysisCache.set(cacheKey, {
-    payload,
-  });
+  let analysis: CachedStyleAnalysis;
 
-  return payload;
+  try {
+    const result = analyzeStyleAtPosition(
+      resolvedFile.value.absoluteFile,
+      selection.line,
+      selection.column
+    );
+    analysis = {
+      ...result,
+      fingerprint: createStyleAnalysisFingerprint(result),
+    };
+  } catch {
+    analysis = createUnknownStyleAnalysis();
+  }
+
+  cacheStyleAnalysis(state, cacheKey, analysis);
+
+  return {
+    source: selection.source,
+    ...analysis,
+    saveCapability: selection.saveCapability,
+    saveEnabled: selection.saveEnabled,
+  };
 }
 
 export function handleStyleAnalysisRequest(

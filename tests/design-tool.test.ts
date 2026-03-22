@@ -19,6 +19,9 @@ import {
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const SAVE_CAPABILITY = 'test-save-capability';
+const SHELL_HANDOFF_DURATION_MS = 220;
+const VIEW_TRANSITION_DURATION_MS = 180;
+const STATUS_TRANSITION_DURATION_MS = 160;
 
 const mountedCleanups = new Set<() => void>();
 
@@ -57,6 +60,33 @@ function createHotStub(): HotStub {
     },
     send: vi.fn(),
   };
+}
+
+function createStyleAnalysisPayload(
+  overrides: Partial<StyleAnalysisPayload> & Pick<StyleAnalysisPayload, 'source' | 'fingerprint'>
+): StyleAnalysisPayload {
+  return {
+    source: overrides.source,
+    mode: 'tailwind',
+    classNames: [],
+    inlineStyles: {},
+    classAttributeState: 'literal',
+    styleAttributeState: 'missing',
+    fingerprint: overrides.fingerprint,
+    saveCapability: SAVE_CAPABILITY,
+    saveEnabled: true,
+    ...overrides,
+  };
+}
+
+function expectHotSendWithPayload(hot: HotStub, event: string, payload: Record<string, unknown>) {
+  expect(hot.send).toHaveBeenCalledWith(
+    event,
+    expect.objectContaining({
+      ...payload,
+      clientId: expect.any(String),
+    })
+  );
 }
 
 function mockRect(element: HTMLElement, rect: Partial<DOMRect>) {
@@ -180,8 +210,30 @@ function click(node: Element | Window | Document) {
         clientX: 20,
         clientY: 20,
         composed: true,
+        detail: 1,
       })
     );
+  });
+}
+
+function keyboardClick(node: Element) {
+  act(() => {
+    node.dispatchEvent(
+      new MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+        clientX: 20,
+        clientY: 20,
+        composed: true,
+        detail: 0,
+      })
+    );
+  });
+}
+
+function advanceMotion(duration: number) {
+  act(() => {
+    vi.advanceTimersByTime(duration);
   });
 }
 
@@ -280,10 +332,7 @@ function getControl(
 ) {
   const input = shadowRoot.querySelector(`[data-hawk-eye-control="${propertyId}"]`);
 
-  if (
-    !(input instanceof window.HTMLInputElement) &&
-    !(input instanceof window.HTMLSelectElement)
-  ) {
+  if (!(input instanceof window.HTMLInputElement) && !(input instanceof window.HTMLSelectElement)) {
     throw new Error(`Could not find control ${propertyId}`);
   }
 
@@ -336,10 +385,7 @@ function getInputByLabel(
 ) {
   const input = shadowRoot.querySelector(`[aria-label="${label}"]`);
 
-  if (
-    !(input instanceof window.HTMLInputElement) &&
-    !(input instanceof window.HTMLSelectElement)
-  ) {
+  if (!(input instanceof window.HTMLInputElement) && !(input instanceof window.HTMLSelectElement)) {
     throw new Error(`Could not find input with label ${label}`);
   }
 
@@ -353,25 +399,93 @@ afterEach(() => {
 
   delete globalThis.__HAWK_EYE_HOT__;
   document.body.innerHTML = '';
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
 describe('DesignTool', () => {
   it('toggles inspector mode from the floating trigger', () => {
-    const { cleanup, host, shadowRoot } = renderDesignTool();
+    vi.useFakeTimers();
+    const { cleanup, shadowRoot } = renderDesignTool();
     const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]');
 
-    expect(shadowRoot.textContent).toContain('Inspect with Hawk-Eye');
+    expect(trigger?.textContent).toContain('Hawk-Eye');
+    expect(trigger?.getAttribute('data-state')).toBe('closed');
     expect(shadowRoot.querySelector('[data-hawk-eye-ui="panel"]')).toBeNull();
 
     click(trigger as Element);
     expect(shadowRoot.textContent).toContain('Hawk-Eye');
-    expect(shadowRoot.querySelector('[data-hawk-eye-ui="panel"]')).not.toBeNull();
-    expect(shadowRoot.textContent).not.toContain('Inspect with Hawk-Eye');
+    expect(shadowRoot.querySelector('[data-hawk-eye-ui="panel"]')?.getAttribute('data-state')).toBe(
+      'opening'
+    );
+    expect(
+      shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]')?.getAttribute('data-state')
+    ).toBe('exiting');
+
+    advanceMotion(SHELL_HANDOFF_DURATION_MS);
+
+    expect(shadowRoot.querySelector('[data-hawk-eye-ui="panel"]')?.getAttribute('data-state')).toBe(
+      'open'
+    );
+    expect(shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]')).toBeNull();
 
     click(shadowRoot.querySelector('[data-hawk-eye-ui="panel-close-btn"]') as Element);
-    expect(shadowRoot.textContent).toContain('Inspect with Hawk-Eye');
+    expect(shadowRoot.querySelector('[data-hawk-eye-ui="panel"]')?.getAttribute('data-state')).toBe(
+      'closing'
+    );
+    expect(
+      shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]')?.getAttribute('data-state')
+    ).toBe('entering');
+
+    advanceMotion(SHELL_HANDOFF_DURATION_MS);
+
+    expect(shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]')?.textContent).toContain('Hawk-Eye');
+    expect(
+      shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]')?.getAttribute('data-state')
+    ).toBe('closed');
     expect(shadowRoot.querySelector('[data-hawk-eye-ui="panel"]')).toBeNull();
+    cleanup();
+  });
+
+  it('opens from keyboard and closes instantly on escape without an animated handoff', () => {
+    vi.useFakeTimers();
+    const { cleanup, shadowRoot } = renderDesignTool();
+    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]');
+
+    if (!(trigger instanceof window.HTMLButtonElement)) {
+      throw new Error('Missing trigger button');
+    }
+
+    keyboardClick(trigger);
+
+    expect(shadowRoot.querySelector('[data-hawk-eye-ui="panel"]')?.getAttribute('data-state')).toBe(
+      'open'
+    );
+    expect(shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]')).toBeNull();
+
+    pressEscape();
+
+    expect(shadowRoot.querySelector('[data-hawk-eye-ui="panel"]')).toBeNull();
+    expect(
+      shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]')?.getAttribute('data-state')
+    ).toBe('closed');
+    cleanup();
+  });
+
+  it('renders the Hawk-Eye brand mark inline instead of relying on an external image asset', () => {
+    const { cleanup, shadowRoot } = renderDesignTool();
+    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+    const triggerBrand = shadowRoot.querySelector('[data-hawk-eye-ui="trigger-brand-image"]');
+
+    expect(triggerBrand?.tagName.toLowerCase()).toBe('svg');
+    expect(triggerBrand?.getAttribute('viewBox')).toBe('0 0 96 96');
+
+    click(trigger);
+
+    const panelBrand = shadowRoot.querySelector('[data-hawk-eye-ui="panel-brand-image"]');
+    expect(panelBrand?.tagName.toLowerCase()).toBe('svg');
+    expect(shadowRoot.querySelector('img[data-hawk-eye-ui="trigger-brand-image"]')).toBeNull();
+    expect(shadowRoot.querySelector('img[data-hawk-eye-ui="panel-brand-image"]')).toBeNull();
     cleanup();
   });
 
@@ -385,7 +499,7 @@ describe('DesignTool', () => {
     document.body.append(target);
     setElementFromPoint(target);
 
-    const { cleanup, host, shadowRoot } = renderDesignTool();
+    const { cleanup, shadowRoot } = renderDesignTool();
     const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
 
     click(trigger);
@@ -403,10 +517,10 @@ describe('DesignTool', () => {
       });
     });
 
-    expect(hot.send).toHaveBeenCalledWith(HAWK_EYE_INSPECT_EVENT, {
+    expectHotSendWithPayload(hot, HAWK_EYE_INSPECT_EVENT, {
       source: 'demo/src/App.tsx:21:13',
     });
-    expect(hot.send).toHaveBeenCalledWith(HAWK_EYE_ANALYZE_STYLE_EVENT, {
+    expectHotSendWithPayload(hot, HAWK_EYE_ANALYZE_STYLE_EVENT, {
       source: 'demo/src/App.tsx:21:13',
     });
     expect(shadowRoot.textContent).toContain('Hawk-Eye');
@@ -427,15 +541,15 @@ describe('DesignTool', () => {
     expect(shadowRoot.querySelector('[data-hawk-eye-control="fontFamily"]')).not.toBeNull();
 
     act(() => {
-      hot.emit('hawk-eye:style-analysis', {
-        source: 'demo/src/App.tsx:21:13',
-        mode: 'tailwind',
-        classNames: ['px-4', 'py-2', 'rounded-lg'],
-        inlineStyles: {},
-        fingerprint: 'fp-21-13',
-        saveCapability: SAVE_CAPABILITY,
-        saveEnabled: true,
-      });
+      hot.emit(
+        'hawk-eye:style-analysis',
+        createStyleAnalysisPayload({
+          source: 'demo/src/App.tsx:21:13',
+          mode: 'tailwind',
+          classNames: ['px-4', 'py-2', 'rounded-lg'],
+          fingerprint: 'fp-21-13',
+        })
+      );
     });
 
     expect(shadowRoot.querySelector('[data-hawk-eye-control="detach"]')).not.toBeNull();
@@ -503,15 +617,15 @@ describe('DesignTool', () => {
         saveCapability: SAVE_CAPABILITY,
         saveEnabled: true,
       });
-      hot.emit('hawk-eye:style-analysis', {
-        source: 'demo/src/App.tsx:34:9',
-        mode: 'tailwind',
-        classNames: ['px-4', 'py-2', 'rounded-lg'],
-        inlineStyles: {},
-        fingerprint: 'fp-34-9',
-        saveCapability: SAVE_CAPABILITY,
-        saveEnabled: true,
-      });
+      hot.emit(
+        'hawk-eye:style-analysis',
+        createStyleAnalysisPayload({
+          source: 'demo/src/App.tsx:34:9',
+          mode: 'tailwind',
+          classNames: ['px-4', 'py-2', 'rounded-lg'],
+          fingerprint: 'fp-34-9',
+        })
+      );
     });
 
     setElementFromPoint(host);
@@ -521,15 +635,15 @@ describe('DesignTool', () => {
     expect(target.style.paddingTop).toBe('16px');
 
     act(() => {
-      hot.emit('hawk-eye:style-analysis', {
-        source: 'demo/src/App.tsx:34:9',
-        mode: 'tailwind',
-        classNames: ['px-4', 'py-2', 'rounded-lg'],
-        inlineStyles: {},
-        fingerprint: 'fp-34-9',
-        saveCapability: SAVE_CAPABILITY,
-        saveEnabled: true,
-      });
+      hot.emit(
+        'hawk-eye:style-analysis',
+        createStyleAnalysisPayload({
+          source: 'demo/src/App.tsx:34:9',
+          mode: 'tailwind',
+          classNames: ['px-4', 'py-2', 'rounded-lg'],
+          fingerprint: 'fp-34-9',
+        })
+      );
     });
 
     expect(shadowRoot.querySelector('[data-hawk-eye-control="detach"]')).toBeNull();
@@ -537,6 +651,7 @@ describe('DesignTool', () => {
   });
 
   it('applies dirty drafts to source only after clicking Update Design and keeps the selection active after a successful write', () => {
+    vi.useFakeTimers();
     const hot = createHotStub();
     globalThis.__HAWK_EYE_HOT__ = hot;
 
@@ -561,15 +676,15 @@ describe('DesignTool', () => {
         saveCapability: SAVE_CAPABILITY,
         saveEnabled: true,
       });
-      hot.emit('hawk-eye:style-analysis', {
-        source: 'demo/src/App.tsx:52:11',
-        mode: 'tailwind',
-        classNames: ['pt-4'],
-        inlineStyles: {},
-        fingerprint: 'fp-52-11',
-        saveCapability: SAVE_CAPABILITY,
-        saveEnabled: true,
-      });
+      hot.emit(
+        'hawk-eye:style-analysis',
+        createStyleAnalysisPayload({
+          source: 'demo/src/App.tsx:52:11',
+          mode: 'tailwind',
+          classNames: ['pt-4'],
+          fingerprint: 'fp-52-11',
+        })
+      );
     });
 
     updateInput(
@@ -578,9 +693,7 @@ describe('DesignTool', () => {
     );
 
     expect(target.style.paddingTop).toBe('24px');
-    expect(
-      hot.send.mock.calls.filter(([event]) => event === HAWK_EYE_SAVE_EVENT)
-    ).toHaveLength(0);
+    expect(hot.send.mock.calls.filter(([event]) => event === HAWK_EYE_SAVE_EVENT)).toHaveLength(0);
 
     const applyButton = getFooterApplyButton(shadowRoot);
     expect(applyButton.textContent).toContain('Update Design');
@@ -588,7 +701,7 @@ describe('DesignTool', () => {
     setElementFromPoint(host);
     click(applyButton);
 
-    expect(hot.send).toHaveBeenCalledWith(HAWK_EYE_SAVE_EVENT, {
+    expectHotSendWithPayload(hot, HAWK_EYE_SAVE_EVENT, {
       capability: SAVE_CAPABILITY,
       mutations: [
         {
@@ -619,7 +732,14 @@ describe('DesignTool', () => {
     });
 
     expect(target.style.paddingTop).toBe('24px');
-    const status = shadowRoot.querySelector('[data-hawk-eye-ui="footer-status"]');
+    expect(
+      shadowRoot.querySelector('[data-hawk-eye-ui="panel-footer-status"]')?.getAttribute(
+        'data-state'
+      )
+    ).toBe('transitioning');
+    const status = shadowRoot.querySelector(
+      '[data-hawk-eye-ui="footer-status"][data-presence="entering"]'
+    );
 
     if (!(status instanceof window.HTMLParagraphElement)) {
       throw new Error('Missing footer status');
@@ -629,6 +749,375 @@ describe('DesignTool', () => {
     expect(status.getAttribute('aria-live')).toBe('polite');
     expect(status.textContent).toContain('Updated demo/src/App.tsx.');
     expect(shadowRoot.textContent).not.toContain('No element selected');
+
+    advanceMotion(STATUS_TRANSITION_DURATION_MS);
+
+    expect(
+      shadowRoot.querySelector('[data-hawk-eye-ui="panel-footer-status"]')?.getAttribute(
+        'data-state'
+      )
+    ).toBe('idle');
+    expect(
+      shadowRoot.querySelector('[data-hawk-eye-ui="footer-status"][data-presence="current"]')
+        ?.textContent
+    ).toContain('Updated demo/src/App.tsx.');
+    cleanup();
+  });
+
+  it('re-requests style analysis and retries the save once after an invalid capability warning', () => {
+    const hot = createHotStub();
+    globalThis.__HAWK_EYE_HOT__ = hot;
+
+    const target = document.createElement('div');
+    applyBaselineStyles(target, 'demo/src/App.tsx:64:11');
+    mockRect(target, { height: 52, left: 28, top: 56, width: 164 });
+    document.body.append(target);
+    setElementFromPoint(target);
+
+    const { cleanup, host, shadowRoot } = renderDesignTool();
+    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+
+    click(trigger);
+    click(document);
+
+    act(() => {
+      hot.emit('hawk-eye:selection', {
+        source: 'demo/src/App.tsx:64:11',
+        file: 'demo/src/App.tsx',
+        line: 64,
+        column: 11,
+        saveCapability: SAVE_CAPABILITY,
+        saveEnabled: true,
+      });
+      hot.emit(
+        'hawk-eye:style-analysis',
+        createStyleAnalysisPayload({
+          source: 'demo/src/App.tsx:64:11',
+          mode: 'tailwind',
+          classNames: ['pt-4'],
+          fingerprint: 'fp-64-11',
+        })
+      );
+    });
+
+    updateInput(
+      getControl(shadowRoot, 'paddingTop') as InstanceType<typeof window.HTMLInputElement>,
+      '24px'
+    );
+
+    setElementFromPoint(host);
+    click(getFooterApplyButton(shadowRoot));
+
+    expect(hot.send.mock.calls.filter(([event]) => event === HAWK_EYE_SAVE_EVENT)).toHaveLength(1);
+
+    act(() => {
+      hot.emit('hawk-eye:save-result', {
+        success: false,
+        error: 'Write aborted because the current client is not authorized to edit source files.',
+        warnings: [
+          {
+            code: 'invalid-capability',
+            file: '',
+            line: 0,
+            column: 0,
+            message:
+              'The save capability was missing, stale, or did not belong to the current client session.',
+          },
+        ],
+      });
+    });
+
+    expectHotSendWithPayload(hot, HAWK_EYE_ANALYZE_STYLE_EVENT, {
+      source: 'demo/src/App.tsx:64:11',
+    });
+
+    act(() => {
+      hot.emit(
+        'hawk-eye:style-analysis',
+        createStyleAnalysisPayload({
+          source: 'demo/src/App.tsx:64:11',
+          mode: 'tailwind',
+          classNames: ['pt-4'],
+          fingerprint: 'fp-64-11',
+          saveCapability: 'fresh-save-capability',
+        })
+      );
+    });
+
+    const saveCalls = hot.send.mock.calls.filter(([event]) => event === HAWK_EYE_SAVE_EVENT);
+
+    expect(saveCalls).toHaveLength(2);
+    expect(saveCalls[1]?.[1]).toEqual(
+      expect.objectContaining({
+        capability: 'fresh-save-capability',
+        clientId: expect.any(String),
+      })
+    );
+
+    act(() => {
+      hot.emit('hawk-eye:save-result', {
+        success: true,
+        modifiedFiles: ['demo/src/App.tsx'],
+        warnings: [],
+      });
+    });
+
+    expect(shadowRoot.textContent).toContain('Updated demo/src/App.tsx.');
+    cleanup();
+  });
+
+  it('refreshes the selected draft source token after a save so later writes use the new JSX coordinates', async () => {
+    const hot = createHotStub();
+    globalThis.__HAWK_EYE_HOT__ = hot;
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(
+      (callback: FrameRequestCallback) => {
+        callback(0);
+        return 1;
+      }
+    );
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
+
+    const target = document.createElement('div');
+    applyBaselineStyles(target, 'demo/src/App.tsx:52:11');
+    mockRect(target, { height: 52, left: 28, top: 56, width: 164 });
+    document.body.append(target);
+    setElementFromPoint(target);
+
+    const { cleanup, host, shadowRoot } = renderDesignTool();
+    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+
+    click(trigger);
+    click(document);
+
+    act(() => {
+      hot.emit('hawk-eye:selection', {
+        source: 'demo/src/App.tsx:52:11',
+        file: 'demo/src/App.tsx',
+        line: 52,
+        column: 11,
+        saveCapability: SAVE_CAPABILITY,
+        saveEnabled: true,
+      });
+      hot.emit(
+        'hawk-eye:style-analysis',
+        createStyleAnalysisPayload({
+          source: 'demo/src/App.tsx:52:11',
+          mode: 'tailwind',
+          classNames: ['pt-4'],
+          fingerprint: 'fp-52-11',
+        })
+      );
+    });
+
+    updateInput(
+      getControl(shadowRoot, 'paddingTop') as InstanceType<typeof window.HTMLInputElement>,
+      '24px'
+    );
+
+    setElementFromPoint(host);
+    click(getFooterApplyButton(shadowRoot));
+
+    act(() => {
+      hot.emit('hawk-eye:save-result', {
+        success: true,
+        modifiedFiles: ['demo/src/App.tsx'],
+        warnings: [],
+      });
+    });
+
+    await act(async () => {
+      target.setAttribute(HAWK_EYE_SOURCE_ATTRIBUTE, 'demo/src/App.tsx:105:13');
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expectHotSendWithPayload(hot, HAWK_EYE_INSPECT_EVENT, {
+      source: 'demo/src/App.tsx:105:13',
+    });
+    expectHotSendWithPayload(hot, HAWK_EYE_ANALYZE_STYLE_EVENT, {
+      source: 'demo/src/App.tsx:105:13',
+    });
+
+    act(() => {
+      hot.emit('hawk-eye:selection', {
+        source: 'demo/src/App.tsx:105:13',
+        file: 'demo/src/App.tsx',
+        line: 105,
+        column: 13,
+        saveCapability: SAVE_CAPABILITY,
+        saveEnabled: true,
+      });
+      hot.emit(
+        'hawk-eye:style-analysis',
+        createStyleAnalysisPayload({
+          source: 'demo/src/App.tsx:105:13',
+          mode: 'tailwind',
+          classNames: ['pt-6'],
+          fingerprint: 'fp-105-13',
+        })
+      );
+    });
+
+    updateInput(
+      getControl(shadowRoot, 'paddingTop') as InstanceType<typeof window.HTMLInputElement>,
+      '30px'
+    );
+
+    setElementFromPoint(host);
+    click(getFooterApplyButton(shadowRoot));
+
+    expectHotSendWithPayload(hot, HAWK_EYE_SAVE_EVENT, {
+      capability: SAVE_CAPABILITY,
+      mutations: [
+        {
+          file: 'demo/src/App.tsx',
+          line: 105,
+          column: 13,
+          detached: false,
+          fingerprint: 'fp-105-13',
+          properties: [
+            {
+              propertyId: 'paddingTop',
+              oldValue: '24px',
+              newValue: '30px',
+            },
+          ],
+        },
+      ],
+    });
+
+    cleanup();
+  });
+
+  it('shows an inline-fallback hint for dynamic className selections and keeps Update Design enabled', () => {
+    const hot = createHotStub();
+    globalThis.__HAWK_EYE_HOT__ = hot;
+
+    const target = document.createElement('div');
+    applyBaselineStyles(target, 'demo/src/App.tsx:60:11');
+    mockRect(target, { height: 52, left: 28, top: 56, width: 164 });
+    document.body.append(target);
+    setElementFromPoint(target);
+
+    const { cleanup, shadowRoot } = renderDesignTool();
+    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+
+    click(trigger);
+    click(document);
+
+    act(() => {
+      hot.emit('hawk-eye:selection', {
+        source: 'demo/src/App.tsx:60:11',
+        file: 'demo/src/App.tsx',
+        line: 60,
+        column: 11,
+        saveCapability: SAVE_CAPABILITY,
+        saveEnabled: true,
+      });
+      hot.emit(
+        'hawk-eye:style-analysis',
+        createStyleAnalysisPayload({
+          source: 'demo/src/App.tsx:60:11',
+          mode: 'unknown',
+          classAttributeState: 'dynamic',
+          styleAttributeState: 'missing',
+          fingerprint: 'fp-60-11',
+        })
+      );
+    });
+
+    updateInput(
+      getControl(shadowRoot, 'paddingTop') as InstanceType<typeof window.HTMLInputElement>,
+      '24px'
+    );
+
+    expect(shadowRoot.textContent).toContain(
+      'Dynamic className: edits will be written to inline styles.'
+    );
+    expect(getFooterApplyButton(shadowRoot).disabled).toBe(false);
+    cleanup();
+  });
+
+  it('shows a style-wrap hint for dynamic className selections and keeps Update Design enabled', () => {
+    const hot = createHotStub();
+    globalThis.__HAWK_EYE_HOT__ = hot;
+
+    const target = document.createElement('div');
+    applyBaselineStyles(target, 'demo/src/App.tsx:68:11');
+    mockRect(target, { height: 52, left: 28, top: 56, width: 164 });
+    document.body.append(target);
+    setElementFromPoint(target);
+
+    const { cleanup, host, shadowRoot } = renderDesignTool();
+    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+
+    click(trigger);
+    click(document);
+
+    act(() => {
+      hot.emit('hawk-eye:selection', {
+        source: 'demo/src/App.tsx:68:11',
+        file: 'demo/src/App.tsx',
+        line: 68,
+        column: 11,
+        saveCapability: SAVE_CAPABILITY,
+        saveEnabled: true,
+      });
+      hot.emit(
+        'hawk-eye:style-analysis',
+        createStyleAnalysisPayload({
+          source: 'demo/src/App.tsx:68:11',
+          mode: 'unknown',
+          classAttributeState: 'dynamic',
+          styleAttributeState: 'expression',
+          fingerprint: 'fp-68-11',
+        })
+      );
+    });
+
+    updateInput(
+      getControl(shadowRoot, 'paddingTop') as InstanceType<typeof window.HTMLInputElement>,
+      '24px'
+    );
+
+    const applyButton = getFooterApplyButton(shadowRoot);
+    expect(applyButton.disabled).toBe(false);
+    expect(shadowRoot.textContent).toContain(
+      'Dynamic className + dynamic style: edits will be persisted by wrapping the style prop.'
+    );
+
+    setElementFromPoint(host);
+    click(applyButton);
+
+    expectHotSendWithPayload(hot, HAWK_EYE_SAVE_EVENT, {
+      capability: SAVE_CAPABILITY,
+      mutations: [
+        {
+          file: 'demo/src/App.tsx',
+          line: 68,
+          column: 11,
+          detached: false,
+          fingerprint: 'fp-68-11',
+          properties: [
+            {
+              propertyId: 'paddingTop',
+              oldValue: '16px',
+              newValue: '24px',
+            },
+          ],
+        },
+      ],
+    });
+
+    act(() => {
+      hot.emit('hawk-eye:save-result', {
+        success: true,
+        modifiedFiles: ['demo/src/App.tsx'],
+        warnings: [],
+      });
+    });
+
+    expect(shadowRoot.textContent).toContain('Updated demo/src/App.tsx.');
     cleanup();
   });
 
@@ -657,7 +1146,9 @@ describe('DesignTool', () => {
     expect(fontSizeInput().value).toBe('banana');
     // compact card marks invalid state via data-invalid attribute; no inline text in new panel
     expect(
-      shadowRoot.querySelector('[data-hawk-eye-control="fontSize"]')?.closest('[data-invalid="true"]')
+      shadowRoot
+        .querySelector('[data-hawk-eye-control="fontSize"]')
+        ?.closest('[data-invalid="true"]')
     ).not.toBeNull();
     cleanup();
   });
@@ -684,7 +1175,9 @@ describe('DesignTool', () => {
     click(document);
 
     updateInput(
-      getInputByLabel(shadowRoot, 'Padding all sides') as InstanceType<typeof window.HTMLInputElement>,
+      getInputByLabel(shadowRoot, 'Padding all sides') as InstanceType<
+        typeof window.HTMLInputElement
+      >,
       '20'
     );
     expect(target.style.paddingTop).toBe('20px');
@@ -742,17 +1235,13 @@ describe('DesignTool', () => {
       '20'
     );
 
-    const fontSizeCard = shadowRoot.querySelector(
-      '[data-property-id="fontSize"]'
-    );
+    const fontSizeCard = shadowRoot.querySelector('[data-property-id="fontSize"]');
 
     if (!(fontSizeCard instanceof window.HTMLElement)) {
       throw new Error('Missing fontSize card');
     }
 
-    const fontSizeReset = fontSizeCard.querySelector(
-      '[data-hawk-eye-ui="control-reset-mini"]'
-    );
+    const fontSizeReset = fontSizeCard.querySelector('[data-hawk-eye-ui="control-reset-mini"]');
 
     if (!(fontSizeReset instanceof window.HTMLButtonElement)) {
       throw new Error('Missing fontSize reset button');
@@ -838,7 +1327,7 @@ describe('DesignTool', () => {
     cleanup();
   });
 
-  it('tracks size mode-only changes in the changes view', () => {
+  it('tracks size mode-only changes as pending updates', () => {
     const target = document.createElement('div');
     applyBaselineStyles(target, 'demo/src/App.tsx:14:3');
     target.style.width = '100%';
@@ -855,18 +1344,7 @@ describe('DesignTool', () => {
 
     expect(target.style.width).toBe('100%');
 
-    const tabs = shadowRoot.querySelectorAll('[data-hawk-eye-ui="panel-tab"]');
-    click(tabs[0] as Element);
-
-    const changesButton = shadowRoot.querySelector('[data-hawk-eye-ui="footer-changes-btn"]');
-
-    if (!(changesButton instanceof window.HTMLButtonElement)) {
-      throw new Error('Missing changes button');
-    }
-
-    expect(changesButton.textContent).toContain('1 Change');
-    click(changesButton);
-    expect(shadowRoot.textContent).toContain('width mode');
+    expect(getFooterApplyButton(shadowRoot).textContent).toContain('Update Design');
     cleanup();
   });
 
@@ -1084,6 +1562,7 @@ describe('DesignTool', () => {
   });
 
   it('preserves preview drafts across selections and restores them when reselected', () => {
+    vi.useFakeTimers();
     const first = document.createElement('button');
     applyBaselineStyles(first, 'demo/src/App.tsx:20:5');
     mockRect(first, { height: 40, left: 24, top: 40, width: 144 });
@@ -1105,25 +1584,54 @@ describe('DesignTool', () => {
 
     setElementFromPoint(first);
     click(document);
-    updateInput(
-      paddingInput() as InstanceType<typeof window.HTMLInputElement>,
-      '24'
-    );
+    updateInput(paddingInput() as InstanceType<typeof window.HTMLInputElement>, '24');
 
     setElementFromPoint(second);
     click(document);
-    updateInput(
-      marginInput() as InstanceType<typeof window.HTMLInputElement>,
-      '12'
-    );
+    updateInput(marginInput() as InstanceType<typeof window.HTMLInputElement>, '12');
 
     expect(first.style.paddingTop).toBe('24px');
     expect(second.style.marginTop).toBe('12px');
     expect(shadowRoot.querySelector('[data-hawk-eye-control="detach"]')).toBeNull();
     expect(shadowRoot.querySelector('[data-hawk-eye-ui="panel-source"]')).toBeNull();
+    const changesButton = shadowRoot.querySelector(
+      '[data-hawk-eye-ui="footer-changes-btn"]'
+    ) as InstanceType<typeof window.HTMLButtonElement> | null;
+    expect(changesButton?.textContent).toContain('2 Edits');
 
-    setElementFromPoint(first);
-    click(document);
+    click(changesButton as Element);
+    expect(
+      shadowRoot.querySelector('[data-hawk-eye-ui="view-stack"]')?.getAttribute('data-state')
+    ).toBe('to-changes');
+    expect(
+      shadowRoot.querySelector(
+        '[data-hawk-eye-ui="panel-view"][data-view="changes"][data-presence="entering"]'
+      )
+    ).not.toBeNull();
+
+    advanceMotion(VIEW_TRANSITION_DURATION_MS);
+
+    expect(
+      shadowRoot.querySelector('[data-hawk-eye-ui="view-stack"]')?.getAttribute('data-state')
+    ).toBe('idle');
+    expect(shadowRoot.textContent).toContain('Pending Changes');
+
+    const changesCards = Array.from(
+      shadowRoot.querySelectorAll('[data-hawk-eye-ui="changes-card"]')
+    );
+    expect(changesCards).toHaveLength(2);
+    const firstDraftCard = changesCards.find((card) => card.textContent?.includes('App.tsx:20'));
+
+    if (!firstDraftCard) {
+      throw new Error('Missing first draft card');
+    }
+
+    click(firstDraftCard);
+    expect(
+      shadowRoot.querySelector('[data-hawk-eye-ui="view-stack"]')?.getAttribute('data-state')
+    ).toBe('to-properties');
+
+    advanceMotion(VIEW_TRANSITION_DURATION_MS);
 
     expect(paddingInput().value).toBe('24');
     cleanup();
@@ -1189,15 +1697,15 @@ describe('DesignTool', () => {
         saveCapability: SAVE_CAPABILITY,
         saveEnabled: true,
       });
-      hot.emit('hawk-eye:style-analysis', {
-        source: 'demo/src/App.tsx:14:3',
-        mode: 'tailwind',
-        classNames: ['pt-4'],
-        inlineStyles: {},
-        fingerprint: 'fp-14-3',
-        saveCapability: SAVE_CAPABILITY,
-        saveEnabled: true,
-      });
+      hot.emit(
+        'hawk-eye:style-analysis',
+        createStyleAnalysisPayload({
+          source: 'demo/src/App.tsx:14:3',
+          mode: 'tailwind',
+          classNames: ['pt-4'],
+          fingerprint: 'fp-14-3',
+        })
+      );
     });
 
     updateInput(
@@ -1208,7 +1716,9 @@ describe('DesignTool', () => {
     expect(target.style.paddingTop).toBe('28px');
     pressEscape();
 
-    expect(shadowRoot.textContent).toContain('Apply or revert changes before closing the inspector.');
+    expect(shadowRoot.textContent).toContain(
+      'Apply or revert changes before closing the inspector.'
+    );
     expect(shadowRoot.textContent).toContain('Hawk-Eye');
     expect(shadowRoot.querySelector('[data-hawk-eye-ui="panel"]')).not.toBeNull();
     cleanup();
@@ -1224,6 +1734,23 @@ describe('DesignTool', () => {
     pointerMove(document);
 
     expect(shadowRoot.querySelector('[data-hawk-eye-ui="measure"]')).toBeNull();
+    cleanup();
+  });
+
+  it('keeps the inspector shell scrollable for the taller CraftKit editor frame', () => {
+    const { cleanup, shadowRoot } = renderDesignTool();
+    const styleText = shadowRoot.querySelector('style')?.textContent ?? '';
+
+    expect(styleText).toMatch(
+      /\[data-hawk-eye-ui="panel-body"\]\s*\{[^}]*min-height:\s*0;/s
+    );
+    expect(styleText).toMatch(
+      /\[data-hawk-eye-ui="view-stack"\]\s*\{[^}]*height:\s*100%;[^}]*min-height:\s*0;|\[data-hawk-eye-ui="view-stack"\]\s*\{[^}]*min-height:\s*0;[^}]*height:\s*100%;/s
+    );
+    expect(styleText).toMatch(
+      /\[data-hawk-eye-ui="panel-view"\]\s*\{[^}]*height:\s*100%;/s
+    );
+
     cleanup();
   });
 
@@ -1253,13 +1780,19 @@ describe('DesignTool', () => {
       '24'
     );
     updateInput(
+      getControl(shadowRoot, 'opacity') as InstanceType<typeof window.HTMLInputElement>,
+      '64'
+    );
+    updateInput(
       getControl(shadowRoot, 'color') as InstanceType<typeof window.HTMLInputElement>,
       '#778899'
     );
     setElementFromPoint(host);
     click(getButtonControl(shadowRoot, 'textAlign-center'));
     updateInput(
-      getInputByLabel(shadowRoot, 'Corner Radius all sides') as InstanceType<typeof window.HTMLInputElement>,
+      getInputByLabel(shadowRoot, 'Corner Radius all sides') as InstanceType<
+        typeof window.HTMLInputElement
+      >,
       '22'
     );
     updateInput(
@@ -1267,7 +1800,9 @@ describe('DesignTool', () => {
       '#445566'
     );
     updateInput(
-      getInputByLabel(shadowRoot, 'Stroke Weight all sides') as InstanceType<typeof window.HTMLInputElement>,
+      getInputByLabel(shadowRoot, 'Stroke Weight all sides') as InstanceType<
+        typeof window.HTMLInputElement
+      >,
       '2'
     );
 
@@ -1275,10 +1810,77 @@ describe('DesignTool', () => {
     expect(target.style.color).toBe('rgb(119, 136, 153)');
     expect(target.style.fontWeight).toBe('700');
     expect(target.style.fontSize).toBe('24px');
+    expect(getControl(shadowRoot, 'opacity').value).toBe('64');
+    expect(target.style.opacity).toBe('0.64');
     expect(target.style.textAlign).toBe('center');
     expect(target.style.borderTopLeftRadius).toBe('22px');
     expect(target.style.borderColor).toBe('rgb(68, 85, 102)');
     expect(target.style.borderTopWidth).toBe('2px');
+    cleanup();
+  });
+
+  it('makes fill edits visible over layered backgrounds and restores the original image when reset', () => {
+    const target = document.createElement('div');
+    applyBaselineStyles(target, 'demo/src/App.tsx:52:7');
+    target.style.backgroundImage = 'linear-gradient(rgb(255, 0, 0), rgb(0, 0, 255))';
+    const originalBackgroundImage = target.style.backgroundImage;
+    mockRect(target, { height: 64, left: 24, top: 40, width: 180 });
+    document.body.append(target);
+    setElementFromPoint(target);
+
+    const { cleanup, shadowRoot } = renderDesignTool();
+    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+
+    click(trigger);
+    click(document);
+
+    updateInput(
+      getControl(shadowRoot, 'backgroundColor') as InstanceType<typeof window.HTMLInputElement>,
+      '#445566'
+    );
+
+    expect(target.style.backgroundColor).toBe('rgb(68, 85, 102)');
+    expect(target.style.backgroundImage).toBe('none');
+
+    updateInput(
+      getControl(shadowRoot, 'backgroundColor') as InstanceType<typeof window.HTMLInputElement>,
+      '#0a141e'
+    );
+
+    expect(target.style.backgroundColor).toBe('rgb(10, 20, 30)');
+    expect(target.style.backgroundImage).toBe(originalBackgroundImage);
+    cleanup();
+  });
+
+  it('bootstraps a visible border when stroke colour changes on a borderless element', () => {
+    const target = document.createElement('div');
+    applyBaselineStyles(target, 'demo/src/App.tsx:60:9');
+    target.style.borderStyle = 'none';
+    target.style.borderTopWidth = '0px';
+    target.style.borderRightWidth = '0px';
+    target.style.borderBottomWidth = '0px';
+    target.style.borderLeftWidth = '0px';
+    mockRect(target, { height: 56, left: 24, top: 40, width: 168 });
+    document.body.append(target);
+    setElementFromPoint(target);
+
+    const { cleanup, shadowRoot } = renderDesignTool();
+    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+
+    click(trigger);
+    click(document);
+
+    updateInput(
+      getControl(shadowRoot, 'borderColor') as InstanceType<typeof window.HTMLInputElement>,
+      '#445566'
+    );
+
+    expect(target.style.borderColor).toBe('rgb(68, 85, 102)');
+    expect(target.style.borderStyle).toBe('solid');
+    expect(target.style.borderTopWidth).toBe('1px');
+    expect(target.style.borderRightWidth).toBe('1px');
+    expect(target.style.borderBottomWidth).toBe('1px');
+    expect(target.style.borderLeftWidth).toBe('1px');
     cleanup();
   });
 

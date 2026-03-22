@@ -29,22 +29,47 @@ interface HotClient {
 
 declare global {
   var __HAWK_EYE_HOT__: HotClient | undefined;
+  var __HAWK_EYE_CLIENT_ID__: string | undefined;
 }
 
 function getHotClient() {
   return globalThis.__HAWK_EYE_HOT__ ?? (import.meta as ImportMeta & { hot?: HotClient }).hot;
 }
 
-export function requestSelection(payload: InspectRequest) {
-  getHotClient()?.send?.(HAWK_EYE_INSPECT_EVENT, payload);
+function createClientId() {
+  return (
+    globalThis.crypto?.randomUUID?.() ??
+    `hawk-eye-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+  );
 }
 
-export function requestStyleAnalysis(payload: InspectRequest) {
-  getHotClient()?.send?.(HAWK_EYE_ANALYZE_STYLE_EVENT, payload);
+function getClientId() {
+  if (!globalThis.__HAWK_EYE_CLIENT_ID__) {
+    globalThis.__HAWK_EYE_CLIENT_ID__ = createClientId();
+  }
+
+  return globalThis.__HAWK_EYE_CLIENT_ID__;
 }
 
-export function requestSave(payload: SavePayload) {
-  getHotClient()?.send?.(HAWK_EYE_SAVE_EVENT, payload);
+export function requestSelection(payload: Omit<InspectRequest, 'clientId'>) {
+  getHotClient()?.send?.(HAWK_EYE_INSPECT_EVENT, {
+    ...payload,
+    clientId: getClientId(),
+  } satisfies InspectRequest);
+}
+
+export function requestStyleAnalysis(payload: Omit<InspectRequest, 'clientId'>) {
+  getHotClient()?.send?.(HAWK_EYE_ANALYZE_STYLE_EVENT, {
+    ...payload,
+    clientId: getClientId(),
+  } satisfies InspectRequest);
+}
+
+export function requestSave(payload: Omit<SavePayload, 'clientId'>) {
+  getHotClient()?.send?.(HAWK_EYE_SAVE_EVENT, {
+    ...payload,
+    clientId: getClientId(),
+  } satisfies SavePayload);
 }
 
 export function subscribeToSelection(cb: (payload: SelectionPayload) => void) {

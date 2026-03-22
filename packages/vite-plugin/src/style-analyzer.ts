@@ -7,13 +7,38 @@ import {
   type JsxSelfClosingElement,
   type SourceFile,
 } from 'ts-morph';
-import type { StyleMode } from '../../../shared/protocol';
-export type { StyleMode } from '../../../shared/protocol';
+import type {
+  ClassAttributeState,
+  StyleAttributeState,
+  StyleMode,
+} from '../../../shared/protocol';
+export type {
+  ClassAttributeState,
+  StyleAttributeState,
+  StyleMode,
+} from '../../../shared/protocol';
 
 export interface StyleAnalysisResult {
   mode: StyleMode;
   classNames: string[];
   inlineStyles: Record<string, string>;
+  classAttributeState: ClassAttributeState;
+  styleAttributeState: StyleAttributeState;
+}
+
+interface InlineStyleAnalysis {
+  dynamic: boolean;
+  hasInlineStyle: boolean;
+  inlineStyles: Record<string, string>;
+  state: StyleAttributeState;
+}
+
+interface ClassNameAnalysis {
+  classNames: string[];
+  dynamic: boolean;
+  hasClassNames: boolean;
+  state: ClassAttributeState;
+  supported: boolean;
 }
 
 type JsxOpeningLike = JsxOpeningElement | JsxSelfClosingElement;
@@ -109,12 +134,19 @@ const TAILWIND_PREFIXES = [
 ];
 
 function createUnknownAnalysis(
-  overrides: Partial<Pick<StyleAnalysisResult, 'classNames' | 'inlineStyles'>> = {}
+  overrides: Partial<
+    Pick<
+      StyleAnalysisResult,
+      'classNames' | 'inlineStyles' | 'classAttributeState' | 'styleAttributeState'
+    >
+  > = {}
 ): StyleAnalysisResult {
   return {
     mode: 'unknown',
     classNames: overrides.classNames ?? [],
     inlineStyles: overrides.inlineStyles ?? {},
+    classAttributeState: overrides.classAttributeState ?? 'missing',
+    styleAttributeState: overrides.styleAttributeState ?? 'missing',
   };
 }
 
@@ -126,7 +158,9 @@ export function createStyleAnalysisFingerprint(result: StyleAnalysisResult) {
   return JSON.stringify({
     classNames: result.classNames,
     inlineStyles: orderedInlineStyles,
+    classAttributeState: result.classAttributeState,
     mode: result.mode,
+    styleAttributeState: result.styleAttributeState,
   });
 }
 
@@ -287,7 +321,7 @@ function getLiteralExpressionValue(node: Node | undefined): string | null {
   return null;
 }
 
-function analyzeInlineStyles(node: JsxOpeningLike) {
+function analyzeInlineStyles(node: JsxOpeningLike): InlineStyleAnalysis {
   const styleAttribute = getNamedAttribute(node, 'style');
 
   if (!styleAttribute) {
@@ -295,6 +329,7 @@ function analyzeInlineStyles(node: JsxOpeningLike) {
       dynamic: false,
       hasInlineStyle: false,
       inlineStyles: {} as Record<string, string>,
+      state: 'missing' satisfies StyleAttributeState,
     };
   }
 
@@ -305,6 +340,7 @@ function analyzeInlineStyles(node: JsxOpeningLike) {
       dynamic: true,
       hasInlineStyle: true,
       inlineStyles: {},
+      state: 'dynamic' satisfies StyleAttributeState,
     };
   }
 
@@ -315,6 +351,7 @@ function analyzeInlineStyles(node: JsxOpeningLike) {
       dynamic: false,
       hasInlineStyle: true,
       inlineStyles: {},
+      state: 'object' satisfies StyleAttributeState,
     };
   }
 
@@ -323,6 +360,7 @@ function analyzeInlineStyles(node: JsxOpeningLike) {
       dynamic: true,
       hasInlineStyle: true,
       inlineStyles: {},
+      state: 'expression' satisfies StyleAttributeState,
     };
   }
 
@@ -347,10 +385,11 @@ function analyzeInlineStyles(node: JsxOpeningLike) {
     dynamic: false,
     hasInlineStyle: Object.keys(inlineStyles).length > 0,
     inlineStyles,
+    state: 'object' satisfies StyleAttributeState,
   };
 }
 
-function analyzeClassNames(node: JsxOpeningLike) {
+function analyzeClassNames(node: JsxOpeningLike): ClassNameAnalysis {
   const classAttribute = getNamedAttribute(node, 'className', 'class');
   const literalValue = getAttributeLiteralValue(classAttribute);
 
@@ -359,6 +398,7 @@ function analyzeClassNames(node: JsxOpeningLike) {
       classNames: [] as string[],
       dynamic: false,
       hasClassNames: false,
+      state: 'missing' satisfies ClassAttributeState,
       supported: false,
     };
   }
@@ -368,6 +408,7 @@ function analyzeClassNames(node: JsxOpeningLike) {
       classNames: [],
       dynamic: true,
       hasClassNames: true,
+      state: 'dynamic' satisfies ClassAttributeState,
       supported: false,
     };
   }
@@ -378,6 +419,7 @@ function analyzeClassNames(node: JsxOpeningLike) {
     classNames,
     dynamic: false,
     hasClassNames: classNames.length > 0,
+    state: 'literal' satisfies ClassAttributeState,
     supported: classNames.length > 0 && classNames.every(isLikelyTailwindClass),
   };
 }
@@ -423,14 +465,18 @@ export function analyzeStyleAtPosition(
   if (classAnalysis.dynamic || inlineAnalysis.dynamic) {
     return createUnknownAnalysis({
       classNames: classAnalysis.classNames,
+      classAttributeState: classAnalysis.state,
       inlineStyles: inlineAnalysis.inlineStyles,
+      styleAttributeState: inlineAnalysis.state,
     });
   }
 
   if (classAnalysis.hasClassNames && !classAnalysis.supported) {
     return createUnknownAnalysis({
       classNames: classAnalysis.classNames,
+      classAttributeState: classAnalysis.state,
       inlineStyles: inlineAnalysis.inlineStyles,
+      styleAttributeState: inlineAnalysis.state,
     });
   }
 
@@ -438,7 +484,9 @@ export function analyzeStyleAtPosition(
     return {
       mode: 'mixed',
       classNames: classAnalysis.classNames,
+      classAttributeState: classAnalysis.state,
       inlineStyles: inlineAnalysis.inlineStyles,
+      styleAttributeState: inlineAnalysis.state,
     };
   }
 
@@ -446,7 +494,9 @@ export function analyzeStyleAtPosition(
     return {
       mode: 'tailwind',
       classNames: classAnalysis.classNames,
+      classAttributeState: classAnalysis.state,
       inlineStyles: inlineAnalysis.inlineStyles,
+      styleAttributeState: inlineAnalysis.state,
     };
   }
 
@@ -454,12 +504,16 @@ export function analyzeStyleAtPosition(
     return {
       mode: 'inline',
       classNames: classAnalysis.classNames,
+      classAttributeState: classAnalysis.state,
       inlineStyles: inlineAnalysis.inlineStyles,
+      styleAttributeState: inlineAnalysis.state,
     };
   }
 
   return createUnknownAnalysis({
     classNames: classAnalysis.classNames,
+    classAttributeState: classAnalysis.state,
     inlineStyles: inlineAnalysis.inlineStyles,
+    styleAttributeState: inlineAnalysis.state,
   });
 }

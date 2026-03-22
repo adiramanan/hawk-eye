@@ -7,7 +7,6 @@ import {
   readFileSync,
   realpathSync,
   rmSync,
-  statSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -131,10 +130,6 @@ function parseFrontmatterDocument(content: string) {
   };
 }
 
-function readManifest(repoRoot: string) {
-  return JSON.parse(readFileSync(join(repoRoot, '.memory', 'manifest.json'), 'utf8'));
-}
-
 function listSessionFiles(repoRoot: string) {
   return readdirSync(join(repoRoot, '.memory', 'sessions')).filter((fileName) => !fileName.startsWith('.'));
 }
@@ -230,7 +225,6 @@ describe('hawk-memory repo-native protocol', () => {
     seedProtocolRepo(repoRoot);
 
     const sessionFileName = '20260319T120000000Z--claude-code.md';
-    const sessionPath = join(repoRoot, '.memory', 'sessions', sessionFileName);
     const openReceipt = {
       event: 'open',
       sessionId: '20260319T120000000Z--claude-code',

@@ -6,6 +6,7 @@ import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { HAWK_EYE_SOURCE_ATTRIBUTE } from '../shared/protocol';
 import { editablePropertyDefinitionMap, editablePropertyDefinitions } from '../packages/client/src/editable-properties';
+import { ColorInput } from '../packages/client/src/controls/ColorInput';
 import { GridTrackEditor } from '../packages/client/src/controls/GridTrackEditor';
 import { NumberInput } from '../packages/client/src/controls/NumberInput';
 import { SizeInput } from '../packages/client/src/controls/SizeInput';
@@ -273,6 +274,48 @@ describe('client UI controls', () => {
     expect(view.container.querySelector('[role="listbox"]')).toBeNull();
     expect(document.activeElement).toBe(trigger);
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('opens the fallback color picker and commits native color changes', () => {
+    const snapshot: PropertySnapshot = {
+      baseline: '#112233',
+      inlineValue: '#112233',
+      inputValue: '#112233',
+      invalid: false,
+      value: '#112233',
+    };
+    const onChange = vi.fn();
+    const view = renderComponent(
+      React.createElement(ColorInput, {
+        definition: editablePropertyDefinitionMap.backgroundColor,
+        onChange,
+        snapshot,
+      })
+    );
+
+    const swatchButton = view.container.querySelector('[data-hawk-eye-ui="color-swatch-btn"]');
+
+    if (!(swatchButton instanceof window.HTMLButtonElement)) {
+      throw new Error('Missing color swatch button');
+    }
+
+    click(swatchButton);
+
+    const dialog = view.container.querySelector('[data-hawk-eye-ui="color-popover"]');
+
+    if (!(dialog instanceof window.HTMLElement)) {
+      throw new Error('Missing color picker popover');
+    }
+
+    const nativeInput = dialog.querySelector('[data-hawk-eye-ui="color-native-input"]');
+
+    if (!(nativeInput instanceof window.HTMLInputElement)) {
+      throw new Error('Missing native color input');
+    }
+
+    updateInput(nativeInput, '#ff6600');
+
+    expect(onChange).toHaveBeenCalledWith('#ff6600');
   });
 
   it('renders unit-bearing number inputs inside a single shared shell', () => {

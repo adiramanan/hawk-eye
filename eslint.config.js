@@ -24,6 +24,7 @@ export default [
         Document: 'readonly',
         Element: 'readonly',
         EventTarget: 'readonly',
+        FrameRequestCallback: 'readonly',
         HTMLButtonElement: 'readonly',
         HTMLCanvasElement: 'readonly',
         HTMLDivElement: 'readonly',
@@ -36,6 +37,7 @@ export default [
         Node: 'readonly',
         PointerEvent: 'readonly',
         Window: 'readonly',
+        Buffer: 'readonly',
         console: 'readonly',
         process: 'readonly',
         document: 'readonly',
@@ -54,6 +56,9 @@ export default [
       ...reactHooksPlugin.configs.recommended.rules,
 
       'react/react-in-jsx-scope': 'off',
+      // eslint-plugin-react-hooks@4.x crashes under ESLint 9 when exhaustive-deps runs.
+      // Keep rules-of-hooks on, and re-enable this after upgrading the plugin.
+      'react-hooks/exhaustive-deps': 'off',
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-unused-vars': [
         'error',

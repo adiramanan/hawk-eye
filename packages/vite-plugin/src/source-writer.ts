@@ -28,7 +28,7 @@ type JsxOpeningLike = JsxOpeningElement | JsxSelfClosingElement;
 type AttributeName = 'class' | 'className';
 type SupportedAttributeName = AttributeName | 'style';
 type ClassAttributeState = 'dynamic' | 'literal' | 'missing';
-type StyleAttributeState = 'dynamic' | 'missing' | 'object';
+type StyleAttributeState = 'dynamic' | 'expression' | 'missing' | 'object';
 
 interface ClassAttributeInfo {
   attribute: JsxAttribute | null;
@@ -39,6 +39,7 @@ interface ClassAttributeInfo {
 
 interface StyleAttributeInfo {
   attribute: JsxAttribute | null;
+  expressionText: string | null;
   objectLiteral: ObjectLiteralExpression | null;
   state: StyleAttributeState;
 }
@@ -160,6 +161,7 @@ function readStyleAttribute(node: JsxOpeningLike): StyleAttributeInfo {
   if (!attribute) {
     return {
       attribute: null,
+      expressionText: null,
       objectLiteral: null,
       state: 'missing',
     };
@@ -170,6 +172,7 @@ function readStyleAttribute(node: JsxOpeningLike): StyleAttributeInfo {
   if (!initializer || !Node.isJsxExpression(initializer)) {
     return {
       attribute,
+      expressionText: null,
       objectLiteral: null,
       state: 'dynamic',
     };
@@ -180,13 +183,15 @@ function readStyleAttribute(node: JsxOpeningLike): StyleAttributeInfo {
   if (!expression || !Node.isObjectLiteralExpression(expression)) {
     return {
       attribute,
+      expressionText: expression?.getText() ?? null,
       objectLiteral: null,
-      state: 'dynamic',
+      state: expression ? 'expression' : 'dynamic',
     };
   }
 
   return {
     attribute,
+    expressionText: null,
     objectLiteral: expression,
     state: 'object',
   };
@@ -223,20 +228,54 @@ function getStyleObjectProperty(objectLiteral: ObjectLiteralExpression, property
   );
 }
 
-function renderStyleInitializer(mutations: PropertyMutation[]) {
-  const declarations = mutations.map((mutation) => {
+function renderStyleDeclarations(mutations: PropertyMutation[]) {
+  return mutations.map((mutation) => {
     const propertyName = toReactStylePropertyName(mutation.cssProperty);
     return `${toObjectLiteralPropertyName(propertyName)}: ${JSON.stringify(mutation.newValue)}`;
   });
+}
+
+function renderStyleInitializer(mutations: PropertyMutation[]) {
+  const declarations = renderStyleDeclarations(mutations);
 
   return `{{ ${declarations.join(', ')} }}`;
+}
+
+function renderWrappedStyleInitializer(expressionText: string, mutations: PropertyMutation[]) {
+  const declarations = renderStyleDeclarations(mutations);
+
+  if (declarations.length === 0) {
+    return `{{ ...${expressionText} }}`;
+  }
+
+  return `{{ ...${expressionText}, ${declarations.join(', ')} }}`;
+}
+
+function addUnsupportedDynamicStyleWarnings(
+  mutation: ElementMutation,
+  inlineMutations: PropertyMutation[],
+  warnings: MutationWarning[]
+) {
+  for (const propertyMutation of inlineMutations) {
+    warnings.push({
+      code: 'unsupported-dynamic-style',
+      file: mutation.file,
+      line: mutation.line,
+      column: mutation.column,
+      propertyId: propertyMutation.propertyId,
+      message: `Skipped ${propertyMutation.propertyId} because the style prop is not an object literal.`,
+    });
+  }
 }
 
 function upsertInlineStyles(
   node: JsxOpeningLike,
   mutation: ElementMutation,
   inlineMutations: PropertyMutation[],
-  warnings: MutationWarning[]
+  warnings: MutationWarning[],
+  options: {
+    allowStyleExpressionWrap: boolean;
+  }
 ) {
   if (inlineMutations.length === 0) {
     return;
@@ -245,16 +284,19 @@ function upsertInlineStyles(
   const styleAttribute = readStyleAttribute(node);
 
   if (styleAttribute.state === 'dynamic') {
-    for (const propertyMutation of inlineMutations) {
-      warnings.push({
-        code: 'unsupported-dynamic-style',
-        file: mutation.file,
-        line: mutation.line,
-        column: mutation.column,
-        propertyId: propertyMutation.propertyId,
-        message: `Skipped ${propertyMutation.propertyId} because the style prop is not an object literal.`,
-      });
+    addUnsupportedDynamicStyleWarnings(mutation, inlineMutations, warnings);
+    return;
+  }
+
+  if (styleAttribute.state === 'expression') {
+    if (!options.allowStyleExpressionWrap || !styleAttribute.attribute || !styleAttribute.expressionText) {
+      addUnsupportedDynamicStyleWarnings(mutation, inlineMutations, warnings);
+      return;
     }
+
+    styleAttribute.attribute.setInitializer(
+      renderWrappedStyleInitializer(styleAttribute.expressionText, inlineMutations)
+    );
 
     return;
   }
@@ -431,6 +473,26 @@ function getSizeModeInlineMutations(mutation: ElementMutation): PropertyMutation
   return nextMutations;
 }
 
+function getCompanionInlineMutations(mutation: ElementMutation): PropertyMutation[] {
+  const nextMutations: PropertyMutation[] = [];
+  const hasBackgroundColorMutation = mutation.properties.some(
+    (propertyMutation) =>
+      propertyMutation.propertyId === 'backgroundColor' &&
+      propertyMutation.newValue.trim() !== propertyMutation.oldValue.trim()
+  );
+
+  if (hasBackgroundColorMutation) {
+    nextMutations.push({
+      propertyId: 'backgroundImage',
+      cssProperty: 'background-image',
+      oldValue: '',
+      newValue: 'none',
+    });
+  }
+
+  return nextMutations;
+}
+
 function applyElementMutation(
   node: JsxOpeningLike,
   mutation: ElementMutation,
@@ -439,18 +501,35 @@ function applyElementMutation(
   const classInfo = readClassAttribute(node);
   const nextClassNames = [...classInfo.classNames];
   const inlineMutations: PropertyMutation[] = [];
+  const companionInlineMutations = getCompanionInlineMutations(mutation);
   const sizeModeInlineMutations = getSizeModeInlineMutations(mutation);
 
   if (mutation.detached) {
     classInfo.attribute?.remove();
     inlineMutations.push(...mutation.properties);
-    upsertInlineStyles(node, mutation, [...inlineMutations, ...sizeModeInlineMutations], warnings);
+    upsertInlineStyles(
+      node,
+      mutation,
+      [...inlineMutations, ...companionInlineMutations, ...sizeModeInlineMutations],
+      warnings,
+      {
+        allowStyleExpressionWrap: false,
+      }
+    );
     return;
   }
 
   if (!usesTailwindClasses(mutation.styleMode)) {
     inlineMutations.push(...mutation.properties);
-    upsertInlineStyles(node, mutation, [...inlineMutations, ...sizeModeInlineMutations], warnings);
+    upsertInlineStyles(
+      node,
+      mutation,
+      [...inlineMutations, ...companionInlineMutations, ...sizeModeInlineMutations],
+      warnings,
+      {
+        allowStyleExpressionWrap: true,
+      }
+    );
     return;
   }
 
@@ -484,7 +563,15 @@ function applyElementMutation(
     setClassAttribute(node, classInfo, nextClassNames);
   }
 
-  upsertInlineStyles(node, mutation, [...inlineMutations, ...sizeModeInlineMutations], warnings);
+  upsertInlineStyles(
+    node,
+    mutation,
+    [...inlineMutations, ...companionInlineMutations, ...sizeModeInlineMutations],
+    warnings,
+    {
+      allowStyleExpressionWrap: true,
+    }
+  );
 }
 
 function getOrLoadSourceFile(

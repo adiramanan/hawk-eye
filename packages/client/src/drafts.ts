@@ -30,10 +30,83 @@ interface ApplyInputResult {
 }
 
 const INSTANCE_KEY_SEPARATOR = '@@';
-const elementInstanceKeyCache = new WeakMap<HTMLElement, string>();
+const elementInstanceKeyCache = new WeakMap<
+  HTMLElement,
+  {
+    key: string;
+    source: string;
+  }
+>();
+const previewStyleOverrideCache = new WeakMap<HTMLElement, Map<string, string | null>>();
 
 function escapeAttributeValue(value: string) {
   return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+function hasPreviewStyleOverride(element: HTMLElement, cssProperty: string) {
+  return previewStyleOverrideCache.get(element)?.has(cssProperty) ?? false;
+}
+
+function setPreviewStyleOverride(
+  element: HTMLElement,
+  cssProperty: string,
+  nextValue: string | null
+) {
+  let overrides = previewStyleOverrideCache.get(element);
+
+  if (!overrides) {
+    overrides = new Map<string, string | null>();
+    previewStyleOverrideCache.set(element, overrides);
+  }
+
+  if (!overrides.has(cssProperty)) {
+    overrides.set(cssProperty, element.style.getPropertyValue(cssProperty).trim() || null);
+  }
+
+  if (nextValue) {
+    element.style.setProperty(cssProperty, nextValue);
+    return;
+  }
+
+  element.style.removeProperty(cssProperty);
+}
+
+function restorePreviewStyleOverride(element: HTMLElement, cssProperty: string) {
+  const overrides = previewStyleOverrideCache.get(element);
+
+  if (!overrides?.has(cssProperty)) {
+    return;
+  }
+
+  const originalValue = overrides.get(cssProperty) ?? null;
+
+  if (originalValue) {
+    element.style.setProperty(cssProperty, originalValue);
+  } else {
+    element.style.removeProperty(cssProperty);
+  }
+
+  overrides.delete(cssProperty);
+
+  if (overrides.size === 0) {
+    previewStyleOverrideCache.delete(element);
+  }
+}
+
+function syncBackgroundFillPreview(element: HTMLElement, enabled: boolean) {
+  if (!enabled) {
+    restorePreviewStyleOverride(element, 'background-image');
+    return;
+  }
+
+  const computedBackgroundImage = window.getComputedStyle(element).backgroundImage.trim();
+
+  if (hasPreviewStyleOverride(element, 'background-image') || computedBackgroundImage !== 'none') {
+    setPreviewStyleOverride(element, 'background-image', 'none');
+    return;
+  }
+
+  restorePreviewStyleOverride(element, 'background-image');
 }
 
 function getInspectableElementsBySource(source: string) {
@@ -67,13 +140,15 @@ function parseInspectableElementKey(instanceKey: string) {
 }
 
 function clampOpacity(rawValue: string) {
-  const nextValue = Number.parseFloat(rawValue);
+  const trimmed = rawValue.trim().replace(/%$/, '').trim();
+  const nextValue = Number.parseFloat(trimmed);
 
   if (!Number.isFinite(nextValue)) {
     return null;
   }
 
-  return String(Math.min(1, Math.max(0, Math.round(nextValue * 100) / 100)));
+  const percent = Math.min(100, Math.max(1, nextValue));
+  return String(Math.round(percent) / 100);
 }
 
 function isTransformInputValue(value: string) {
@@ -197,10 +272,13 @@ function restoreOriginalInlineValue(
 
   if (snapshot.inlineValue) {
     element.style.setProperty(definition.cssProperty, snapshot.inlineValue);
-    return;
+  } else {
+    element.style.removeProperty(definition.cssProperty);
   }
 
-  element.style.removeProperty(definition.cssProperty);
+  if (propertyId === 'backgroundColor') {
+    restorePreviewStyleOverride(element, 'background-image');
+  }
 }
 
 function buildElementContext(element: HTMLElement): ElementContext {
@@ -291,6 +369,7 @@ export function mergeSelectionDraft(
 ): SelectionDraft {
   return {
     ...draft,
+    source: details.source,
     detached: draft.detached,
     file: details.file,
     analysisFingerprint: details.analysisFingerprint,
@@ -315,23 +394,26 @@ export function createInspectableElementKey(element: HTMLElement) {
     return null;
   }
 
-  const cachedKey = elementInstanceKeyCache.get(element);
-
-  if (cachedKey) {
-    return cachedKey;
-  }
-
   const source = element.dataset.hawkEyeSource?.trim();
 
   if (!source) {
     return null;
   }
 
+  const cachedEntry = elementInstanceKeyCache.get(element);
+
+  if (cachedEntry?.source === source) {
+    return cachedEntry.key;
+  }
+
   const matches = getInspectableElementsBySource(source);
   const occurrence = matches.findIndex((match) => match === element);
 
   const instanceKey = `${source}${INSTANCE_KEY_SEPARATOR}${Math.max(occurrence, 0)}`;
-  elementInstanceKeyCache.set(element, instanceKey);
+  elementInstanceKeyCache.set(element, {
+    key: instanceKey,
+    source,
+  });
   return instanceKey;
 }
 
@@ -356,6 +438,10 @@ export function applyDraftToElement(element: HTMLElement, draft: SelectionDraft)
     }
 
     element.style.setProperty(definition.cssProperty, snapshot.value);
+
+    if (definition.id === 'backgroundColor') {
+      syncBackgroundFillPreview(element, true);
+    }
   }
 
   applySizeModeMetadata(element, 'width', draft.sizeControl);
@@ -384,8 +470,8 @@ export function applyDraftInputValue(
   rawValue: string
 ): ApplyInputResult {
   const definition = editablePropertyDefinitionMap[propertyId];
-  const isOpacitySlider = definition.control === 'slider' && definition.id === 'opacity';
-  let candidate = isOpacitySlider ? clampOpacity(rawValue.trim()) : rawValue.trim();
+  const isOpacityControl = definition.id === 'opacity';
+  let candidate = isOpacityControl ? clampOpacity(rawValue.trim()) : rawValue.trim();
 
   // Handle CSS value transforms (e.g., numeric input → repeat(), or spans)
   // Only transform plain numerals; already-valid CSS like "auto" or
@@ -445,6 +531,10 @@ export function applyDraftInputValue(
 
   element.style.setProperty(definition.cssProperty, finalValue);
 
+  if (propertyId === 'backgroundColor') {
+    syncBackgroundFillPreview(element, true);
+  }
+
   return {
     baseline: snapshot.baseline,
     inlineValue: snapshot.inlineValue,
@@ -467,6 +557,10 @@ export function resetDraftProperty(
       element.style.setProperty(definition.cssProperty, snapshot.baseline);
     } else {
       restoreOriginalInlineValue(element, propertyId, snapshot);
+    }
+
+    if (propertyId === 'backgroundColor') {
+      restorePreviewStyleOverride(element, 'background-image');
     }
   }
 

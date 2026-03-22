@@ -15,6 +15,7 @@ import {
   focusedGroupLabels,
 } from './editable-properties';
 import { getNextGroupIndex, isGroupNavigationKey } from './utils/keyboard-navigation';
+import { parseCssValue } from './utils/css-value';
 import type {
   EditablePropertyId,
   ElementContext,
@@ -46,6 +47,30 @@ interface PropertiesPanelProps {
   onResetAll(): void;
   onResetProperty(instanceKey: string, propertyId: EditablePropertyId): void;
   onToggleAspectRatioLock(): void;
+}
+
+function AspectRatioLockIcon({ locked }: { locked: boolean }) {
+  const path = locked
+    ? 'M11.4583 6.45833V4.79167C11.4583 2.49048 9.59285 0.625 7.29167 0.625C4.99048 0.625 3.125 2.49048 3.125 4.79167V6.45833M7.29167 10.2083V11.875M4.625 15.625H9.95833C11.3585 15.625 12.0585 15.625 12.5933 15.3525C13.0637 15.1128 13.4462 14.7304 13.6858 14.26C13.9583 13.7252 13.9583 13.0251 13.9583 11.625V10.4583C13.9583 9.0582 13.9583 8.35814 13.6858 7.82336C13.4462 7.35295 13.0637 6.9705 12.5933 6.73082C12.0585 6.45833 11.3585 6.45833 9.95833 6.45833H4.625C3.22487 6.45833 2.5248 6.45833 1.99002 6.73082C1.51962 6.9705 1.13717 7.35295 0.897484 7.82336C0.625 8.35814 0.625 9.0582 0.625 10.4583V11.625C0.625 13.0251 0.625 13.7252 0.897484 14.26C1.13717 14.7304 1.51962 15.1128 1.99002 15.3525C2.5248 15.625 3.22487 15.625 4.625 15.625Z'
+    : 'M3.125 6.45833V4.79167C3.125 2.49048 4.99048 0.625 7.29167 0.625C9.00027 0.625 10.4687 1.65341 11.1116 3.125M7.29167 10.2083V11.875M4.625 15.625H9.95833C11.3585 15.625 12.0585 15.625 12.5933 15.3525C13.0637 15.1128 13.4462 14.7304 13.6858 14.26C13.9583 13.7252 13.9583 13.0251 13.9583 11.625V10.4583C13.9583 9.0582 13.9583 8.35814 13.6858 7.82336C13.4462 7.35295 13.0637 6.9705 12.5933 6.73082C12.0585 6.45833 11.3585 6.45833 9.95833 6.45833H4.625C3.22487 6.45833 2.5248 6.45833 1.99002 6.73082C1.51962 6.9705 1.13717 7.35295 0.897484 7.82336C0.625 8.35814 0.625 9.0582 0.625 10.4583V11.625C0.625 13.0251 0.625 13.7252 0.897484 14.26C1.13717 14.7304 1.51962 15.1128 1.99002 15.3525C2.5248 15.625 3.22487 15.625 4.625 15.625Z';
+
+  return (
+    <span aria-hidden="true" data-hawk-eye-ui="aspect-ratio-lock-icon">
+      <svg
+        fill="none"
+        viewBox="0 0 14.5833 16.25"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d={path}
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="1.25"
+        />
+      </svg>
+    </span>
+  );
 }
 
 // ── Property card helpers ──────────────────────────────────────────────────
@@ -229,6 +254,47 @@ const TEXT_ONLY_APPEARANCE_TAGS = new Set([
 
 function shouldShowAppearanceFill(context: ElementContext) {
   return !TEXT_ONLY_APPEARANCE_TAGS.has(context.tagName);
+}
+
+const BORDER_WIDTH_PROPERTY_IDS = [
+  'borderTopWidth',
+  'borderRightWidth',
+  'borderBottomWidth',
+  'borderLeftWidth',
+] as const satisfies readonly EditablePropertyId[];
+
+function getSnapshotDisplayValue(snapshot: PropertySnapshot) {
+  return snapshot.inputValue || snapshot.value || snapshot.baseline;
+}
+
+function isVisibleBorderStyle(value: string) {
+  const trimmed = value.trim().toLowerCase();
+  return trimmed !== '' && trimmed !== 'none' && trimmed !== 'hidden';
+}
+
+function getBorderWidth(snapshot: PropertySnapshot) {
+  const parsed = parseCssValue(getSnapshotDisplayValue(snapshot).trim());
+
+  if (parsed) {
+    return parsed.number;
+  }
+
+  const numericValue = Number.parseFloat(getSnapshotDisplayValue(snapshot).trim());
+  return Number.isFinite(numericValue) ? numericValue : 0;
+}
+
+function hasAnyBorderWidth(selectedDraft: SelectionDraft) {
+  return BORDER_WIDTH_PROPERTY_IDS.some(
+    (propertyId) => getBorderWidth(selectedDraft.properties[propertyId]) > 0
+  );
+}
+
+function isBorderWidthPropertyId(
+  propertyId: EditablePropertyId
+): propertyId is (typeof BORDER_WIDTH_PROPERTY_IDS)[number] {
+  return BORDER_WIDTH_PROPERTY_IDS.includes(
+    propertyId as (typeof BORDER_WIDTH_PROPERTY_IDS)[number]
+  );
 }
 
 function card(
@@ -699,9 +765,9 @@ function SizeSpacingSection(props: SectionProps) {
               type="button"
               title="Toggle aspect ratio lock"
             >
-              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg">
-                <path d="M8.5 6.5L6 4m0 0L3.5 6.5M6 4v5a3 3 0 003 3h2m0 0l2.5-2.5M14 14l2.5-2.5M14 14v-5a3 3 0 00-3-3H9" />
-              </svg>
+              <AspectRatioLockIcon
+                locked={props.selectedDraft.sizeControl.aspectRatioLocked}
+              />
             </button>
           </div>
         )}
@@ -955,20 +1021,57 @@ function DashGapCard({ selectedDraft, onChange, onResetProperty }: SectionProps)
 
 function BorderSection(props: SectionProps) {
   const borderStyleSnapshot = props.selectedDraft.properties.borderStyle;
-  const borderStyleValue = borderStyleSnapshot.inputValue || borderStyleSnapshot.value || borderStyleSnapshot.baseline;
-  const hasStroke = borderStyleValue !== 'none' && borderStyleValue !== '';
+  const borderStyleValue = getSnapshotDisplayValue(borderStyleSnapshot);
+  const hasStroke = isVisibleBorderStyle(borderStyleValue);
   const isDashed = borderStyleValue === 'dashed';
+  const supportsDashPattern = props.selectedDraft.tagName === 'svg';
 
-  // Intercept borderStyle changes to auto-set 1px width when switching to solid
+  function seedBorderWidths() {
+    if (hasAnyBorderWidth(props.selectedDraft)) {
+      return;
+    }
+
+    for (const propertyId of BORDER_WIDTH_PROPERTY_IDS) {
+      props.onChange(propertyId, '1px');
+    }
+  }
+
+  function ensureVisibleBorder(options?: { skipStyleSeed?: boolean; styleValue?: string }) {
+    const targetStyle = options?.styleValue ?? borderStyleValue;
+
+    if (!options?.skipStyleSeed && !isVisibleBorderStyle(borderStyleValue)) {
+      props.onChange('borderStyle', isVisibleBorderStyle(targetStyle) ? targetStyle : 'solid');
+    }
+
+    seedBorderWidths();
+  }
+
   const borderProps: SectionProps = {
     ...props,
     onChange(propertyId, value) {
       props.onChange(propertyId, value);
-      if (propertyId === 'borderStyle' && value === 'solid') {
-        props.onChange('borderTopWidth', '1px');
-        props.onChange('borderRightWidth', '1px');
-        props.onChange('borderBottomWidth', '1px');
-        props.onChange('borderLeftWidth', '1px');
+
+      if (propertyId === 'borderStyle') {
+        if (isVisibleBorderStyle(value)) {
+          ensureVisibleBorder({
+            skipStyleSeed: true,
+            styleValue: value,
+          });
+        }
+        return;
+      }
+
+      if (propertyId === 'borderColor') {
+        if (!hasStroke || !hasAnyBorderWidth(props.selectedDraft)) {
+          ensureVisibleBorder();
+        }
+        return;
+      }
+
+      if (isBorderWidthPropertyId(propertyId)) {
+        if (getBorderWidth({ ...props.selectedDraft.properties[propertyId], inputValue: value }) > 0 && !hasStroke) {
+          props.onChange('borderStyle', 'solid');
+        }
       }
     },
   };
@@ -994,7 +1097,7 @@ function BorderSection(props: SectionProps) {
         </div>
         {hasStroke && (
           <>
-            {isDashed && <DashGapCard {...borderProps} />}
+            {isDashed && supportsDashPattern ? <DashGapCard {...borderProps} /> : null}
             <PerSideCard
               cardId="borderWidth"
               label="Stroke Weight"
