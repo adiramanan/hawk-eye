@@ -133,13 +133,13 @@ function CloseIcon() {
 
 function RefreshIcon() {
   return (
-    <svg fill="none" height="16" viewBox="0 0 16 16" width="16" xmlns="http://www.w3.org/2000/svg">
+    <svg fill="none" height="16" viewBox="0 0 20 20" width="16" xmlns="http://www.w3.org/2000/svg">
       <path
-        d="M2.5 8a5.5 5.5 0 1 0 1.7-4L2.5 2.5V6h3.5"
+        d="M1.66669 8.33333C1.66669 8.33333 3.33751 6.05685 4.69488 4.69854C6.05226 3.34022 7.92802 2.5 10 2.5C14.1422 2.5 17.5 5.85786 17.5 10C17.5 14.1421 14.1422 17.5 10 17.5C6.58078 17.5 3.69595 15.2119 2.79316 12.0833M1.66669 8.33333V3.33333M1.66669 8.33333H6.66669"
         stroke="currentColor"
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeWidth="1.4"
+        strokeWidth="1.25"
       />
     </svg>
   );
@@ -147,26 +147,13 @@ function RefreshIcon() {
 
 function BrushIcon() {
   return (
-    <svg fill="none" height="16" viewBox="0 0 16 16" width="16" xmlns="http://www.w3.org/2000/svg">
+    <svg fill="none" height="16" viewBox="0 0 20 20" width="16" xmlns="http://www.w3.org/2000/svg">
       <path
-        d="M10.75 2.5h1.75A1.5 1.5 0 0 1 14 4v4.25a1.5 1.5 0 0 1-1.5 1.5h-1.25"
+        d="M15.8333 3.74984C15.8333 4.13705 15.8333 4.33066 15.8013 4.49165C15.6698 5.15281 15.153 5.66964 14.4918 5.80115C14.3308 5.83317 14.1372 5.83317 13.75 5.83317H4.58333C4.19612 5.83317 4.00251 5.83317 3.84152 5.80115C3.18037 5.66964 2.66354 5.15281 2.53202 4.49165C2.5 4.33066 2.5 4.13705 2.5 3.74984C2.5 3.36262 2.5 3.16902 2.53202 3.00802C2.66354 2.34687 3.18037 1.83004 3.84152 1.69853C4.00251 1.6665 4.19612 1.6665 4.58333 1.6665H13.75C14.1372 1.6665 14.3308 1.6665 14.4918 1.69853C15.153 1.83004 15.6698 2.34687 15.8013 3.00802C15.8333 3.16902 15.8333 3.36262 15.8333 3.74984ZM15.8333 3.74984C16.6099 3.74984 16.9982 3.74984 17.3045 3.8767C17.7129 4.04586 18.0373 4.37032 18.2065 4.7787C18.3333 5.08498 18.3333 5.47327 18.3333 6.24984V6.49984C18.3333 7.43326 18.3333 7.89997 18.1517 8.25649C17.9919 8.57009 17.7369 8.82506 17.4233 8.98485C17.0668 9.1665 16.6001 9.1665 15.6667 9.1665H12.6667C11.7332 9.1665 11.2665 9.1665 10.91 9.34816C10.5964 9.50795 10.3414 9.76292 10.1817 10.0765C10 10.433 10 10.8998 10 11.8332V12.4998M9.66667 18.3332H10.3333C10.8 18.3332 11.0334 18.3332 11.2117 18.2423C11.3685 18.1624 11.4959 18.035 11.5758 17.8782C11.6667 17.6999 11.6667 17.4665 11.6667 16.9998V13.8332C11.6667 13.3665 11.6667 13.1331 11.5758 12.9548C11.4959 12.798 11.3685 12.6706 11.2117 12.5907C11.0334 12.4998 10.8 12.4998 10.3333 12.4998H9.66667C9.19996 12.4998 8.9666 12.4998 8.78834 12.5907C8.63154 12.6706 8.50406 12.798 8.42416 12.9548C8.33333 13.1331 8.33333 13.3665 8.33333 13.8332V16.9998C8.33333 17.4665 8.33333 17.6999 8.42416 17.8782C8.50406 18.035 8.63154 18.1624 8.78834 18.2423C8.9666 18.3332 9.19996 18.3332 9.66667 18.3332Z"
         stroke="currentColor"
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeWidth="1.4"
-      />
-      <path
-        d="M2.25 7.75h7.5v3.75a2 2 0 0 1-2 2h-3.5a2 2 0 0 1-2-2V7.75Z"
-        stroke="currentColor"
-        strokeLinejoin="round"
-        strokeWidth="1.4"
-      />
-      <path
-        d="M4.5 5.25V3.5A1.5 1.5 0 0 1 6 2h.5A1.5 1.5 0 0 1 8 3.5v1.75"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.4"
+        strokeWidth="1.25"
       />
     </svg>
   );
@@ -376,6 +363,7 @@ export function Inspector({
   const [statusTransitionState, setStatusTransitionState] = useState<
     'idle' | 'transitioning'
   >('idle');
+  const [confirmingResetKey, setConfirmingResetKey] = useState<string | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
   const statusTimerRef = useRef<number | null>(null);
   const viewTimerRef = useRef<number | null>(null);
@@ -413,6 +401,8 @@ export function Inspector({
     if (nextView === view) {
       return;
     }
+
+    setConfirmingResetKey(null);
 
     if (viewTimerRef.current) {
       window.clearTimeout(viewTimerRef.current);
@@ -656,7 +646,9 @@ export function Inspector({
                   data-hawk-eye-ui="changes-reset-btn"
                   onClick={(event) => {
                     event.stopPropagation();
-                    resetDraft(draft);
+                    setConfirmingResetKey(
+                      confirmingResetKey === draft.instanceKey ? null : draft.instanceKey
+                    );
                   }}
                   type="button"
                 >
@@ -672,18 +664,19 @@ export function Inspector({
                 ))}
               </div>
               <div
-                aria-hidden={!isActive}
+                aria-hidden={confirmingResetKey !== draft.instanceKey}
                 data-hawk-eye-ui="changes-card-overlay"
-                data-state={isActive ? 'active' : 'inactive'}
+                data-state={confirmingResetKey === draft.instanceKey ? 'active' : 'inactive'}
               >
                 <div data-hawk-eye-ui="changes-overlay-actions">
                   <button
                     data-hawk-eye-ui="overlay-reset-btn"
                     onClick={(event) => {
                       event.stopPropagation();
+                      setConfirmingResetKey(null);
                       resetDraft(draft);
                     }}
-                    tabIndex={isActive ? 0 : -1}
+                    tabIndex={confirmingResetKey === draft.instanceKey ? 0 : -1}
                     type="button"
                   >
                     Reset
@@ -692,9 +685,9 @@ export function Inspector({
                     data-hawk-eye-ui="overlay-keep-btn"
                     onClick={(event) => {
                       event.stopPropagation();
-                      transitionToView('properties');
+                      setConfirmingResetKey(null);
                     }}
-                    tabIndex={isActive ? 0 : -1}
+                    tabIndex={confirmingResetKey === draft.instanceKey ? 0 : -1}
                     type="button"
                   >
                     Keep

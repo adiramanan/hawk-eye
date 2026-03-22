@@ -322,8 +322,8 @@ const LAYOUT_MODE_OPTIONS: Array<{ value: string; label: string; icon: JSX.Eleme
     label: 'Block',
     icon: (
       <svg fill="none" height="20" viewBox="0 0 20 20" width="20" xmlns="http://www.w3.org/2000/svg">
-        <rect x="3.5" y="3.5" width="13" height="13" rx="2" stroke="currentColor" strokeWidth="1.4" />
-        <rect x="6.5" y="6.5" width="7" height="7" rx="0.5" stroke="currentColor" strokeWidth="1.2" />
+        <path d="M2.5 6.5C2.5 5.09987 2.5 4.3998 2.77248 3.86502C3.01217 3.39462 3.39462 3.01217 3.86502 2.77248C4.3998 2.5 5.09987 2.5 6.5 2.5H13.5C14.9001 2.5 15.6002 2.5 16.135 2.77248C16.6054 3.01217 16.9878 3.39462 17.2275 3.86502C17.5 4.3998 17.5 5.09987 17.5 6.5V13.5C17.5 14.9001 17.5 15.6002 17.2275 16.135C16.9878 16.6054 16.6054 16.9878 16.135 17.2275C15.6002 17.5 14.9001 17.5 13.5 17.5H6.5C5.09987 17.5 4.3998 17.5 3.86502 17.2275C3.39462 16.9878 3.01217 16.6054 2.77248 16.135C2.5 15.6002 2.5 14.9001 2.5 13.5V6.5Z" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M6.66667 8C6.66667 7.53329 6.66667 7.29993 6.75749 7.12167C6.83739 6.96487 6.96487 6.83739 7.12167 6.75749C7.29993 6.66667 7.53329 6.66667 8 6.66667H12C12.4667 6.66667 12.7001 6.66667 12.8783 6.75749C13.0351 6.83739 13.1626 6.96487 13.2425 7.12167C13.3333 7.29993 13.3333 7.53329 13.3333 8V12C13.3333 12.4667 13.3333 12.7001 13.2425 12.8783C13.1626 13.0351 13.0351 13.1626 12.8783 13.2425C12.7001 13.3333 12.4667 13.3333 12 13.3333H8C7.53329 13.3333 7.29993 13.3333 7.12167 13.2425C6.96487 13.1626 6.83739 13.0351 6.75749 12.8783C6.66667 12.7001 6.66667 12.4667 6.66667 12V8Z" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     ),
   },
@@ -332,7 +332,8 @@ const LAYOUT_MODE_OPTIONS: Array<{ value: string; label: string; icon: JSX.Eleme
     label: 'Vertical Stack',
     icon: (
       <svg fill="none" height="20" viewBox="0 0 20 20" width="20" xmlns="http://www.w3.org/2000/svg">
-        <path d="M4 5h12M4 10h8M4 15h10" stroke="currentColor" strokeLinecap="round" strokeWidth="1.4" />
+        <path d="M8.33331 15V5C8.33331 4.22343 8.33331 3.83515 8.20645 3.52886C8.03729 3.12048 7.71283 2.79602 7.30445 2.62687C6.99817 2.5 6.60988 2.5 5.83331 2.5C5.05674 2.5 4.66846 2.5 4.36217 2.62687C3.95379 2.79602 3.62934 3.12048 3.46018 3.52886C3.33331 3.83515 3.33331 4.22343 3.33331 5V15C3.33331 15.7766 3.33331 16.1649 3.46018 16.4711C3.62934 16.8795 3.95379 17.204 4.36217 17.3731C4.66846 17.5 5.05674 17.5 5.83331 17.5C6.60988 17.5 6.99817 17.5 7.30445 17.3731C7.71283 17.204 8.03729 16.8795 8.20645 16.4711C8.33331 16.1649 8.33331 15.7766 8.33331 15Z" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M16.6666 11.6667V5C16.6666 4.22343 16.6666 3.83515 16.5398 3.52886C16.3706 3.12048 16.0462 2.79602 15.6378 2.62687C15.3315 2.5 14.9432 2.5 14.1666 2.5C13.3901 2.5 13.0018 2.5 12.6955 2.62687C12.2871 2.79602 11.9627 3.12048 11.7935 3.52886C11.6666 3.83515 11.6666 4.22343 11.6666 5V11.6667C11.6666 12.4432 11.6666 12.8315 11.7935 13.1378C11.9627 13.5462 12.2871 13.8706 12.6955 14.0398C13.0018 14.1667 13.3901 14.1667 14.1666 14.1667C14.9432 14.1667 15.3315 14.1667 15.6378 14.0398C16.0462 13.8706 16.3706 13.5462 16.5398 13.1378C16.6666 12.8315 16.6666 12.4432 16.6666 11.6667Z" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     ),
   },
@@ -341,7 +342,8 @@ const LAYOUT_MODE_OPTIONS: Array<{ value: string; label: string; icon: JSX.Eleme
     label: 'Horizontal Stack',
     icon: (
       <svg fill="none" height="20" viewBox="0 0 20 20" width="20" xmlns="http://www.w3.org/2000/svg">
-        <path d="M5 4v12M10 4v8M15 4v10" stroke="currentColor" strokeLinecap="round" strokeWidth="1.4" />
+        <path d="M11.6667 8.3335C12.4432 8.3335 12.8315 8.3335 13.1378 8.20663C13.5462 8.03747 13.8706 7.71301 14.0398 7.30463C14.1667 6.99835 14.1667 6.61007 14.1667 5.8335C14.1667 5.05693 14.1667 4.66864 14.0398 4.36236C13.8706 3.95398 13.5462 3.62952 13.1378 3.46036C12.8315 3.3335 12.4432 3.3335 11.6667 3.3335L5 3.3335C4.22343 3.3335 3.83515 3.3335 3.52886 3.46036C3.12048 3.62952 2.79602 3.95398 2.62687 4.36236C2.5 4.66864 2.5 5.05693 2.5 5.8335C2.5 6.61006 2.5 6.99835 2.62687 7.30463C2.79602 7.71301 3.12048 8.03747 3.52886 8.20663C3.83515 8.3335 4.22343 8.3335 5 8.3335L11.6667 8.3335Z" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M15 16.6668C15.7766 16.6668 16.1649 16.6668 16.4711 16.54C16.8795 16.3708 17.204 16.0463 17.3731 15.638C17.5 15.3317 17.5 14.9434 17.5 14.1668C17.5 13.3903 17.5 13.002 17.3731 12.6957C17.204 12.2873 16.8795 11.9629 16.4711 11.7937C16.1649 11.6668 15.7766 11.6668 15 11.6668H5C4.22343 11.6668 3.83515 11.6668 3.52886 11.7937C3.12048 11.9629 2.79602 12.2873 2.62687 12.6957C2.5 13.002 2.5 13.3903 2.5 14.1668C2.5 14.9434 2.5 15.3317 2.62687 15.638C2.79602 16.0463 3.12048 16.3708 3.52886 16.54C3.83515 16.6668 4.22343 16.6668 5 16.6668L15 16.6668Z" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     ),
   },
@@ -350,10 +352,10 @@ const LAYOUT_MODE_OPTIONS: Array<{ value: string; label: string; icon: JSX.Eleme
     label: 'Grid',
     icon: (
       <svg fill="none" height="20" viewBox="0 0 20 20" width="20" xmlns="http://www.w3.org/2000/svg">
-        <rect x="3" y="3" width="5.5" height="5.5" rx="1" stroke="currentColor" strokeWidth="1.4" />
-        <rect x="11.5" y="3" width="5.5" height="5.5" rx="1" stroke="currentColor" strokeWidth="1.4" />
-        <rect x="3" y="11.5" width="5.5" height="5.5" rx="1" stroke="currentColor" strokeWidth="1.4" />
-        <rect x="11.5" y="11.5" width="5.5" height="5.5" rx="1" stroke="currentColor" strokeWidth="1.4" />
+        <path d="M7 2.5H3.83333C3.36662 2.5 3.13327 2.5 2.95501 2.59083C2.79821 2.67072 2.67072 2.79821 2.59083 2.95501C2.5 3.13327 2.5 3.36662 2.5 3.83333V7C2.5 7.46671 2.5 7.70007 2.59083 7.87833C2.67072 8.03513 2.79821 8.16261 2.95501 8.24251C3.13327 8.33333 3.36662 8.33333 3.83333 8.33333H7C7.46671 8.33333 7.70007 8.33333 7.87833 8.24251C8.03513 8.16261 8.16261 8.03513 8.24251 7.87833C8.33333 7.70007 8.33333 7.46671 8.33333 7V3.83333C8.33333 3.36662 8.33333 3.13327 8.24251 2.95501C8.16261 2.79821 8.03513 2.67072 7.87833 2.59083C7.70007 2.5 7.46671 2.5 7 2.5Z" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M16.1667 2.5H13C12.5333 2.5 12.2999 2.5 12.1217 2.59083C11.9649 2.67072 11.8374 2.79821 11.7575 2.95501C11.6667 3.13327 11.6667 3.36662 11.6667 3.83333V7C11.6667 7.46671 11.6667 7.70007 11.7575 7.87833C11.8374 8.03513 11.9649 8.16261 12.1217 8.24251C12.2999 8.33333 12.5333 8.33333 13 8.33333H16.1667C16.6334 8.33333 16.8667 8.33333 17.045 8.24251C17.2018 8.16261 17.3293 8.03513 17.4092 7.87833C17.5 7.70007 17.5 7.46671 17.5 7V3.83333C17.5 3.36662 17.5 3.13327 17.4092 2.95501C17.3293 2.79821 17.2018 2.67072 17.045 2.59083C16.8667 2.5 16.6334 2.5 16.1667 2.5Z" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M16.1667 11.6667H13C12.5333 11.6667 12.2999 11.6667 12.1217 11.7575C11.9649 11.8374 11.8374 11.9649 11.7575 12.1217C11.6667 12.2999 11.6667 12.5333 11.6667 13V16.1667C11.6667 16.6334 11.6667 16.8667 11.7575 17.045C11.8374 17.2018 11.9649 17.3293 12.1217 17.4092C12.2999 17.5 12.5333 17.5 13 17.5H16.1667C16.6334 17.5 16.8667 17.5 17.045 17.4092C17.2018 17.3293 17.3293 17.2018 17.4092 17.045C17.5 16.8667 17.5 16.6334 17.5 16.1667V13C17.5 12.5333 17.5 12.2999 17.4092 12.1217C17.3293 11.9649 17.2018 11.8374 17.045 11.7575C16.8667 11.6667 16.6334 11.6667 16.1667 11.6667Z" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M7 11.6667H3.83333C3.36662 11.6667 3.13327 11.6667 2.95501 11.7575C2.79821 11.8374 2.67072 11.9649 2.59083 12.1217C2.5 12.2999 2.5 12.5333 2.5 13V16.1667C2.5 16.6334 2.5 16.8667 2.59083 17.045C2.67072 17.2018 2.79821 17.3293 2.95501 17.4092C3.13327 17.5 3.36662 17.5 3.83333 17.5H7C7.46671 17.5 7.70007 17.5 7.87833 17.4092C8.03513 17.3293 8.16261 17.2018 8.24251 17.045C8.33333 16.8667 8.33333 16.6334 8.33333 16.1667V13C8.33333 12.5333 8.33333 12.2999 8.24251 12.1217C8.16261 11.9649 8.03513 11.8374 7.87833 11.7575C7.70007 11.6667 7.46671 11.6667 7 11.6667Z" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     ),
   },
@@ -362,8 +364,7 @@ const LAYOUT_MODE_OPTIONS: Array<{ value: string; label: string; icon: JSX.Eleme
     label: 'Hidden',
     icon: (
       <svg fill="none" height="20" viewBox="0 0 20 20" width="20" xmlns="http://www.w3.org/2000/svg">
-        <rect x="3.5" y="3.5" width="13" height="13" rx="2" stroke="currentColor" strokeWidth="1.4" />
-        <path d="M7.5 7.5l5 5M12.5 7.5l-5 5" stroke="currentColor" strokeLinecap="round" strokeWidth="1.4" />
+        <path d="M7.5 7.5L12.5 12.5M12.5 7.5L7.5 12.5M6.5 17.5H13.5C14.9001 17.5 15.6002 17.5 16.135 17.2275C16.6054 16.9878 16.9878 16.6054 17.2275 16.135C17.5 15.6002 17.5 14.9001 17.5 13.5V6.5C17.5 5.09987 17.5 4.3998 17.2275 3.86502C16.9878 3.39462 16.6054 3.01217 16.135 2.77248C15.6002 2.5 14.9001 2.5 13.5 2.5H6.5C5.09987 2.5 4.3998 2.5 3.86502 2.77248C3.39462 3.01217 3.01217 3.39462 2.77248 3.86502C2.5 4.3998 2.5 5.09987 2.5 6.5V13.5C2.5 14.9001 2.5 15.6002 2.77248 16.135C3.01217 16.6054 3.39462 16.9878 3.86502 17.2275C4.3998 17.5 5.09987 17.5 6.5 17.5Z" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     ),
   },
@@ -851,7 +852,7 @@ const TEXT_ALIGN_OPTIONS: Array<{ value: string; label: string; icon: JSX.Elemen
     label: 'Left',
     icon: (
       <svg fill="none" height="20" viewBox="0 0 20 20" width="20" xmlns="http://www.w3.org/2000/svg">
-        <path d="M3 5h14M3 10h9M3 15h12" stroke="currentColor" strokeLinecap="round" strokeWidth="1.4" />
+        <path d="M13.3333 8.33333H2.5M16.6667 5H2.5M16.6667 11.6667H2.5M13.3333 15H2.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     ),
   },
@@ -860,7 +861,7 @@ const TEXT_ALIGN_OPTIONS: Array<{ value: string; label: string; icon: JSX.Elemen
     label: 'Center',
     icon: (
       <svg fill="none" height="20" viewBox="0 0 20 20" width="20" xmlns="http://www.w3.org/2000/svg">
-        <path d="M3 5h14M5 10h10M4 15h12" stroke="currentColor" strokeLinecap="round" strokeWidth="1.4" />
+        <path d="M15 8.33333H5M17.5 5H2.5M17.5 11.6667H2.5M15 15H5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     ),
   },
@@ -869,7 +870,7 @@ const TEXT_ALIGN_OPTIONS: Array<{ value: string; label: string; icon: JSX.Elemen
     label: 'Right',
     icon: (
       <svg fill="none" height="20" viewBox="0 0 20 20" width="20" xmlns="http://www.w3.org/2000/svg">
-        <path d="M3 5h14M8 10h9M5 15h12" stroke="currentColor" strokeLinecap="round" strokeWidth="1.4" />
+        <path d="M6.66667 8.33333H17.5M3.33333 5H17.5M3.33333 11.6667H17.5M6.66667 15H17.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     ),
   },
@@ -878,7 +879,7 @@ const TEXT_ALIGN_OPTIONS: Array<{ value: string; label: string; icon: JSX.Elemen
     label: 'Justify',
     icon: (
       <svg fill="none" height="20" viewBox="0 0 20 20" width="20" xmlns="http://www.w3.org/2000/svg">
-        <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeLinecap="round" strokeWidth="1.4" />
+        <path d="M17.5 8.33333H2.5M17.5 15H2.5M17.5 5H2.5M17.5 11.6667H2.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     ),
   },
@@ -1084,17 +1085,8 @@ function BorderSection(props: SectionProps) {
       title="Border"
     >
       <div data-hawk-eye-ui="section-stack">
-        {/* Stroke Colour + Type row */}
-        <div data-hawk-eye-ui="labelled-row">
-          <div data-hawk-eye-ui="labelled-col">
-            <span data-hawk-eye-ui="input-label">Stroke Colour</span>
-            {card('borderColor', borderProps)}
-          </div>
-          <div data-hawk-eye-ui="labelled-col">
-            <span data-hawk-eye-ui="input-label">Type</span>
-            {card('borderStyle', borderProps)}
-          </div>
-        </div>
+        {card('borderStyle', borderProps)}
+        {card('borderColor', borderProps)}
         {hasStroke && (
           <>
             {isDashed && supportsDashPattern ? <DashGapCard {...borderProps} /> : null}

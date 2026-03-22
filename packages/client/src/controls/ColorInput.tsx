@@ -1,4 +1,6 @@
+import type { ReactNode, RefObject } from 'react';
 import { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { EditablePropertyDefinition, PropertySnapshot } from '../types';
 import { parseColor, rgbaToHex } from '../utils/color';
 import { ColorPicker } from './ColorPicker';
@@ -21,6 +23,30 @@ function normalizeColorDisplay(value: string): string {
     return hex;
   }
   return value; // fallback to original if parsing fails
+}
+
+/**
+ * Portals the color picker to the shadow root level so it escapes the panel's
+ * CSS `transform` containing block (which breaks `position: fixed`).
+ */
+function ColorPickerPortal({
+  children,
+  swatchRef,
+}: {
+  children: ReactNode;
+  swatchRef: RefObject<HTMLSpanElement | null>;
+}) {
+  const portalTarget = swatchRef.current?.getRootNode();
+
+  if (portalTarget instanceof ShadowRoot) {
+    const container = portalTarget.querySelector('[data-hawk-eye-ui="portal"]');
+    if (container) {
+      return createPortal(children, container);
+    }
+  }
+
+  // Fallback: render inline (e.g., in test environments without Shadow DOM)
+  return <>{children}</>;
 }
 
 export function ColorInput({ definition, snapshot, onChange }: ColorInputProps) {
@@ -68,14 +94,16 @@ export function ColorInput({ definition, snapshot, onChange }: ColorInputProps) 
         />
       </div>
       {pickerOpen && anchorRectRef.current && (
-        <ColorPicker
-          anchorRect={anchorRectRef.current}
-          id={popoverId}
-          label={definition.label}
-          onChange={onChange}
-          onClose={() => setPickerOpen(false)}
-          value={displayValue}
-        />
+        <ColorPickerPortal swatchRef={swatchRef}>
+          <ColorPicker
+            anchorRect={anchorRectRef.current}
+            id={popoverId}
+            label={definition.label}
+            onChange={onChange}
+            onClose={() => setPickerOpen(false)}
+            value={displayValue}
+          />
+        </ColorPickerPortal>
       )}
     </>
   );

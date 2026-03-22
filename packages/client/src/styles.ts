@@ -857,7 +857,8 @@ export const hawkEyeStyles = `
   [data-hawk-eye-ui="control-label"] {
     color: var(--he-label);
     font-family: var(--he-font-ui);
-    font-size: 11px;
+    font-size: 11.5px;
+    letter-spacing: -0.25px;
     line-height: 1.2;
     white-space: nowrap;
     overflow: hidden;
@@ -1492,22 +1493,23 @@ export const hawkEyeStyles = `
   [data-hawk-eye-ui="segmented-row"] {
     display: flex;
     gap: 0;
-    border-radius: 6px;
+    border-radius: 8px;
     overflow: hidden;
-    border: 1px solid transparent;
+    border: none;
     background: var(--he-input);
   }
 
   [data-hawk-eye-ui="segmented-button"] {
     flex: 1;
-    min-height: 28px;
-    padding: 0 4px;
+    min-height: 32px;
+    padding: 6px 4px;
     border: 0;
-    border-right: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 8px;
     background: transparent;
     color: var(--he-label);
     font-family: var(--he-font-ui);
-    font-size: 11px;
+    font-size: 11.5px;
+    letter-spacing: -0.25px;
     cursor: pointer;
     transition: background 80ms ease, color 80ms ease;
   }
@@ -1517,10 +1519,9 @@ export const hawkEyeStyles = `
   }
 
   [data-hawk-eye-ui="segmented-button"][data-active="true"] {
-    background: #505050;
-    color: var(--he-fg);
+    background: #ffffff;
+    color: #111111;
     font-weight: 500;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
   }
 
   [data-hawk-eye-ui="segmented-button"]:focus-visible {
@@ -1533,30 +1534,31 @@ export const hawkEyeStyles = `
   [data-hawk-eye-ui="toggle-row"] {
     display: flex;
     gap: 0;
-    border-radius: 6px;
+    border-radius: 8px;
     overflow: hidden;
-    border: 1px solid transparent;
+    border: none;
     background: var(--he-input);
   }
 
   [data-hawk-eye-ui="toggle-button"] {
     flex: 1;
-    min-height: 28px;
-    padding: 0 8px;
+    min-height: 32px;
+    padding: 6px 8px;
     border: 0;
+    border-radius: 8px;
     background: transparent;
     color: var(--he-label);
     font-family: var(--he-font-ui);
-    font-size: 11px;
+    font-size: 11.5px;
+    letter-spacing: -0.25px;
     cursor: pointer;
     transition: background 80ms ease, color 80ms ease;
   }
 
   [data-hawk-eye-ui="toggle-button"][data-active="true"] {
-    background: #505050;
-    color: var(--he-fg);
+    background: #ffffff;
+    color: #111111;
     font-weight: 500;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
   }
 
   [data-hawk-eye-ui="toggle-button"]:focus-visible {
@@ -1925,7 +1927,8 @@ export const hawkEyeStyles = `
   [data-hawk-eye-ui="section-subtitle"] {
     color: var(--he-label);
     font-family: var(--he-font-ui);
-    font-size: 11px;
+    font-size: 11.5px;
+    letter-spacing: -0.25px;
     line-height: 1.3;
     font-weight: 400;
   }
@@ -2460,11 +2463,11 @@ export const hawkEyeStyles = `
   [data-hawk-eye-ui="typo-section-label"] {
     color: var(--he-label);
     font-family: var(--he-font-ui);
-    font-size: 10px;
+    font-size: 11.5px;
     font-weight: 400;
-    letter-spacing: 0.01em;
-    padding-left: 8px;
-    text-transform: uppercase;
+    letter-spacing: -0.25px;
+    padding-left: 0;
+    text-transform: none;
   }
 
   /* ── Icon segmented control (text-align, etc.) ──────────────────── */
@@ -2618,74 +2621,6 @@ export const hawkEyeStyles = `
     pointer-events: auto;
   }
 
-  [data-hawk-eye-ui="color-popover-header"] {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  [data-hawk-eye-ui="color-popover-copy"] {
-    display: grid;
-    gap: 2px;
-    min-width: 0;
-  }
-
-  [data-hawk-eye-ui="color-popover-title"] {
-    margin: 0;
-    color: var(--he-fg);
-    font-family: var(--he-font-ui);
-    font-size: 12.5px;
-    font-weight: 500;
-    letter-spacing: -0.2px;
-    line-height: 1.2;
-  }
-
-  [data-hawk-eye-ui="color-popover-subtitle"] {
-    margin: 0;
-    color: var(--he-label);
-    font-family: var(--he-font-ui);
-    font-size: 10.5px;
-    letter-spacing: -0.15px;
-    line-height: 1.2;
-  }
-
-  [data-hawk-eye-ui="color-native-field"] {
-    display: grid;
-    gap: 6px;
-  }
-
-  [data-hawk-eye-ui="color-native-label"] {
-    color: var(--he-label);
-    font-family: var(--he-font-ui);
-    font-size: 11px;
-    letter-spacing: -0.2px;
-    line-height: 1;
-  }
-
-  [data-hawk-eye-ui="color-native-input"] {
-    width: 100%;
-    height: 32px;
-    padding: 4px;
-    border: 1px solid transparent;
-    border-radius: 8px;
-    background: var(--he-input);
-    cursor: pointer;
-  }
-
-  [data-hawk-eye-ui="color-native-input"]:focus-visible {
-    outline: 2px solid var(--he-ring);
-    outline-offset: 2px;
-  }
-
-  [data-hawk-eye-ui="color-native-input"]::-webkit-color-swatch-wrapper {
-    padding: 0;
-  }
-
-  [data-hawk-eye-ui="color-native-input"]::-webkit-color-swatch,
-  [data-hawk-eye-ui="color-native-input"]::-moz-color-swatch {
-    border: none;
-    border-radius: 6px;
-  }
 
   [data-hawk-eye-ui="color-canvas-wrap"] {
     position: relative;
@@ -2694,6 +2629,8 @@ export const hawkEyeStyles = `
     border-radius: 6px;
     overflow: hidden;
     cursor: crosshair;
+    touch-action: none;
+    user-select: none;
   }
 
   [data-hawk-eye-ui="color-canvas-wrap"] canvas {

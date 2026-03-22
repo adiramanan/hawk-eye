@@ -3,7 +3,7 @@
 import { runInstaller } from './installer';
 
 function printHelp() {
-  console.log(`Hawk-Eye CLI
+  process.stdout.write(`Hawk-Eye CLI
 
 Usage:
   hawk-eye init
@@ -11,7 +11,7 @@ Usage:
 Commands:
   init    Patch a React + Vite app to enable Hawk-Eye with no manual mount step.
   help    Show this message.
-`);
+\n`);
 }
 
 function main(argv: string[]) {

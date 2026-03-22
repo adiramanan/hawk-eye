@@ -39,6 +39,8 @@ export default [
         Window: 'readonly',
         Buffer: 'readonly',
         console: 'readonly',
+        ShadowRoot: 'readonly',
+        URL: 'readonly',
         process: 'readonly',
         document: 'readonly',
         window: 'readonly',
