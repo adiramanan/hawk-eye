@@ -4,27 +4,24 @@
 - Codex
 
 ## Last Session
-- 2026-03-22T16:24:40.000Z (20260322T161910000Z--codex)
+- 2026-03-22T20:35:23.000Z (20260322T200824000Z--codex)
 
 ## Current Status
-- The latest session added a public `hawk-eye init` installer CLI in `packages/hawk-eye/src/cli.ts` plus AST-based patching logic in `packages/hawk-eye/src/installer.ts` so supported React + Vite apps can get the Hawk-Eye trigger without a manual JSX mount step.
-- `packages/hawk-eye/package.json` and `packages/hawk-eye/tsup.config.ts` now publish and build the CLI, and the package now depends on `ts-morph` for installer-time source edits.
-- `README.md`, `packages/hawk-eye/README.md`, `tests/installer.test.ts`, and `tests/smoke.test.ts` were updated alongside the CLI; verification passed with targeted installer tests, workspace type-check, a full build, and a direct generated-CLI help check.
+- The latest session reproduced the Apply failure in the live demo and traced it to Vite plugin order: `react()` was running before `hawkeyePlugin()`, so Hawk-Eye stamped DOM nodes with React-refresh-shifted source coordinates and writes targeted the wrong JSX location.
+- `demo/vite.config.ts` now mounts `hawkeyePlugin({ enableSave: true })` before `react()`, and the live browser check confirmed the `Release readiness frame` heading now carries the correct `src/App.tsx:258:21` source token instead of the broken `src/App.tsx:277:21` value.
+- `packages/hawk-eye/src/installer.ts`, `packages/hawk-eye/README.md`, `tests/installer.test.ts`, and `tests/smoke.test.ts` now encode and verify the required plugin order, and `packages/vite-plugin/src/index.ts` warns when a manual config puts React transforms ahead of Hawk-Eye.
 
 ## Next Steps
-- Consider addressing the existing `import.meta` warning in the package CJS build if dual-format polish matters before release.
-- If the installer needs broader coverage later, extend the supported Vite config and React entry-file detection beyond the current literal-array and root-render patterns.
+- If broader live verification is needed, replay a few more real Apply flows across non-text specimens now that token injection is aligned with the original TSX coordinates.
+- The unrelated Layers-tab work in `packages/client/src/Inspector.tsx`, `packages/client/src/styles.ts`, and `tests/design-tool.test.ts` is still present in the worktree and was not modified in this session.
 
 ## Touched Areas
+- demo/vite.config.ts
 - packages/hawk-eye/src/installer.ts
-- packages/hawk-eye/src/cli.ts
-- packages/hawk-eye/package.json
-- packages/hawk-eye/tsup.config.ts
 - packages/hawk-eye/README.md
-- README.md
+- packages/vite-plugin/src/index.ts
 - tests/installer.test.ts
 - tests/smoke.test.ts
-- pnpm-lock.yaml
-- .memory/sessions/20260322T161910000Z--codex.md
+- .memory/sessions/20260322T200824000Z--codex.md
 - .memory/CURRENT_CONTEXT.md
 - .memory/receipts.jsonl
