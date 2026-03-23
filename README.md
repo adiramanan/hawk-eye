@@ -1,150 +1,137 @@
 # Hawk-Eye
 
-A visual design tool for refining AI-generated React interfaces.
+Pre-alpha visual inspector and live-preview editor for React + Vite interfaces.
 
-> Use any AI agent to build. Use this tool to design. Keep your own code.
+> Use AI to generate UI. Use Hawk-Eye to inspect and refine it.
 
-## What is Hawk-Eye?
+## Current Status
 
-Hawk-Eye is an embeddable React component that brings direct manipulation (Figma-style) design editing to AI-generated React apps. Change spacing, colors, typography, borders—see instant feedback—then apply changes as real source code to your repository.
+As of 2026-03-22, this repository has completed the prerelease hardening pass:
 
-### The Problem
+- The workspace now publishes one installable package, `hawk-eye`, with `.` and `./vite` entrypoints.
+- The public package now includes a `hawk-eye init` installer CLI that patches supported React + Vite apps for zero-step mounting.
+- `DesignTool` renders a floating inspector trigger and Shadow DOM overlay in development.
+- The Vite plugin injects signed `data-hawk-eye-source` metadata onto intrinsic JSX elements during dev transforms.
+- The local demo resolves the public `hawk-eye` package output from the workspace build, so it exercises the same runtime surface a consumer would install.
+- Clicking a live DOM element locks selection, reveals repo-relative source metadata, and opens a properties panel.
+- The properties panel now exposes a focused 15-property editor grouped into Layout, Fill, Typography, Design, and Effects.
+- The inspector now requests server-side AST analysis to classify selections as inline, tailwind, mixed, or unknown.
+- The Vite plugin now includes focused-property Tailwind CSS/class mapping utilities, style-strategy analysis, and a ts-morph AST writer for source mutations.
+- Tailwind and mixed selections can now be detached into focused inline preview styles from the inspector.
+- Dirty drafts can be written directly back to source from the inspector's `Update Design` action when writes are explicitly enabled in `hawkeyePlugin({ enableSave: true })`.
+- Preview changes stay in the current browser session, survive switching between selected elements, and can be reset per field or all at once.
 
-AI coding agents like Claude Code, v0, Bolt, and Lovable can generate working React interfaces fast. But iteration is slow:
-- Describe changes in natural language → high latency (10s of seconds)
-- Edit code directly → requires coding fluency
-
-### The Solution
-
-Hawk-Eye gives designers direct manipulation of live React apps with changes persisted as committable source code.
+This repo is not published to npm yet. The current entrypoint for evaluation is the local demo app.
 
 ## Quick Start
 
-### Installation
-
 ```bash
-# Install packages
 pnpm install
-
-# Start development servers (client, plugin, demo)
 pnpm dev
-
-# Build all packages
-pnpm build
-
-# Type check
-pnpm type-check
-
-# Lint and format
-pnpm lint
-pnpm format
 ```
 
-### Using in Your React + Vite App
+Use the root workspace dev loop so the `hawk-eye` package builds while the demo runs. The demo app is wired to the public package entrypoints, not the raw source files.
+
+Install the public package in an app:
 
 ```bash
-npm install @hawk-eye/client @hawk-eye/vite-plugin
+pnpm add -D hawk-eye
+pnpm hawk-eye init
 ```
 
-Add the component to your app:
+The installer patches the supported React + Vite app so the public runtime is mounted automatically in development.
 
-```tsx
-import { DesignTool } from '@hawk-eye/client';
-
-export default function Layout({ children }) {
-  return (
-    <>
-      {children}
-      {process.env.NODE_ENV === 'development' && <DesignTool />}
-    </>
-  );
-}
-```
-
-Add the Vite plugin to your `vite.config.ts`:
+Manual setup remains available through the public entrypoints:
 
 ```ts
-import hawkeyePlugin from '@hawk-eye/vite-plugin';
-
-export default defineConfig({
-  plugins: [react(), hawkeyePlugin()],
-});
+import { DesignTool } from 'hawk-eye';
+import hawkeyePlugin from 'hawk-eye/vite';
 ```
 
-Click the trigger icon (bottom-right) to activate inspector mode, then select any element to edit its design properties.
+Additional verification commands:
 
-## Architecture
-
-### Monorepo Structure
-
+```bash
+pnpm type-check
+pnpm lint
+pnpm test
+pnpm build
+pnpm package:check
 ```
+
+## What Works Today
+
+- Workspace install and local package linking
+- Library builds for `hawk-eye` and its internal client/plugin packages
+- Demo app startup and production build
+- Demo validation against the public `hawk-eye` runtime entrypoint
+- A public installer CLI that patches supported React + Vite apps for zero-step mounting
+- Dev-only inspector trigger, hover outline, click-to-lock selection, and repo-relative source info
+- Guided focused controls for layout spacing, fill, typography, radius, and box shadow
+- AST-backed style strategy detection over the Vite HMR channel
+- Tailwind CSS-to-class mapping utilities for the focused property set
+- AST source mutation primitives for Tailwind swaps, inline style writes, mixed-mode fallback, and detached writes
+- A detach-from-classes preview flow that keeps focused properties inline and marks the draft as `detached`
+- An explicit `Update Design` source-write workflow with AST-backed edits and inspector feedback when enabled
+- DOM-only live preview with session-scoped pending changes, per-field reset, and global reset
+- Automated coverage for source injection, HMR payload validation, and the client runtime
+- GitHub Actions CI for lint, type-check, tests, build, and public package validation across Node 20 and 22
+
+## What Does Not Work Yet
+
+- No built-in diff or review surface yet for live source writes
+- Some fully dynamic `className` and `style` shapes still fall back or warn instead of being rewritten structurally
+
+Those are the main remaining limitations before broader polish.
+
+## Agent Memory
+
+- `AGENTS.md` is the repo entrypoint for agent instructions.
+- Canonical shared memory lives in `.memory/`.
+- No bootstrap command is required for day-to-day memory handling.
+- Agents can work directly with `.memory/sessions/`, `.memory/notes/`, `.memory/attachments/`, and `.memory/receipts.jsonl`.
+- `pnpm memory:migrate` and `pnpm memory:doctor` remain available as optional helper tooling.
+- `.agents/` remains in the repo only as legacy migration input.
+
+## Repository Layout
+
+```text
 hawk-eye/
+├── AGENTS.md           # Agent entrypoint and memory workflow
+├── CLAUDE.md           # Claude bridge into AGENTS.md
+├── CODEX.md            # Codex bridge into AGENTS.md
+├── GEMINI.md           # Gemini bridge into AGENTS.md
+├── .memory/            # Canonical repo memory contract
 ├── packages/
-│   ├── client/        # @hawk-eye/client — embeddable React component
-│   └── vite-plugin/   # @hawk-eye/vite-plugin — Vite dev server plugin
-├── demo/              # Example React + Tailwind app
-└── docs/              # Documentation
+│   ├── client/        # Internal React runtime package
+│   ├── vite-plugin/   # Internal Vite integration package
+│   └── hawk-eye/      # Public package export surface
+├── demo/              # Local React + Tailwind demo app
+├── docs/              # Architecture notes
+├── tests/             # Vitest coverage
+└── .agents/           # Legacy migration input for older handoff files
 ```
 
-### Tech Stack
+## Roadmap
 
-- **Language:** TypeScript 5.9.2 (strict mode)
-- **Node:** 20.x or higher
-- **Package Manager:** pnpm workspaces
-- **Client Build:** tsup (ESM + CJS)
-- **Plugin Build:** tsup
-- **Demo Build:** Vite
-- **Linting:** ESLint + Prettier
-- **Testing:** vitest
+1. Phase 4: Hardening, documentation, and release prep
+2. Future: broader framework support and deeper design-tool parity
 
-## Development Workflow
+## Release Readiness
 
-### Multi-Agent Handoff
+- `pnpm package:check` validates the public `hawk-eye` package with `publint` and `@arethetypeswrong/cli`.
+- `.github/workflows/ci.yml` runs lint, type-check, tests, build, and public package validation on pull requests and on pushes to `main` and `dev`.
 
-This project is developed across multiple AI agents (Claude Code, Gemini Pro, Codex). See [CONTRIBUTING.md](./CONTRIBUTING.md) for the **Agent Handoff Ritual**.
-
-### Phase Timeline
-
-The MVP is structured as 4 sequential phases:
-
-1. **Phase 0 (Setup):** Repository initialization — **IN PROGRESS** ✓
-2. **Phase 1 (Inspector):** Element selection & source mapping — next
-3. **Phase 2 (Properties):** Visual property editing with live preview
-4. **Phase 3 (Writers):** Code mutation & file persistence
-5. **Phase 4 (Polish):** Edge cases, docs, public release
-
-Total estimated time: **5–7 weeks** (full-time)
-
-See [.agents/PHASE_STATUS.md](./.agents/PHASE_STATUS.md) for detailed progress.
-
-## Supported Styling Approaches
-
-### MVP (Phase 0–4)
-
-- ✅ **Tailwind CSS** — Token-aware editing with arbitrary values
-- ✅ **Inline styles** — Direct CSS property editing
-
-### Post-MVP Roadmap
-
-- v0.2: CSS Modules
-- v0.3: styled-components / Emotion
-- v0.5: Framework-agnostic design (Vue, Svelte)
-
-## Contributing
-
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for development setup and guidelines.
-
-## License
-
-MIT
+Detailed status lives in [`.memory/PHASE_STATUS.md`](./.memory/PHASE_STATUS.md).
 
 ## Resources
 
-- [Specification](./spec.md) — Full product & technical spec
-- [Architecture](./docs/ARCHITECTURE.md) — Deep dive into how Hawk-Eye works
-- [Phase Status](./agents/PHASE_STATUS.md) — Current progress
-- [Decisions Log](./agents/DECISIONS.md) — Why we made key architectural choices
+- [Specification](./spec.md)
+- [Architecture](./docs/ARCHITECTURE.md)
+- [Contributing](./CONTRIBUTING.md)
+- [Agent Instructions](./AGENTS.md)
+- [Current Context](./.memory/CURRENT_CONTEXT.md)
+- [Decisions Log](./.memory/DECISIONS.md)
 
----
+## License
 
-**Built with ❤️ for AI-powered design.**
+MIT. See [LICENSE](./LICENSE).

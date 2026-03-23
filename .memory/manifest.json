@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "protocolVersion": "repo-native-v1",
+  "canonicalFiles": {
+    "blockers": ".memory/BLOCKERS.md",
+    "currentContext": ".memory/CURRENT_CONTEXT.md",
+    "decisions": ".memory/DECISIONS.md",
+    "memory": ".memory/MEMORY.md",
+    "patterns": ".memory/PATTERNS.md",
+    "phaseStatus": ".memory/PHASE_STATUS.md",
+    "preferences": ".memory/PREFERENCES.md"
+  },
+  "sessionDirectory": ".memory/sessions",
+  "notesDirectory": ".memory/notes",
+  "receiptLog": ".memory/receipts.jsonl",
+  "attachmentsDirectory": ".memory/attachments",
+  "legacySources": [
+    ".agents/",
+    "legacy-cli-store (derived from repo realpath and HAWK_MEMORY_HOME or ~/.hawk-eye/projects)"
+  ],
+  "bridgeFiles": [
+    "AGENTS.md",
+    "CLAUDE.md",
+    "CODEX.md",
+    "GEMINI.md"
+  ]
+}

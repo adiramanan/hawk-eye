@@ -1,10 +1,26 @@
 # Known Blockers, Issues & Workarounds
 
 ## Current Blockers
-(None yet — updated as development progresses)
+(None blocking Phase 3.8 or later development)
 
 ## Resolved Blockers
 (Archived blockers will be listed here for reference)
+
+### 2026-03-17: Phase 3.10 Size & Spacing refinement debt
+**Issue:** The initial Size & Spacing redesign shipped with inaccurate docs and incomplete behavior assumptions.
+
+**Resolved in code:**
+- Width/height now use four explicit modes: `fixed`, `hug`, `fill`, `relative`
+- Size mode semantics round-trip via persisted inline metadata (`--hawk-eye-width-mode`, `--hawk-eye-height-mode`)
+- Fixed/Relative numeric values are remembered separately per axis
+- Aspect ratio lock is real and derives its locked ratio from the field values at lock time, not from `getBoundingClientRect()`
+- Inspector width is fixed to the 320px Figma layout and no longer expands from size-field content
+- Single-unit controls now render static `px` labels with no dropdown chevron
+- Padding, margin, radius, and stroke-width controls are `px`-only
+
+**Verification:**
+- `pnpm type-check`
+- `pnpm test`
 
 ---
 

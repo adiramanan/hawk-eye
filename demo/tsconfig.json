@@ -2,9 +2,14 @@
   "extends": "../tsconfig.json",
   "compilerOptions": {
     "jsx": "react-jsx",
-    "rootDir": "./src",
     "noEmit": true,
-    "types": ["vite/client"]
+    "types": ["vite/client"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "hawk-eye": ["../packages/hawk-eye/src/index.ts"],
+      "hawk-eye/vite": ["../packages/hawk-eye/src/vite.ts"]
+    }
   },
   "include": ["src", "vite-env.d.ts"],
   "exclude": ["node_modules", "dist"]

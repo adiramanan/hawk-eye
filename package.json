@@ -1,24 +1,34 @@
 {
-  "name": "hawk-eye",
+  "name": "hawk-eye-workspace",
   "version": "0.0.1",
   "description": "Visual design tool for refining AI-generated React interfaces",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@10.30.3",
   "engines": {
     "node": ">=20.0.0",
     "pnpm": ">=8.0.0"
   },
   "scripts": {
-    "dev": "concurrently \"pnpm -F @hawk-eye/client dev\" \"pnpm -F @hawk-eye/vite-plugin dev\" \"pnpm -F hawk-eye-demo dev\"",
+    "dev": "concurrently \"pnpm -F hawk-eye dev\" \"pnpm -F hawk-eye-demo dev\"",
     "build": "pnpm -r build",
     "build:client": "pnpm -F @hawk-eye/client build",
     "build:plugin": "pnpm -F @hawk-eye/vite-plugin build",
+    "memory:migrate": "node scripts/hawk-memory.mjs migrate",
+    "memory:init": "node scripts/hawk-memory.mjs init",
+    "memory:session:start": "node scripts/hawk-memory.mjs session:start",
+    "memory:session:end": "node scripts/hawk-memory.mjs session:end",
+    "memory:note": "node scripts/hawk-memory.mjs note",
+    "memory:file": "node scripts/hawk-memory.mjs file",
+    "memory:doctor": "node scripts/hawk-memory.mjs doctor",
     "type-check": "pnpm -r type-check",
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "vitest"
+    "test": "vitest --run",
+    "package:check": "pnpm build && cd packages/hawk-eye && pnpm dlx publint && pnpm dlx @arethetypeswrong/cli --pack . --profile node16",
+    "ci": "pnpm lint && pnpm type-check && pnpm test && pnpm build && pnpm package:check"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
@@ -28,6 +38,7 @@
     "eslint": "^9.0.0",
     "eslint-plugin-react": "^7.33.0",
     "eslint-plugin-react-hooks": "^4.6.0",
+    "jsdom": "^26.1.0",
     "prettier": "^3.1.0",
     "typescript": "^5.9.2",
     "tsup": "^8.0.0",

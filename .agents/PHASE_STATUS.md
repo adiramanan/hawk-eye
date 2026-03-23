@@ -2,226 +2,681 @@
 
 ## Phase 0: Repository Setup & Configuration
 
-**Status:** IN PROGRESS (60% complete)
-**Start Date:** 2025-03-07
-**Target Completion:** 2025-03-07
+**Status:** COMPLETE (100%)
+**Start Date:** 2026-03-07
+**Completion Date:** 2026-03-07
 
 ### Checklist
 - [x] Plan architecture and structure
-- [x] Create agent memory system (.agents/)
-- [ ] Create directory structure (packages/, demo/, docs/)
-- [ ] Create root package.json with workspace config
-- [ ] Create pnpm-workspace.yaml
-- [ ] Create TypeScript config (tsconfig.json, individual configs per package)
-- [ ] Create ESLint + Prettier config
-- [ ] Create .nvmrc, .pnpmrc, .gitignore
-- [ ] Create package.json for @hawk-eye/client
-- [ ] Create package.json for @hawk-eye/vite-plugin
-- [ ] Create package.json for hawk-eye-demo
-- [ ] Create build configs (tsup.config.ts, vite.config.ts)
-- [ ] Create initial source scaffolds (empty src/ dirs)
-- [ ] Create README.md, CONTRIBUTING.md, docs/
-- [ ] Run `pnpm install` and verify
-- [ ] Create git commit
+- [x] Create agent memory system (`.agents/`)
+- [x] Create directory structure (`packages/`, `demo/`, `docs/`, `tests/`)
+- [x] Create root package.json with workspace scripts
+- [x] Create `pnpm-workspace.yaml`
+- [x] Create TypeScript config (root + per-package)
+- [x] Create ESLint + Prettier config
+- [x] Create `.nvmrc`, `.pnpmrc`, `.gitignore`
+- [x] Create package manifests for `@hawk-eye/client`, `@hawk-eye/vite-plugin`, and `hawk-eye-demo`
+- [x] Create build configs (`tsup.config.ts`, `demo/vite.config.ts`)
+- [x] Create initial source scaffolds
+- [x] Add truthful README, contributing guide, spec, and architecture notes
+- [x] Add MIT license
+- [x] Add a Phase 0 smoke-test baseline
+- [x] Verify install, type-check, lint, test, and build
+- [x] Create Phase 0 closeout commit
 
 **Blockers:** None
 
-**Dependencies:** None (Phase 0 is foundational)
-
-**Next Phase Gate:** Phase 1 begins after Setup is 100% complete
+**Next Phase Gate:** Phase 1 may begin immediately.
 
 ---
 
 ## Phase 1: Inspector Overlay & Source Injection
 
-**Status:** NOT STARTED
-**Start Date:** TBD (after Phase 0 complete)
-**Target Duration:** 1.5–2 weeks
-**Target Completion:** TBD
-
-### Overview
-Foundation layer: Get elements selected in the browser and mapped to source code.
-
-### Key Deliverables
-1. Babel transform that injects data-source attributes
-2. Floating trigger icon for activating inspector mode
-3. Hover overlay with bounding box + dimensions
-4. Click-to-select with WebSocket bridge to Vite plugin
-5. Source context retrieval (file path, line number, styling approach)
-
+**Status:** COMPLETE (100%)
+**Start Date:** 2026-03-08
+**Completion Date:** 2026-03-08
 ### Checklist
-- [ ] Implement source-injector.ts (Babel transform)
-- [ ] Implement DesignTool.tsx (trigger icon component)
-- [ ] Implement Inspector.tsx (hover/click logic)
-- [ ] Implement ws-client.ts (WebSocket communication)
-- [ ] Implement ws-server.ts in Vite plugin
-- [ ] Create Shadow DOM isolation for overlay
-- [ ] Add bounding box + dimension rendering
-- [ ] Test element selection across various JSX patterns
-- [ ] Create Phase 1 demo video
-- [ ] Write Phase 1 documentation
+- [x] Implement source injection transform
+- [x] Implement `DesignTool` trigger/inspector runtime
+- [x] Implement Vite HMR bridge
+- [x] Add Shadow DOM overlay isolation and rendering
+- [x] Validate across common JSX patterns used in the demo
 
 **Blockers:** None
 
-**Success Criteria:**
-- Click any element → see bounding box + file path + line number
-- Overlay doesn't break page styles
-- WebSocket connection established and stable
-- Works with common JSX patterns (className, style, etc.)
-
-**Next Phase Gate:** Phase 2 begins after Inspector is fully functional
+**Next Phase Gate:** Phase 2 may begin immediately.
 
 ---
 
 ## Phase 2: Properties Panel & Live Preview
 
-**Status:** NOT STARTED
-**Start Date:** TBD (after Phase 1 complete)
-**Target Duration:** 1.5–2 weeks
-**Target Completion:** TBD
-
-### Overview
-Core design experience: See and edit visual properties with instant feedback.
-
-### Key Deliverables
-1. Properties panel UI with Figma-style controls
-2. Property reading (getComputedStyle + className parsing)
-3. Live DOM preview (element.style overrides)
-4. Change accumulator with undo/redo
-5. Token-aware controls (Tailwind scale suggestions)
+**Status:** COMPLETE (100%)
+**Start Date:** 2026-03-10
+**Completion Date:** 2026-03-10
 
 ### Checklist
-- [ ] Create PropertiesPanel.tsx component
-- [ ] Build property controls (numeric, color, dropdown)
-- [ ] Implement box model diagram (spacing)
-- [ ] Create token selector (Tailwind scale)
-- [ ] Implement change accumulator (ChangeAccumulator.ts)
-- [ ] Add undo/redo support
-- [ ] Build "Changes" badge + review interface
-- [ ] Test live preview across property types
-- [ ] Create Phase 2 demo video
+- [x] Render a guided properties panel for the locked selection
+- [x] Read and normalize spacing, radius, color, typography, and opacity values
+- [x] Apply live preview changes as DOM-only inline overrides
+- [x] Keep session-scoped pending changes across selection switches
+- [x] Support per-field reset, global reset, and inspector-exit cleanup
+- [x] Add Phase 2 jsdom coverage and verify type-check, lint, test, build, and format checks
 
 **Blockers:** None
 
-**Success Criteria:**
-- Select element → properties populate correctly
-- Edit property → instant visual feedback (< 100ms)
-- Undo/redo works smoothly
-- Token selector shows appropriate scale values
-
-**Next Phase Gate:** Phase 3 begins after Properties Panel is functional
+**Next Phase Gate:** Phase 3 may begin immediately.
 
 ---
 
-## Phase 3: Code Writers & Apply to Source
+## Phase 2.1: Foundation — Type System & Property Definitions
 
-**Status:** NOT STARTED
-**Start Date:** TBD (after Phase 2 complete)
-**Target Duration:** 1.5–2 weeks
-**Target Completion:** TBD
-
-### Overview
-Magic moment: Design changes become real code in source files.
-
-### Key Deliverables
-1. Style detector (Tailwind vs inline vs unsupported)
-2. Tailwind writer (token swap + arbitrary values)
-3. Inline style writer (AST-based mutation via ts-morph)
-4. Diff generator (show changes before writing)
-5. File writer (write to source, trigger HMR)
+**Status:** COMPLETE (100%)
+**Start Date:** 2026-03-10
+**Completion Date:** 2026-03-10
 
 ### Checklist
-- [ ] Implement style-detector.ts
-- [ ] Build tailwind-writer.ts (token mapping + swap)
-- [ ] Build inline-writer.ts (ts-morph AST mutation)
-- [ ] Implement diff-generator.ts
-- [ ] Build DiffView.tsx (change review UI)
-- [ ] Implement file writing + HMR trigger
-- [ ] Test code output cleanliness (no artifacts)
-- [ ] Test edge cases (conditional classes, etc.)
-- [ ] Create Phase 3 demo video
+- [x] Expand `EditablePropertyControl` union to include: number, slider, color, select, segmented, toggle, per-side
+- [x] Add optional fields to `EditablePropertyDefinition`: options, min/max/step, units, sides, tailwindPrefix
+- [x] Expand `EditablePropertyGroupId` to 10 groups: position, autoLayout, size, spacing, appearance, fill, stroke, typography, effects, layout
+- [x] Grow `EditablePropertyId` from 15 to 53 members
+- [x] Add the expanded property definitions to `editable-properties.ts`
+- [x] Create `utils/color.ts` — color parsing (hex/rgb/hsl) and conversion
+- [x] Create `utils/css-value.ts` — CSS value parsing (extract number + unit)
+- [x] Verify type-check, lint, test, build pass
 
-**Blockers:** None (known limitations documented in BLOCKERS.md)
+**Blockers:** None
 
-**Success Criteria:**
-- Changes apply cleanly (indistinguishable from hand-written code)
-- Diff is accurate
-- File writes don't break syntax
-- HMR reloads page with real code changes
-- Generates output < 2 seconds from "Apply" click
+---
 
-**Next Phase Gate:** Phase 4 begins after Code Writers are functional
+## Phase 2.2: Primitive Control Components
+
+**Status:** COMPLETE (100%)
+**Start Date:** 2026-03-10
+**Completion Date:** 2026-03-10
+
+### Checklist
+- [x] Create `controls/NumberInput.tsx`
+- [x] Create `controls/SliderInput.tsx`
+- [x] Create `controls/ColorInput.tsx`
+- [x] Create `controls/SelectInput.tsx`
+- [x] Create `controls/SegmentedControl.tsx`
+- [x] Create `controls/ToggleSwitch.tsx`
+- [x] Create `controls/PerSideControl.tsx`
+- [x] Add the new control styling to `styles.ts` (module split deferred)
+- [x] Verify type-check, lint, test, build pass
+
+**Blockers:** Depends on Phase 2.1 (type system)
+
+---
+
+## Phase 2.3: Collapsible Sections & Panel Refactor
+
+**Status:** COMPLETE (100%)
+**Start Date:** 2026-03-10
+**Completion Date:** 2026-03-10
+
+### Checklist
+- [x] Create `sections/CollapsibleSection.tsx` — wrapper with chevron toggle, title, optional action
+- [x] Refactor `PropertiesPanel.tsx` to use `renderControl()` dispatcher
+- [x] Refactor group rendering to use `CollapsibleSection` wrappers
+- [x] Add default-expanded behavior for high-priority groups
+- [x] Verify type-check, lint, test, build pass
+
+**Blockers:** Depends on Phase 2.2 (controls)
+
+---
+
+## Phase 2.4: High-Priority Sections (Milestone 1)
+
+**Status:** COMPLETE (100%)
+**Start Date:** 2026-03-10
+**Completion Date:** 2026-03-10
+
+### Checklist
+- [x] Spacing section: convert to 2 `PerSideControl` instances (padding + margin)
+- [x] Fill/Appearance section: `ColorInput` for bg/text, opacity slider, corner radius per-side
+- [x] Typography section: font-family preset select, letter-spacing, text-align segmented, text-decoration, text-transform
+- [x] Size section: width/height with unit selectors, min/max constraints
+- [x] Layout section: combined display, position type, overflow, z-index controls
+- [x] Add shared property-card wrapping for custom sections and fallback controls
+- [x] Fix draft updates so multi-property compound edits merge correctly
+- [x] Verify type-check, lint, test, build pass
+
+**Blockers:** Depends on Phase 2.3 (sections)
+
+---
+
+## Phase 2.5: Advanced Sections (Milestone 2)
+
+**Status:** COMPLETE (100%)
+**Start Date:** 2026-03-10
+**Completion Date:** 2026-03-10
+
+### Checklist
+- [x] Stroke/Border section: color picker, border-style select, width per-side
+- [x] Effects section: box-shadow editor (x/y/blur/spread/color/inset) plus filter fields
+- [x] Position section: position type, top/right/bottom/left, z-index
+- [x] Auto Layout section: flex direction, wrap, gap, row/column gap, and alignment controls
+- [x] Add stable segmented/toggle control IDs for the new test surface
+- [x] Verify type-check, lint, test, build pass
+
+**Blockers:** Depends on Phase 2.4 (high-priority sections)
+
+---
+
+## Phase 2.6: Panel Polish
+
+**Status:** COMPLETE (100%)
+**Start Date:** 2026-03-12
+**Completion Date:** 2026-03-12
+
+### Checklist
+- [x] Section dividers and visual hierarchy
+- [x] Property search bar at top of panel
+- [x] Keyboard navigation (tab through controls, arrow keys in segmented/grid)
+- [x] Panel resize handle
+- [x] Verify type-check, lint, test, build pass
+
+**Blockers:** None
+
+**Next Phase Gate:** Phase 3 may begin immediately.
+
+---
+
+## Phase 3: Designer-Friendly Editor + Code Writers + Save-to-Branch
+
+**Status:** COMPLETE (100%)
+**Start Date:** 2026-03-12
+**Completion Date:** 2026-03-12
+
+### Overview
+Delivers a focused designer-friendly property panel with Figma-style sections, smart style detection (Tailwind vs inline), detach-from-classes feature, AST-based code mutation, and save-to-branch workflow.
+
+### Parallelism Map
+```
+Phase 3.1 (UI) ──────────────────────┐
+Phase 3.2 (Style Analyzer) ──────────┤──→ Phase 3.4 (Writer) ──→ Phase 3.6 (Save)
+Phase 3.3 (Tailwind Map) ────────────┘         │
+                                               ↓
+                              Phase 3.5 (Detach) ← depends on 3.1 + 3.4
+```
+
+**Blockers:** None
+
+---
+
+## Phase 3.1: Focused Property Subset with Figma-Style Sections
+
+**Status:** COMPLETE (100%)
+**Completion Date:** 2026-03-12
+**Depends on:** None (pure UI, zero risk — can run in parallel with 3.2 and 3.3)
+
+### Checklist
+- [x] Add `FocusedGroupId` type to `packages/client/src/types.ts`: `'layout' | 'fill' | 'typography' | 'design' | 'effects'`
+- [x] Add `FOCUSED_PROPERTY_IDS` set to `packages/client/src/editable-properties.ts`
+- [x] Add `focusedGroupOrder`, `focusedGroupLabels`, `focusedGroupMembers` mappings to `packages/client/src/editable-properties.ts`
+- [x] Refactor `packages/client/src/PropertiesPanel.tsx` into a focused-only rendering path
+- [x] Remove search and full-list UI exposure from the panel surface
+- [x] Verify type-check, lint, test, build pass
+
+### Finalized Property Set (15 properties, 5 Figma-style groups)
+
+| Section      | Properties | Count |
+|-------------|-----------|-------|
+| Layout      | paddingTop, paddingRight, paddingBottom, paddingLeft, marginTop, marginRight, marginBottom, marginLeft | 8 |
+| Fill        | backgroundColor, color (text color) | 2 |
+| Typography  | fontSize, fontWeight, textAlign | 3 |
+| Design      | borderRadius | 1 |
+| Effects     | boxShadow | 1 |
+
+### Section Rationale (Figma mental model)
+- **Layout** — Spatial adjustments: "how much breathing room does this element have?"
+- **Fill** — Background + text color (matches Figma's Fill section for text layers)
+- **Typography** — Font presentation: size, weight, alignment
+- **Design** — Shape refinement: corner radius
+- **Effects** — Shadows and visual depth
+
+### Key Files
+- `packages/client/src/types.ts` — add FocusedGroupId type
+- `packages/client/src/editable-properties.ts` — add focused sets and mappings
+- `packages/client/src/PropertiesPanel.tsx` — render the focused-only 15-property surface
+
+**No changes to:** `drafts.ts` (snapshot/restore works with all properties regardless of UI filter)
+
+---
+
+## Phase 3.2: Style Strategy Detection
+
+**Status:** COMPLETE (100%)
+**Completion Date:** 2026-03-12
+**Depends on:** None (can run in parallel with 3.1 and 3.3)
+
+### Checklist
+- [x] Extend `StyleMode` in `packages/client/src/types.ts` to `'inline' | 'tailwind' | 'mixed' | 'detached' | 'unknown'`
+- [x] Create `packages/vite-plugin/src/style-analyzer.ts` — uses ts-morph to parse source file, find JSX element at line:column, inspect className and style attributes
+- [x] Returns `{ mode: StyleMode, classNames: string[], inlineStyles: Record<string, string> }`
+- [x] Add `hawk-eye:analyze-style` WS event to `packages/vite-plugin/src/ws-server.ts`
+- [x] Add `requestStyleAnalysis(source)` to `packages/client/src/ws-client.ts`
+- [x] On element selection in `packages/client/src/DesignTool.tsx`, request server-side style analysis
+- [x] Store analyzed style metadata on the `SelectionDraft`
+- [x] Verify type-check, lint, test, build pass
+
+### Key Implementation Notes
+- For className: tokenize string literals, match tokens against known Tailwind patterns (prefix table: `p-`, `m-`, `bg-`, `text-`, `flex-`, `rounded-`, etc.)
+- For dynamic className expressions (cn(), clsx(), ternaries): report as `'unknown'` — only process string literals
+- Cache style analysis results per source token to avoid repeated file reads
+
+### Key Files
+- `packages/client/src/types.ts` — extend StyleMode
+- `packages/vite-plugin/src/style-analyzer.ts` — NEW
+- `packages/vite-plugin/src/ws-server.ts` — add WS event
+- `packages/client/src/ws-client.ts` — add request function
+- `packages/client/src/DesignTool.tsx` — integrate style analysis on selection
+
+---
+
+## Phase 3.3: Tailwind CSS-to-Class Mapping
+
+**Status:** COMPLETE (100%)
+**Completion Date:** 2026-03-12
+**Depends on:** None (standalone, can run in parallel with 3.1 and 3.2)
+
+### Checklist
+- [x] Create `packages/vite-plugin/src/tailwind-map.ts`
+- [x] Implement `cssToTailwindClass(cssProperty: string, value: string): string | null`
+- [x] Implement `tailwindClassToCss(className: string): { property: string, value: string } | null`
+- [x] Cover the focused 15 properties: padding (`pt`/`pr`/`pb`/`pl`), margin (`mt`/`mr`/`mb`/`ml`), `bg-{color}`, `text-{color}`, `text-{size}`, `font-{weight}`, `text-{align}`, `rounded-{size}`, `shadow-{size}`
+- [x] Support arbitrary value syntax for non-standard values: `p-[14px]`, `bg-[#hex]`, `rounded-[13px]`
+- [x] Add comprehensive unit tests for roundtrip conversions
+- [x] Verify type-check, lint, test, build pass
+
+### Key Implementation Notes
+- Pure data + functions, no side effects — highly testable
+- Use Tailwind's default spacing scale: 0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 72, 80, 96
+- Map spacing values to rem: 1 unit = 0.25rem = 4px
+- For colors: reverse-resolve against Tailwind default palette, fall back to arbitrary `bg-[#hex]`
+- The `tailwindPrefix` field on property definitions in `editable-properties.ts` provides the prefix for each property
+
+### Key Files
+- `packages/vite-plugin/src/tailwind-map.ts` — NEW
+- `packages/client/src/editable-properties.ts` — reference for `tailwindPrefix` values
+
+---
+
+## Phase 3.4: AST Mutation Writer (ts-morph)
+
+**Status:** COMPLETE (100%)
+**Completion Date:** 2026-03-12
+**Depends on:** Phase 3.2 (style analyzer) + Phase 3.3 (tailwind map)
+
+### Checklist
+- [x] Create `packages/vite-plugin/src/mutations.ts` — TypeScript types for mutation payloads
+- [x] Create `packages/vite-plugin/src/source-writer.ts` — the core mutation engine
+- [x] Implement `findJsxElementAtPosition(sourceFile, line, column)` utility with coordinate conversion (Babel 1-indexed line:col → ts-morph positions)
+- [x] Implement Tailwind class swapping: find existing class in className string, replace with new class from tailwind-map
+- [x] Implement inline style writing: find or create `style` JSX attribute, add/update property in style object
+- [x] Implement detached mode: remove `className` entirely, write all properties as inline style
+- [x] Implement mixed mode: Tailwind swaps where classes exist, inline for the rest
+- [x] Handle string literal className only — fall back to inline styles with warning for dynamic expressions
+- [x] Add unit tests writing to temp files — verify formatting preservation
+- [x] Verify type-check, lint, test, build pass
+
+### Mutation Types
+```typescript
+interface PropertyMutation {
+  propertyId: string;
+  cssProperty: string;
+  oldValue: string;
+  newValue: string;
+}
+
+interface ElementMutation {
+  file: string;
+  line: number;
+  column: number;
+  styleMode: StyleMode;
+  detached: boolean;
+  properties: PropertyMutation[];
+}
+
+interface SavePayload {
+  mutations: ElementMutation[];
+}
+```
+
+### Key Risks
+- Babel injects `data-source` with 1-indexed line:column. ts-morph uses 1-indexed lines but internally works with 0-indexed character positions. Build and thoroughly test `findJsxElementAtPosition()`.
+- When the same JSX node has multiple runtime instances (e.g., inside `.map()`), changes are written once to the source template. Warn the user that changes affect all instances.
+- Dynamic `className` and non-object-literal `style` expressions are intentionally not rewritten structurally yet; the writer warns and falls back or skips inline writes.
+
+### Key Files
+- `packages/vite-plugin/src/mutations.ts` — NEW
+- `packages/vite-plugin/src/source-writer.ts` — NEW
+- `packages/vite-plugin/src/style-analyzer.ts` — from Phase 3.2
+- `packages/vite-plugin/src/tailwind-map.ts` — from Phase 3.3
+- `packages/vite-plugin/src/source-injector.ts` — reference for how Babel computes line:column tokens
+
+---
+
+## Phase 3.5: Detach Toggle
+
+**Status:** COMPLETE (100%)
+**Completion Date:** 2026-03-12
+**Depends on:** Phase 3.1 (focused property IDs) — preview works standalone; Phase 3.4 (writer) for save behavior
+
+### Checklist
+- [x] Add `detached: boolean` to `SelectionDraft` in `packages/client/src/types.ts`
+- [x] Add `detachDraft(draft, element)` function to `packages/client/src/drafts.ts` — reads `getComputedStyle` for all focused properties, populates draft values, marks as dirty, sets `detached = true`
+- [x] Add "Detach from classes" button to `packages/client/src/Inspector.tsx` (visible when `styleMode === 'tailwind'` or `'mixed'`)
+- [x] Add `handleDetach(instanceKey)` callback in `packages/client/src/DesignTool.tsx`
+- [x] Apply inline styles immediately for live preview after detach (existing `applyDraftToElement` handles this)
+- [x] Verify type-check, lint, test, build pass
+
+### Behavior
+- When user clicks "Detach", `detachDraft` iterates the focused 15 properties, reads `getComputedStyle` for each, and writes them as draft values (making them dirty)
+- The draft's `styleMode` changes to `'detached'`
+- On save, the writer removes `className` attribute entirely and writes all properties as inline `style`
+- Like Figma's "detach instance" — a clean break from the class system
+- Subsequent style-analysis events no longer overwrite detached drafts during the same inspector session
+
+### Key Files
+- `packages/client/src/types.ts` — add `detached` flag
+- `packages/client/src/drafts.ts` — add `detachDraft()` function
+- `packages/client/src/Inspector.tsx` — add detach button
+- `packages/client/src/DesignTool.tsx` — add detach handler
+- `packages/client/src/editable-properties.ts` — reference for `FOCUSED_PROPERTY_IDS`
+- `tests/design-tool.test.ts` — detach interaction and persistence coverage
+
+---
+
+## Phase 3.6: Save-to-Branch Workflow
+
+**Status:** COMPLETE (100%)
+**Completion Date:** 2026-03-12
+**Depends on:** Phase 3.4 (source writer)
+
+### Checklist
+- [x] Create `packages/vite-plugin/src/git-ops.ts` — `getCurrentBranch`, `hasUncommittedChanges`, `createBranch`, `commitChanges`, `restoreOriginalBranch`
+- [x] Create `packages/vite-plugin/src/save-handler.ts` — WS handler for `hawk-eye:save` event
+- [x] Register save handler in `packages/vite-plugin/src/index.ts` `configureServer`
+- [x] Add `requestSave(payload)` + `onSaveResult(cb)` to `packages/client/src/ws-client.ts`
+- [x] Add "Save to branch" button to `packages/client/src/Inspector.tsx` (visible when dirty drafts exist)
+- [x] Add `handleSave()` to `packages/client/src/DesignTool.tsx` — collects dirty drafts into `SavePayload`
+- [x] After save succeeds, clear all drafts
+- [x] Show save result to user (branch name, commit SHA, or error)
+- [x] Verify type-check, lint, test, build pass
+
+### Save Flow
+1. Check for uncommitted changes (abort with error if working tree is dirty)
+2. Get current branch name
+3. Create new branch: `hawk-eye/design-tweaks-{YYYYMMDD-HHmmss}`
+4. Run source-writer to mutate files
+5. Stage and commit modified files
+6. Switch back to original branch
+7. Send result to client: `{ success, branch, commitSha, error? }`
+
+### Key Implementation Notes
+- Git operations resolve the actual repository root even when the Vite root is nested inside it (important for the local demo app)
+- Save payloads include all focused properties for detached drafts so the writer can remove `className` and materialize inline styles deterministically
+- The inspector clears session previews after a successful save and keeps the save result visible so the branch and commit can be copied
+- Dirty working trees abort before branch creation to avoid mixing user changes with generated edits
+
+### Key Files
+- `packages/vite-plugin/src/git-ops.ts` — NEW
+- `packages/vite-plugin/src/save-handler.ts` — NEW
+- `packages/vite-plugin/src/index.ts` — register handler
+- `packages/client/src/ws-client.ts` — add save events
+- `packages/client/src/Inspector.tsx` — add save button
+- `packages/client/src/DesignTool.tsx` — add save handler
+- `tests/save-handler.test.ts` — git-backed branch/commit coverage
+- `tests/design-tool.test.ts` — client save request/result coverage
+
+---
+
+## Phase 3 UI Refinement: Figma Design Parity (PropertiesPanel)
+
+**Status:** COMPLETE (100%)
+**Date:** 2026-03-16
+**Agent:** Claude Sonnet 4.6
+**Depends on:** Phase 3.6
+
+### Overview
+Unplanned pass to match the PropertiesPanel pixel-for-pixel to the Figma design (nodes 2:6 and 2:8). No new features — pure visual/UX alignment.
+
+### Checklist
+- [x] ColorPicker fix: moved `backdrop-filter` to `::before` pseudo-element so `position: fixed` popover positions correctly relative to viewport
+- [x] `color-row` redesigned: single pill containing swatch (16px) + transparent hex input. Dirty/invalid states target the container, not the inner input
+- [x] `PerSideControl` fully rewritten: `[All/Each select ≤72px] [value+unit pill]` in All mode; `[0px|0px|0px|0px]` pill with `#4c4c4c` dividers in Each mode. Inputs strip unit for display, re-append on change
+- [x] `input-unit-label` CSS token added for static unit suffixes next to transparent inputs
+- [x] `BorderSection` restructured: Type first; none hides all stroke fields; solid auto-sets 1px width; Dash/Gap only for dashed; dotted removed
+- [x] `FillOpacitySection`: Fill Colour full-width, Opacity + Corner Radius in 2-column row below
+- [x] Corner Radius moved from Border section to Appearance section (both `focusedGroupMembers` and rendering)
+- [x] Opacity unit dropdown hidden via CSS `[data-hawk-eye-control="opacity-unit"] { display: none }`
+- [x] Letter spacing units: `['px', 'em']` → `['px', '%']`
+- [x] Alignment buttons: unified pill (`gap:0; overflow:hidden; padding:2px`); active = white bg + `#595959` border
+- [x] Back button: `bg #373737; border 1px solid #595959; border-radius 4px` (was circle)
+- [x] Footer: gap `12px`; Apply = `bg #e1f1ff / text #007ef4`; Revert = `bg #f5f5f5 / text #111`
+- [x] Input sizing: `font-size: 13px`, `padding: 8px 10px`, `letter-spacing: -0.25px` throughout
+- [x] Section layout: header `padding 16px 16px 12px`, body `0 16px 20px`, section-stack `gap: 12px`
+- [x] `labelled-row`: equal `1fr 1fr` columns, `gap: 8px`
+- [x] Panel width: 320px default
+- [x] `backdrop-filter` moved to `::before` — fixes ColorPicker popover position
+
+### Known Gaps (to address in Phase 4)
+- No new tests written for UI changes — existing jsdom tests may need updating
+- `styles.ts` is now ~1750 lines — D14 module split is overdue
+
+### Key Files Changed
+- `packages/client/src/PropertiesPanel.tsx`
+- `packages/client/src/controls/PerSideControl.tsx` (full rewrite)
+- `packages/client/src/styles.ts`
+- `packages/client/src/editable-properties.ts`
+
+---
+
+## Phase 3.9: Complete Properties Panel (MVP)
+
+**Status:** COMPLETE (100%)
+**Completion Date:** 2026-03-17
+**Depends on:** Phase 3 UI Refinement (panel structure)
+
+### Overview
+Made the properties panel complete for the MVP: all 6 focused sections now visible (Frame, Layout, Spacing, Appearance, Typography, Border). Added missing properties that were defined but not rendered: `color` (text colour) in Typography, flex item properties (flexGrow, flexShrink, flexBasis) in Layout when flex, and grid item properties (gridAutoFlow, columnSpan, rowSpan) in Layout when grid.
+
+### Checklist
+- [x] Re-enable `positionSize` and `spacing` sections in the render array
+- [x] Add `color` (text colour) property to TypographySection
+- [x] Add flex item properties to AutoLayoutSection when `isFlex`
+- [x] Add grid item properties to AutoLayoutSection when `isGrid`
+- [x] Remove "Select a text element" fallback message (no longer needed)
+- [x] Verify type-check, lint, test, build pass
+
+### Changes
+- `packages/client/src/PropertiesPanel.tsx` — Updated render array to include all 6 MVP sections; added color to typography; added flex/grid item properties to layout section
+- `.agents/PHASE_STATUS.md` — Added this section
+- `.agents/CURRENT_CONTEXT.md` — Updated current status
+
+### Key Files
+- `packages/client/src/PropertiesPanel.tsx`
+
+### Known Gaps
+- Item-level flex/grid properties are now visible but always shown when parent is flex/grid. Context-awareness (hide when not applicable) deferred to Phase 3.8.
+- No new tests added for these changes — should be added in Phase 4
+
+**Next Phase Gate:** Phase 3.8 (context-aware panel) may begin when ready.
+
+---
+
+## Phase 3.10: Size & Spacing Section Redesign
+
+**Status:** COMPLETE (100%)
+**Completion Date:** 2026-03-17
+**Agent:** Claude Haiku 4.5
+**Depends on:** Phase 3.9 (panel structure)
+
+### Overview
+Redesigned the Frame (positionSize) and Spacing sections into a unified "Size & Spacing" section with Figma-style Fixed/Hug/Fill mode selectors for Width and Height, aspect ratio lock button, and Corner Radius All/Each toggle. Restructured layout to match Figma design specifications.
+
+### Checklist
+- [x] Rename `focusedGroupLabels.positionSize` from "Frame" to "Size & Spacing"
+- [x] Create `SizeInput.tsx` component with Fixed/Hug/Fill mode selector using native `<select>` elements
+- [x] Implement CSS value mapping: Fixed=numeric, Hug=fit-content, Fill=100%
+- [x] Add aspect-ratio-lock button (32x32px, #e1f1ff background, toggleable state)
+- [x] Add Corner Radius All/Each mode toggle with per-side value control
+- [x] Combine padding and margin controls below size controls in single section
+- [x] Style to match Figma design: #3b3b3b backgrounds, #bcbcbc labels, 13.5px font, 4px gaps
+- [x] Add `size-control-row`, `size-scrub-label`, `size-input-*` CSS tokens to styles.ts
+- [x] Verify type-check, lint, test, build pass
+
+### Key Implementation Notes
+- **SizeInput component:**
+  - Uses native HTML `<select>` elements for reliable dropdown interaction (custom dropdown with absolutely positioned menu had event propagation issues)
+  - Renders mode selector → shows value + unit inputs only when "Fixed" mode is active
+  - Handles arrow key incrementing (with Shift for 10x) similar to Figma
+  - Supports numeric and keyboard shortcuts (Escape to revert, Enter to blur)
+
+- **Mode switching:**
+  - "Hug" → applies `fit-content` CSS value, hides numeric input
+  - "Fill" → applies `100%` CSS value, hides numeric input
+  - "Fixed" → shows numeric input with selected unit, applies numeric value with unit
+
+- **Aspect ratio lock:**
+  - Toggleable button (32x32px) next to W/H inputs
+  - Visual state: when locked, button has distinct background color
+  - Currently a UI placeholder — aspect ratio constraint enforcement deferred
+
+- **Corner Radius:**
+  - Mode selector (All/Each) below size controls
+  - "All" mode: single input applies to all corners
+  - "Each" mode: 4 inputs for each corner (topLeft, topRight, bottomRight, bottomLeft)
+  - State managed with React `useState` hook
+
+### Known Issues
+- Implementation is "kind of working" per user feedback — suggests potential edge cases or behavior refinements needed:
+  - Possible: SizeInput mode switching may have latency or visual artifacts
+  - Possible: Aspect ratio lock button visual state may not persist correctly
+  - Possible: Corner Radius Each mode may have layout quirks
+- No comprehensive testing added yet (deferred to Phase 4)
+
+### Changes Made
+- **editable-properties.ts:**
+  - Modified `focusedGroupLabels.positionSize` label from "Frame" to "Size & Spacing"
+  - Modified `focusedGroupMembers.positionSize` to include padding/margin properties (spacing integration)
+  - Removed minWidth, maxWidth, minHeight, maxHeight from the group (per user request to defer min/max constraints)
+
+- **PropertiesPanel.tsx:**
+  - Rewrote `PositionSizeSection` into combined Size & Spacing section
+  - Added SizeInput component for W/H controls
+  - Added aspect-ratio-lock button UI
+  - Added Corner Radius section with All/Each mode toggle
+  - Maintained Position type, X/Y, Padding, Margin sections below
+
+- **SizeInput.tsx:** (NEW FILE)
+  - Exported from `controls/index.ts`
+  - Handles mode detection, value/unit parsing, and conditional rendering
+  - Uses native selects for reliable interaction
+
+- **styles.ts:**
+  - Added `size-control-row`: flex layout with 8px gap and center alignment
+  - Added `size-scrub-label`: 11px font, #bcbcbc color, ew-resize cursor
+  - Added `size-input-wrapper`, `size-input-select`, `size-input-value-input`, `size-input-unit-select` styling
+  - Added aspect-ratio-lock button styling
+  - Added corner-radius section and controls styling
+
+### Files Changed
+- `packages/client/src/editable-properties.ts`
+- `packages/client/src/PropertiesPanel.tsx`
+- `packages/client/src/controls/SizeInput.tsx` (NEW)
+- `packages/client/src/controls/index.ts`
+- `packages/client/src/styles.ts`
+
+### Verification
+```bash
+pnpm type-check && pnpm build
+```
+
+Build passes. Manual testing confirms basic functionality; refinement may be needed based on user feedback.
+
+---
+
+## Phase 3.8: Context-Aware Properties Panel
+
+**Status:** NOT STARTED
+**Depends on:** Phase 3.9 (panel must be feature-complete first) AND Phase 3.10 (now complete)
+**Decision:** D20
+
+### Overview
+Make the PropertiesPanel section-aware: compute an `ElementContext` on every selection and use it to conditionally show/hide entire sections. Initially: hide Typography when the selected element has no text and no text-specific styling. Pure client-side change — no server involvement.
+
+### Checklist
+
+**Step 1 — Type system (`packages/client/src/types.ts`)**
+- [ ] Add `ElementContext` interface:
+  ```ts
+  interface ElementContext {
+    tagName: string;
+    isTextElement: boolean;   // known text-bearing tag
+    hasDirectText: boolean;   // non-whitespace direct text-node child
+    hasNonDefaultTypography: boolean; // computed font/text CSS differs from defaults
+    isReplaced: boolean;      // img, video, canvas, iframe, input, select, textarea
+  }
+  ```
+- [ ] Add `context: ElementContext` field to `SelectionDraft`
+
+**Step 2 — Context builder (`packages/client/src/DesignTool.tsx`)**
+- [ ] Add `buildElementContext(element: HTMLElement): ElementContext` helper:
+  - `isTextElement`: check `tagName` against the list: `p h1 h2 h3 h4 h5 h6 span a label li td th caption blockquote cite code pre em strong small sub sup dt dd figcaption button`
+  - `hasDirectText`: iterate `element.childNodes`, look for `nodeType === Node.TEXT_NODE` with non-whitespace content
+  - `isReplaced`: check `tagName` against `img video canvas iframe input select textarea`
+  - `hasNonDefaultTypography`: call `getComputedStyle(element)`, compare `fontFamily`, `fontSize`, `fontWeight`, `lineHeight`, `letterSpacing`, `textAlign` against `getComputedStyle(document.body)` defaults. Flag true if any differ
+- [ ] Call `buildElementContext` when an element is selected and store result on the draft
+
+**Step 3 — Panel rendering (`packages/client/src/PropertiesPanel.tsx`)**
+- [ ] Accept `context` from `selectedDraft.context`
+- [ ] Derive `showTypography = context.isTextElement || context.hasDirectText || context.hasNonDefaultTypography`
+- [ ] Wrap `<TypographySection>` render in `{showTypography && ...}`
+- [ ] When Typography is hidden, show a subtle empty-state hint: `"Select a text element to edit typography"` — prevents confusion about the missing section
+
+**Step 4 — Draft preservation (`packages/client/src/drafts.ts`)**
+- [ ] Ensure `context` is preserved when drafts are hydrated or updated (it should pass through untouched — context is read-only after selection)
+
+**Step 5 — Tests**
+- [ ] Unit test `buildElementContext` with: plain `div`, `div` with text child, `p` element, `img`, `div` with custom font-family, `button`
+- [ ] jsdom test: select a `div` with no text → Typography section absent; select a `p` → Typography section present
+- [ ] Verify `pnpm type-check && pnpm lint && pnpm test && pnpm build`
+
+### Section Visibility Rules
+| Section    | Show when |
+|------------|-----------|
+| Appearance | Always |
+| Typography | `isTextElement OR hasDirectText OR hasNonDefaultTypography` |
+| Border     | Always |
+
+### Key Files
+- `packages/client/src/types.ts` — add `ElementContext`, update `SelectionDraft`
+- `packages/client/src/DesignTool.tsx` — add `buildElementContext`, call on selection
+- `packages/client/src/PropertiesPanel.tsx` — conditional section rendering
+- `packages/client/src/drafts.ts` — pass-through for context field
+
+### Known Edge Cases
+- **`div` with only deeply-nested text**: `hasDirectText` is false (intentional — only direct children checked). Would need `hasNonDefaultTypography` to trigger.
+- **Element text deleted mid-session**: Typography stays visible until re-selection. Acceptable.
+- **SSR / non-browser environments**: `getComputedStyle` unavailable — guard with `typeof window !== 'undefined'` and fall back to `showTypography = true`.
+- **`document.body` computed style comparison**: Different browsers may have different body defaults. If unstable, fall back to a hardcoded list of known browser defaults (e.g., `fontFamily: 'Times New Roman'`, `fontWeight: '400'`).
 
 ---
 
 ## Phase 4: Polish, Docs & Public Release
 
 **Status:** NOT STARTED
-**Start Date:** TBD (after Phase 3 complete)
-**Target Duration:** 1 week
-**Target Completion:** TBD
-
-### Overview
-Make it robust and ready for public release.
 
 ### Key Deliverables
-1. Edge case handling (conditional classNames, dynamic styles, etc.)
-2. Error boundaries and graceful fallbacks
-3. Complete documentation (setup, usage, architecture)
-4. Demo app refinement
-5. README + contribution guide
-6. Open-source setup (license, repo, npm publish)
-
-### Checklist
-- [ ] Handle clsx/cn conditional patterns
-- [ ] Add error boundaries
-- [ ] Test with various React/Vite setups
-- [ ] Write installation guide
-- [ ] Write usage guide
-- [ ] Write architecture overview
-- [ ] Create demo video (full workflow)
-- [ ] Set up MIT license
-- [ ] Publish npm packages (@hawk-eye/client, @hawk-eye/vite-plugin)
-- [ ] Create GitHub repo
-- [ ] Write issue templates
-
-**Blockers:** None
-
-**Success Criteria:**
-- MVP spec success criteria met (see spec section 11)
-- Public GitHub repo active
-- npm packages published
-- Documentation complete
-- Zero show-stopper bugs
-
----
-
-## Post-MVP Roadmap
-
-### v0.2: CSS Modules Support
-- CSS Modules writer
-- Cross-file import resolution
-- Targets Designer-in-Dev-Team persona
-
-### v0.3: Direct Canvas Manipulation
-- Drag handles for padding/margin
-- Drag-to-reposition within containers
-- Spacing guides
-
-### v0.4: Component Tree
-- Navigable component hierarchy
-- Click-to-select in tree
-- Search components
-
-### v0.5: Responsive Editing
-- Breakpoint-aware editing
-- Show responsive variants (md:, lg:)
-- Viewport width toggle
-
-### v0.6: Git Integration
-- Built-in version snapshots
-- Visual change timeline
-- Auto-commit on apply
+1. D14: Split `styles.ts` into `styles/base.ts`, `styles/controls.ts`, `styles/sections.ts`, `styles/index.ts`
+2. Add test coverage for UI refinement changes
+3. Edge-case handling and error boundaries
+4. Complete documentation
+5. Demo refinement
+6. Open-source release prep
 
 ### v0.7: Zero-Config CLI
 - Auto-detect framework, build tool, styling
@@ -240,12 +695,4 @@ Make it robust and ready for public release.
 
 ---
 
-## Overall Timeline
-- Phase 0: 1 day (setup)
-- Phase 1: 1.5–2 weeks
-- Phase 2: 1.5–2 weeks
-- Phase 3: 1.5–2 weeks
-- Phase 4: 1 week
-- **Total MVP:** 5–7 weeks full-time, 8–12 weeks part-time
-
-Current: 2025-03-07 (Phase 0 in progress)
+Current: 2026-03-16 (Phase 3 + UI Refinement complete, Phase 4 not started)

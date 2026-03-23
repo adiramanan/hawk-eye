@@ -2,19 +2,21 @@
   "name": "@hawk-eye/client",
   "version": "0.0.1",
   "description": "Embeddable React component for visual design editing",
+  "private": true,
   "type": "module",
   "main": "./dist/index.js",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "sideEffects": false,
   "exports": {
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
-    },
-    "./styles": {
-      "import": "./dist/styles/index.css"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",

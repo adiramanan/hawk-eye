@@ -1,4 +1,21 @@
-import type { Plugin } from 'vite';
+import type { Plugin, ResolvedConfig } from 'vite';
+import { createHawkEyeServerState, type HawkEyePluginOptions, updateHawkEyeServerRoot } from './plugin-state';
+import { registerSaveHandler } from './save-handler';
+import { injectSourceMetadata } from './source-injector';
+import { registerInspectHandler } from './ws-server';
+
+function warnIfReactRunsBeforeHawkEye(plugin: Plugin, config: Pick<ResolvedConfig, 'logger' | 'plugins'>) {
+  const hawkEyeIndex = config.plugins.findIndex((candidate) => candidate.name === plugin.name);
+  const reactIndex = config.plugins.findIndex((candidate) => candidate.name.startsWith('vite:react'));
+
+  if (hawkEyeIndex === -1 || reactIndex === -1 || reactIndex > hawkEyeIndex) {
+    return;
+  }
+
+  config.logger.warn(
+    '[hawk-eye] `hawkeyePlugin()` should be placed before `react()` in the Vite plugins array. React transforms shifted the injected source coordinates, so Apply cannot map DOM edits back to the original file.'
+  );
+}
 
 /**
  * Hawk-Eye Vite Plugin
@@ -11,18 +28,30 @@ import type { Plugin } from 'vite';
  *
  * Phase 1–3: Implement inspector bridge, writers, and file persistence
  */
-export default function hawkeyePlugin(): Plugin {
-  return {
+export default function hawkeyePlugin(options: HawkEyePluginOptions = {}): Plugin {
+  const state = createHawkEyeServerState(options);
+  const plugin: Plugin = {
     name: '@hawk-eye/vite-plugin',
     apply: 'serve',
-    configResolved(_config) {
-      // Configuration initialization to be implemented in Phase 1
+    enforce: 'pre',
+    configResolved(config) {
+      updateHawkEyeServerRoot(state, config.root);
+      warnIfReactRunsBeforeHawkEye(plugin, config);
     },
-    configureServer(_server) {
-      // Server setup for WebSocket and file watching
-      // To be implemented in Phase 1
+    transform(code, id) {
+      return injectSourceMetadata(code, id, state.root, state);
+    },
+    configureServer(server) {
+      registerInspectHandler(server, state);
+
+      if (state.saveEnabled) {
+        registerSaveHandler(server, state);
+      }
     },
   };
+
+  return plugin;
 }
 
 export type { Plugin } from 'vite';
+export type { HawkEyePluginOptions } from './plugin-state';

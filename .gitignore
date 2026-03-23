@@ -1,6 +1,5 @@
 # Dependencies
 node_modules/
-pnpm-lock.yaml
 package-lock.json
 yarn.lock
 
@@ -40,3 +39,7 @@ Thumbs.db
 # Demo outputs
 demo/dist/
 demo/.vite/
+output/
+.playwright-cli/
+
+.claude/
