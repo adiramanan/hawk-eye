@@ -10,7 +10,7 @@ export default defineConfig(({ command }) => {
   const useSourceAliases = command === 'serve';
 
   return {
-    plugins: [react(), hawkeyePlugin({ enableSave: true })],
+    plugins: [hawkeyePlugin({ enableSave: true }), react()],
     resolve: {
       alias: [
         {

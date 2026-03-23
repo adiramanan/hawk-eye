@@ -18,6 +18,34 @@ describe('workspace smoke tests', () => {
     expect(typeof plugin.configureServer).toBe('function');
   });
 
+  it('warns when react transforms are ordered before hawkeye source injection', () => {
+    const plugin = hawkeyePlugin();
+    const warn = vi.fn();
+
+    plugin.configResolved?.({
+      logger: { warn },
+      plugins: [{ name: 'vite:react-babel' }, { name: '@hawk-eye/vite-plugin' }],
+      root: '/tmp/hawk-eye',
+    } as never);
+
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('`hawkeyePlugin()` should be placed before `react()`')
+    );
+  });
+
+  it('does not warn when hawkeye is ordered before react transforms', () => {
+    const plugin = hawkeyePlugin();
+    const warn = vi.fn();
+
+    plugin.configResolved?.({
+      logger: { warn },
+      plugins: [{ name: '@hawk-eye/vite-plugin' }, { name: 'vite:react-babel' }],
+      root: '/tmp/hawk-eye',
+    } as never);
+
+    expect(warn).not.toHaveBeenCalled();
+  });
+
   it('does not register save handling unless enableSave is set', () => {
     const plugin = hawkeyePlugin();
     const on = vi.fn();

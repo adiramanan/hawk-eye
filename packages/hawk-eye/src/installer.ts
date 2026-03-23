@@ -352,12 +352,23 @@ function patchViteConfig(filePath: string): PatchResult {
     };
   }
 
-  const hasPlugin = pluginsArray
+  const existingPlugin = pluginsArray
     .getElements()
-    .some((element) => element.getText().includes(pluginIdentifier));
+    .find((element) => element.getText().includes(pluginIdentifier));
 
-  if (!hasPlugin) {
-    pluginsArray.addElement(`${pluginIdentifier}()`);
+  if (!existingPlugin) {
+    pluginsArray.insertElement(0, `${pluginIdentifier}()`);
+  } else if (pluginsArray.getElements()[0] !== existingPlugin) {
+    const existingPluginText = existingPlugin.getText();
+    const existingPluginIndex = pluginsArray
+      .getElements()
+      .findIndex((element) => element === existingPlugin);
+
+    if (existingPluginIndex !== -1) {
+      pluginsArray.removeElement(existingPluginIndex);
+    }
+
+    pluginsArray.insertElement(0, existingPluginText);
   }
 
   return {
@@ -440,7 +451,7 @@ function buildManualFallback(cwd: string, viteConfigPath: string | null, entryFi
   return [
     `Hawk-Eye could not patch this project automatically in ${cwd}.`,
     `Manual fallback:`,
-    `1. Add \`import hawkeyePlugin from 'hawk-eye/vite'\` to ${viteTarget} and include \`hawkeyePlugin()\` in the Vite plugins array.`,
+    `1. Add \`import hawkeyePlugin from 'hawk-eye/vite'\` to ${viteTarget} and include \`hawkeyePlugin()\` before \`react()\` in the Vite plugins array.`,
     `2. Add \`import { DesignTool } from 'hawk-eye'\` to ${entryTarget}.`,
     `3. Render \`{import.meta.env.DEV ? <DesignTool /> : null}\` alongside the app root tree.`,
   ].join('\n');

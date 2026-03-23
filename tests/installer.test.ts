@@ -97,7 +97,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     expect(result.success).toBe(true);
     expect(result.changed).toBe(true);
     expect(viteConfig).toContain(`import hawkeyePlugin from 'hawk-eye/vite';`);
-    expect(viteConfig).toContain('plugins: [react(), hawkeyePlugin()]');
+    expect(viteConfig).toContain('plugins: [hawkeyePlugin(), react()]');
     expect(entry).toContain(`import { DesignTool } from 'hawk-eye';`);
     expect(entry).toContain('{import.meta.env.DEV ? <DesignTool /> : null}');
     expect(entry).toContain('<React.StrictMode>');
@@ -151,10 +151,58 @@ root.render(<App />);
 
     expect(result.success).toBe(true);
     expect(viteConfig).toContain(`import hawkeyePlugin from 'hawk-eye/vite';`);
-    expect(viteConfig).toContain('plugins: [react(), hawkeyePlugin()]');
+    expect(viteConfig).toContain('plugins: [hawkeyePlugin(), react()]');
     expect(entry).toContain(`import { DesignTool } from 'hawk-eye';`);
     expect(entry).toContain('<>');
     expect(entry).toContain('{import.meta.env.DEV ? <DesignTool /> : null}');
+  });
+
+  it('moves hawkeyePlugin ahead of react when the Vite plugins array already contains both', () => {
+    const cwd = createTempProject();
+    const logger = createLogger();
+
+    writeProjectFile(
+      cwd,
+      'package.json',
+      JSON.stringify(
+        {
+          dependencies: {
+            react: '^18.3.0',
+            'react-dom': '^18.3.0',
+            vite: '^5.4.0',
+          },
+        },
+        null,
+        2
+      )
+    );
+    writeProjectFile(
+      cwd,
+      'vite.config.ts',
+      `import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import hawkeyePlugin from 'hawk-eye/vite';
+
+export default defineConfig({
+  plugins: [react(), hawkeyePlugin()],
+});
+`
+    );
+    writeProjectFile(
+      cwd,
+      'src/main.tsx',
+      `import App from './App';
+import { createRoot } from 'react-dom/client';
+
+createRoot(document.getElementById('root')!).render(<App />);
+`
+    );
+
+    const result = runInstaller({ cwd, logger });
+    const viteConfig = readProjectFile(cwd, 'vite.config.ts');
+
+    expect(result.success).toBe(true);
+    expect(viteConfig).toContain('plugins: [hawkeyePlugin(), react()]');
   });
 
   it('is idempotent when run more than once', () => {

@@ -1,8 +1,21 @@
-import type { Plugin } from 'vite';
+import type { Plugin, ResolvedConfig } from 'vite';
 import { createHawkEyeServerState, type HawkEyePluginOptions, updateHawkEyeServerRoot } from './plugin-state';
 import { registerSaveHandler } from './save-handler';
 import { injectSourceMetadata } from './source-injector';
 import { registerInspectHandler } from './ws-server';
+
+function warnIfReactRunsBeforeHawkEye(plugin: Plugin, config: Pick<ResolvedConfig, 'logger' | 'plugins'>) {
+  const hawkEyeIndex = config.plugins.findIndex((candidate) => candidate.name === plugin.name);
+  const reactIndex = config.plugins.findIndex((candidate) => candidate.name.startsWith('vite:react'));
+
+  if (hawkEyeIndex === -1 || reactIndex === -1 || reactIndex > hawkEyeIndex) {
+    return;
+  }
+
+  config.logger.warn(
+    '[hawk-eye] `hawkeyePlugin()` should be placed before `react()` in the Vite plugins array. React transforms shifted the injected source coordinates, so Apply cannot map DOM edits back to the original file.'
+  );
+}
 
 /**
  * Hawk-Eye Vite Plugin
@@ -17,13 +30,13 @@ import { registerInspectHandler } from './ws-server';
  */
 export default function hawkeyePlugin(options: HawkEyePluginOptions = {}): Plugin {
   const state = createHawkEyeServerState(options);
-
-  return {
+  const plugin: Plugin = {
     name: '@hawk-eye/vite-plugin',
     apply: 'serve',
     enforce: 'pre',
     configResolved(config) {
       updateHawkEyeServerRoot(state, config.root);
+      warnIfReactRunsBeforeHawkEye(plugin, config);
     },
     transform(code, id) {
       return injectSourceMetadata(code, id, state.root, state);
@@ -36,6 +49,8 @@ export default function hawkeyePlugin(options: HawkEyePluginOptions = {}): Plugi
       }
     },
   };
+
+  return plugin;
 }
 
 export type { Plugin } from 'vite';
