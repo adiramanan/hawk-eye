@@ -150,7 +150,7 @@ export default function App() {
                 </div>
                 <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
                   <p className="he-panel-label he-panel-label-dark">Public entrypoints</p>
-                  <code className="he-code mt-3">hawk-eye · hawk-eye/vite</code>
+                  <code className="he-code mt-3" style={{ fontFamily: "SFMono-Regular, Menlo, Monaco, monospace" }}>hawk-eye · hawk-eye/vite</code>
                 </div>
               </aside>
             </div>

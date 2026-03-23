@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import {
   type HsvColor,
   parseColor,
@@ -32,7 +32,6 @@ export function ColorPicker({ id, label, value, onChange, onClose, anchorRect }:
   const initialHsv = useMemo<HsvColor>(() => {
     const rgba = parseColor(value);
     return rgba ? rgbaToHsv(rgba) : { h: 0, s: 1, v: 1, a: 1 };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // intentionally only on mount
 
   const [hsv, setHsv] = useState<HsvColor>(initialHsv);
@@ -83,7 +82,7 @@ export function ColorPicker({ id, label, value, onChange, onClose, anchorRect }:
     commitHsv({ ...hsv, a });
   }
 
-  function handleGradientPointer(event: React.PointerEvent<HTMLDivElement>) {
+  function handleGradientPointer(event: ReactPointerEvent<HTMLDivElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
     const s = clamp((event.clientX - rect.left) / rect.width, 0, 1);
     const v = clamp(1 - (event.clientY - rect.top) / rect.height, 0, 1);
@@ -167,7 +166,7 @@ export function ColorPicker({ id, label, value, onChange, onClose, anchorRect }:
             min={0}
             onChange={(e) => commitHsv({ ...hsv, a: Number(e.currentTarget.value) })}
             step={0.01}
-            style={{ '--alpha-gradient': `linear-gradient(to right, transparent, ${opaqueColor})` } as React.CSSProperties}
+            style={{ '--alpha-gradient': `linear-gradient(to right, transparent, ${opaqueColor})` } as CSSProperties}
             type="range"
             value={hsv.a}
           />

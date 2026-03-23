@@ -276,7 +276,7 @@ describe('client UI controls', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it('opens the fallback color picker and commits native color changes', () => {
+  it('opens the color picker and commits hex color changes', () => {
     const snapshot: PropertySnapshot = {
       baseline: '#112233',
       inlineValue: '#112233',
@@ -307,13 +307,14 @@ describe('client UI controls', () => {
       throw new Error('Missing color picker popover');
     }
 
-    const nativeInput = dialog.querySelector('[data-hawk-eye-ui="color-native-input"]');
+    const hexInput = dialog.querySelector('[data-hawk-eye-ui="color-fallback-fields"] [data-hawk-eye-ui="text-input"]');
 
-    if (!(nativeInput instanceof window.HTMLInputElement)) {
-      throw new Error('Missing native color input');
+    if (!(hexInput instanceof window.HTMLInputElement)) {
+      throw new Error('Missing hex color input');
     }
 
-    updateInput(nativeInput, '#ff6600');
+    updateInput(hexInput, 'ff6600');
+    keyDown(hexInput, 'Enter');
 
     expect(onChange).toHaveBeenCalledWith('#ff6600');
   });
