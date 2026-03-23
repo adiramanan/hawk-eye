@@ -310,8 +310,8 @@ function canDetachDraft(draft: SelectionDraft | null) {
 }
 
 const PRIMARY_PANEL_TABS: Array<{ id: Extract<InspectorView, 'properties' | 'layers'>; label: string }> = [
-  { id: 'properties', label: 'Properties' },
   { id: 'layers', label: 'Layers' },
+  { id: 'properties', label: 'Properties' },
 ];
 
 function getToggleIntentFromClick(detail: number): ToggleIntent {

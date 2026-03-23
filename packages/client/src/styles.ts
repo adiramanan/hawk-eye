@@ -218,7 +218,6 @@ export const hawkEyeStyles = `
     justify-content: space-between;
     gap: 12px;
     padding: 16px;
-    border-bottom: 1px solid var(--he-divider);
     background: var(--he-bg);
     cursor: grab;
     flex-shrink: 0;
@@ -1867,6 +1866,11 @@ export const hawkEyeStyles = `
 
   [data-hawk-eye-ui="static-section"]:first-child {
     margin-top: 0;
+    border-top: none;
+  }
+
+  [data-hawk-eye-ui="static-section"]:last-child {
+    border-bottom: none;
   }
 
   [data-hawk-eye-ui="static-section-header"] {
@@ -2910,6 +2914,7 @@ export const hawkEyeStyles = `
     color: var(--he-label);
     font-family: var(--he-font-ui);
     font-size: 13.5px;
+    font-weight: 500;
     letter-spacing: -0.02em;
   }
 
@@ -2923,7 +2928,7 @@ export const hawkEyeStyles = `
     align-items: center;
     gap: 6px;
     min-height: 20px;
-    padding: 0;
+    padding: 3px 6px;
     border-radius: 4px;
     user-select: none;
     transition: background 60ms ease;
@@ -2935,6 +2940,7 @@ export const hawkEyeStyles = `
   }
 
   [data-hawk-eye-ui="layer-row"][data-selected="true"] {
+    background: var(--he-input);
     color: #ffffff;
   }
 
@@ -2945,18 +2951,24 @@ export const hawkEyeStyles = `
     background: none;
     border: 0;
     color: var(--he-muted);
-    font-size: 11px;
     cursor: pointer;
     padding: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: color 80ms ease;
+    transition: color 80ms ease, transform 120ms ease;
+  }
+
+  [data-hawk-eye-ui="layer-expand-btn"]:not([data-expanded]) {
+    visibility: hidden;
+  }
+
+  [data-hawk-eye-ui="layer-expand-btn"][data-expanded="false"] {
+    transform: rotate(-90deg);
   }
 
   [data-hawk-eye-ui="layer-expand-btn"]:disabled {
     cursor: default;
-    opacity: 0.45;
   }
 
   [data-hawk-eye-ui="layer-expand-btn"]:hover {
@@ -2985,12 +2997,16 @@ export const hawkEyeStyles = `
   [data-hawk-eye-ui="layer-label"] {
     font-family: var(--he-font-ui);
     font-size: 13.5px;
-    color: var(--he-fg);
+    color: #e9e9e9;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     min-width: 0;
     flex: 1;
+  }
+
+  [data-hawk-eye-ui="layer-row"][data-selected="true"] [data-hawk-eye-ui="layer-label"] {
+    color: #ffffff;
   }
 
   [data-hawk-eye-ui="layers-empty"] {

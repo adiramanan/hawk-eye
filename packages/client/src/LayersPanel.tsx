@@ -117,6 +117,14 @@ function countNodes(nodes: LayerNode[]): number {
   return nodes.reduce((sum, node) => sum + 1 + countNodes(node.children), 0);
 }
 
+function ChevronIcon() {
+  return (
+    <svg fill="none" height="16" viewBox="0 0 16 16" width="16">
+      <path d="M4 6L8 10L12 6" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
 function LayerNodeComponent({
   node,
   selectedInstanceKey,
@@ -145,6 +153,7 @@ function LayerNodeComponent({
         <button
           aria-expanded={hasChildren ? isExpanded : undefined}
           aria-label={hasChildren ? (isExpanded ? 'Collapse layer' : 'Expand layer') : undefined}
+          data-expanded={hasChildren ? String(isExpanded) : undefined}
           data-hawk-eye-ui="layer-expand-btn"
           disabled={!hasChildren}
           onClick={() => {
@@ -152,7 +161,7 @@ function LayerNodeComponent({
           }}
           type="button"
         >
-          {hasChildren ? (isExpanded ? '▾' : '▸') : ' '}
+          {hasChildren ? <ChevronIcon /> : null}
         </button>
         <button
           aria-label={`Select layer ${node.label}`}
