@@ -889,6 +889,16 @@ function TypographySection(props: SectionProps) {
   const alignSnapshot = props.selectedDraft.properties.textAlign;
   const effectiveAlign = alignSnapshot.inputValue || alignSnapshot.baseline;
 
+  const typographyProps: SectionProps = {
+    ...props,
+    onChange(propertyId, value) {
+      props.onChange(propertyId, value);
+      if (propertyId === 'lineClamp' && value && value !== 'none' && value !== '0') {
+        props.onChange('overflow', 'hidden');
+      }
+    },
+  };
+
   return (
     <CollapsibleSection
       defaultExpanded
@@ -970,6 +980,36 @@ function TypographySection(props: SectionProps) {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Text overflow row */}
+        <div data-hawk-eye-ui="labelled-row">
+          <div data-hawk-eye-ui="labelled-col">
+            <span data-hawk-eye-ui="input-label">White space</span>
+            {card('whiteSpace', typographyProps)}
+          </div>
+          <div data-hawk-eye-ui="labelled-col">
+            <span data-hawk-eye-ui="input-label">Text overflow</span>
+            {card('textOverflow', typographyProps)}
+          </div>
+        </div>
+
+        {/* Word break / overflow wrap row */}
+        <div data-hawk-eye-ui="labelled-row">
+          <div data-hawk-eye-ui="labelled-col">
+            <span data-hawk-eye-ui="input-label">Word break</span>
+            {card('wordBreak', typographyProps)}
+          </div>
+          <div data-hawk-eye-ui="labelled-col">
+            <span data-hawk-eye-ui="input-label">Overflow wrap</span>
+            {card('overflowWrap', typographyProps)}
+          </div>
+        </div>
+
+        {/* Line clamp */}
+        <div data-hawk-eye-ui="labelled-single">
+          <span data-hawk-eye-ui="input-label">Line clamp</span>
+          {card('lineClamp', typographyProps)}
         </div>
       </div>
     </CollapsibleSection>
@@ -1105,6 +1145,54 @@ function BorderSection(props: SectionProps) {
   );
 }
 
+// ── Transition Section ───────────────────────────────────────────────────
+
+function TransitionSection(props: SectionProps) {
+  const transitionPropSnapshot = props.selectedDraft.properties.transitionProperty;
+  const hasTransition =
+    transitionPropSnapshot.value !== 'none' &&
+    transitionPropSnapshot.value !== '' &&
+    transitionPropSnapshot.value !== transitionPropSnapshot.baseline;
+
+  return (
+    <CollapsibleSection
+      defaultExpanded
+      key="transition"
+      sectionId="transition"
+      title="Transition"
+    >
+      <div data-hawk-eye-ui="section-stack">
+        {/* Transition property — full width */}
+        <div data-hawk-eye-ui="compact-row-full">
+          {card('transitionProperty', props)}
+        </div>
+
+        {/* Duration | Delay row */}
+        {hasTransition && (
+          <div data-hawk-eye-ui="labelled-row">
+            <div data-hawk-eye-ui="labelled-col">
+              <span data-hawk-eye-ui="input-label">Duration</span>
+              {card('transitionDuration', props)}
+            </div>
+            <div data-hawk-eye-ui="labelled-col">
+              <span data-hawk-eye-ui="input-label">Delay</span>
+              {card('transitionDelay', props)}
+            </div>
+          </div>
+        )}
+
+        {/* Easing — full width */}
+        {hasTransition && (
+          <div data-hawk-eye-ui="labelled-single">
+            <span data-hawk-eye-ui="input-label">Easing</span>
+            {card('transitionTimingFunction', props)}
+          </div>
+        )}
+      </div>
+    </CollapsibleSection>
+  );
+}
+
 // ── Main panel ─────────────────────────────────────────────────────────────
 
 export function PropertiesPanel({
@@ -1139,6 +1227,7 @@ export function PropertiesPanel({
       <AppearanceSection key="appearance" {...sectionProps} />
       {showTypography ? <TypographySection key="typography" {...sectionProps} /> : null}
       <BorderSection key="border" {...sectionProps} />
+      <TransitionSection key="transition" {...sectionProps} />
     </section>
   );
 }

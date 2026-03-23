@@ -114,10 +114,20 @@ export type EditablePropertyId =
   | 'textAlign'
   | 'textDecoration'
   | 'textTransform'
+  | 'textOverflow'
+  | 'whiteSpace'
+  | 'wordBreak'
+  | 'overflowWrap'
+  | 'lineClamp'
   // Effects
   | 'boxShadow'
   | 'filter'
   | 'backdropFilter'
+  // Transition
+  | 'transitionProperty'
+  | 'transitionDuration'
+  | 'transitionTimingFunction'
+  | 'transitionDelay'
   // Advanced
   | 'cursor'
   | 'pointerEvents'
@@ -155,6 +165,7 @@ export type EditablePropertyGroupId =
   | 'stroke'
   | 'typography'
   | 'effects'
+  | 'transition'
   | 'layout';
 
 export type FocusedGroupId =
