@@ -1,6 +1,6 @@
 {
   "name": "hawk-eye",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Visual design tool for refining AI-generated React interfaces in React + Vite development",
   "license": "MIT",
   "type": "module",
