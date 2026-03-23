@@ -168,6 +168,15 @@ export const hawkEyeStyles = `
     }
   }
 
+  [data-hawk-eye-ui="view-stack"][data-state="to-layers"]
+    [data-hawk-eye-ui="panel-view"][data-view="layers"][data-presence="entering"] {
+    @starting-style {
+      opacity: 0;
+      transform: translateX(12px);
+      filter: blur(4px);
+    }
+  }
+
   [data-hawk-eye-ui="view-stack"][data-state="to-properties"]
     [data-hawk-eye-ui="panel-view"][data-view="properties"][data-presence="entering"] {
     @starting-style {
@@ -178,6 +187,14 @@ export const hawkEyeStyles = `
   }
 
   [data-hawk-eye-ui="view-stack"][data-state="to-changes"]
+    [data-hawk-eye-ui="panel-view"][data-presence="exiting"] {
+    opacity: 0;
+    transform: translateX(-12px);
+    filter: blur(4px);
+    pointer-events: none;
+  }
+
+  [data-hawk-eye-ui="view-stack"][data-state="to-layers"]
     [data-hawk-eye-ui="panel-view"][data-presence="exiting"] {
     opacity: 0;
     transform: translateX(-12px);

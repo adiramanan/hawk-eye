@@ -352,6 +352,21 @@ function getButtonControl(
   return button;
 }
 
+function getPanelTab(
+  shadowRoot: { querySelector(selectors: string): Element | null },
+  view: 'properties' | 'layers'
+) {
+  const button = shadowRoot.querySelector(
+    `[data-hawk-eye-ui="panel-tab"][data-view="${view}"]`
+  );
+
+  if (!(button instanceof window.HTMLButtonElement)) {
+    throw new Error(`Could not find panel tab ${view}`);
+  }
+
+  return button;
+}
+
 function getFooterApplyButton(shadowRoot: { querySelector(selectors: string): Element | null }) {
   const button = shadowRoot.querySelector('[data-hawk-eye-ui="footer-apply-btn"]');
 
@@ -1637,6 +1652,73 @@ describe('DesignTool', () => {
     cleanup();
   });
 
+  it('restores the Layers tab, keeps it active during layer selection, and does not auto-return to Properties', () => {
+    vi.useFakeTimers();
+
+    const parent = document.createElement('section');
+    applyBaselineStyles(parent, 'demo/src/App.tsx:18:3');
+    parent.setAttribute('aria-label', 'Hero section');
+    mockRect(parent, { height: 120, left: 24, top: 40, width: 280 });
+
+    const child = document.createElement('button');
+    applyBaselineStyles(child, 'demo/src/App.tsx:19:5');
+    child.setAttribute('aria-label', 'Hero CTA');
+    child.style.paddingTop = '6px';
+    mockRect(child, { height: 44, left: 40, top: 88, width: 132 });
+
+    parent.append(child);
+    document.body.append(parent);
+    setElementFromPoint(parent);
+
+    const { cleanup, shadowRoot } = renderDesignTool();
+    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+
+    click(trigger);
+    click(document);
+
+    expect(getPanelTab(shadowRoot, 'properties').getAttribute('data-active')).toBe('true');
+    expect(getPanelTab(shadowRoot, 'layers').getAttribute('data-active')).toBe('false');
+
+    click(getPanelTab(shadowRoot, 'layers'));
+
+    expect(
+      shadowRoot.querySelector('[data-hawk-eye-ui="view-stack"]')?.getAttribute('data-state')
+    ).toBe('to-layers');
+
+    advanceMotion(VIEW_TRANSITION_DURATION_MS);
+
+    expect(getPanelTab(shadowRoot, 'layers').getAttribute('data-active')).toBe('true');
+    expect(
+      shadowRoot.querySelector('[data-hawk-eye-ui="panel-view"][data-view="layers"][data-presence="current"]')
+    ).not.toBeNull();
+    expect(shadowRoot.querySelectorAll('[data-hawk-eye-ui="layer-select-btn"]')).toHaveLength(2);
+
+    const childLayerButton = shadowRoot.querySelector(
+      '[aria-label="Select layer Hero CTA"]'
+    );
+
+    if (!(childLayerButton instanceof window.HTMLButtonElement)) {
+      throw new Error('Missing child layer button');
+    }
+
+    click(childLayerButton);
+
+    expect(getPanelTab(shadowRoot, 'layers').getAttribute('data-active')).toBe('true');
+    expect(
+      shadowRoot.querySelector(
+        '[data-hawk-eye-ui="layer-select-btn"][aria-label="Select layer Hero CTA"][aria-pressed="true"]'
+      )
+    ).not.toBeNull();
+
+    advanceMotion(VIEW_TRANSITION_DURATION_MS);
+
+    expect(getPanelTab(shadowRoot, 'layers').getAttribute('data-active')).toBe('true');
+    expect(
+      shadowRoot.querySelector('[data-hawk-eye-ui="panel-view"][data-view="layers"][data-presence="current"]')
+    ).not.toBeNull();
+    cleanup();
+  });
+
   it('updates the selected instance when multiple elements share the same source token', () => {
     const sharedSource = 'demo/src/App.tsx:72:9';
 
@@ -1669,6 +1751,61 @@ describe('DesignTool', () => {
 
     expect(second.style.paddingTop).toBe('28px');
     expect(first.style.paddingTop).toBe('8px');
+    cleanup();
+  });
+
+  it('hides the draft footer on Layers while preserving Properties and Pending Changes footers', () => {
+    vi.useFakeTimers();
+
+    const target = document.createElement('div');
+    applyBaselineStyles(target, 'demo/src/App.tsx:64:7');
+    target.setAttribute('aria-label', 'Layered card');
+    mockRect(target, { height: 44, left: 24, top: 40, width: 132 });
+    document.body.append(target);
+    setElementFromPoint(target);
+
+    const { cleanup, shadowRoot } = renderDesignTool();
+    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+
+    click(trigger);
+    click(document);
+
+    updateInput(
+      getControl(shadowRoot, 'paddingTop') as InstanceType<typeof window.HTMLInputElement>,
+      '24'
+    );
+
+    expect(
+      shadowRoot.querySelector('[data-hawk-eye-ui="panel-footer"]')?.getAttribute('data-view')
+    ).toBe('properties');
+
+    click(getPanelTab(shadowRoot, 'layers'));
+    advanceMotion(VIEW_TRANSITION_DURATION_MS);
+
+    expect(shadowRoot.querySelector('[data-hawk-eye-ui="panel-footer"]')).toBeNull();
+
+    click(getPanelTab(shadowRoot, 'properties'));
+    advanceMotion(VIEW_TRANSITION_DURATION_MS);
+
+    expect(
+      shadowRoot.querySelector('[data-hawk-eye-ui="panel-footer"]')?.getAttribute('data-view')
+    ).toBe('properties');
+
+    const changesButton = shadowRoot.querySelector(
+      '[data-hawk-eye-ui="footer-changes-btn"]'
+    );
+
+    if (!(changesButton instanceof window.HTMLButtonElement)) {
+      throw new Error('Missing changes footer button');
+    }
+
+    click(changesButton);
+    advanceMotion(VIEW_TRANSITION_DURATION_MS);
+
+    expect(
+      shadowRoot.querySelector('[data-hawk-eye-ui="panel-footer"]')?.getAttribute('data-view')
+    ).toBe('changes');
+    expect(shadowRoot.querySelector('[data-hawk-eye-ui="footer-hide-btn"]')).not.toBeNull();
     cleanup();
   });
 

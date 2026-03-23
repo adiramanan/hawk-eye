@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { LayersPanel } from './LayersPanel';
 import { PropertiesPanel } from './PropertiesPanel';
 import type {
   EditablePropertyId,
@@ -53,9 +54,9 @@ interface DragState {
   startPanelY: number;
 }
 
-type InspectorView = 'properties' | 'changes';
+type InspectorView = 'properties' | 'layers' | 'changes';
 type FooterStatusTone = 'error' | 'info' | 'pending' | 'success';
-type ViewTransitionState = 'idle' | 'to-properties' | 'to-changes';
+type ViewTransitionState = 'idle' | 'to-properties' | 'to-layers' | 'to-changes';
 type PresenceState = 'current' | 'entering' | 'exiting';
 
 interface FooterStatusEntry {
@@ -308,6 +309,11 @@ function canDetachDraft(draft: SelectionDraft | null) {
   return draft.styleMode === 'tailwind' || draft.styleMode === 'mixed';
 }
 
+const PRIMARY_PANEL_TABS: Array<{ id: Extract<InspectorView, 'properties' | 'layers'>; label: string }> = [
+  { id: 'properties', label: 'Properties' },
+  { id: 'layers', label: 'Layers' },
+];
+
 function getToggleIntentFromClick(detail: number): ToggleIntent {
   return detail > 0 ? 'pointer' : 'keyboard';
 }
@@ -418,7 +424,13 @@ export function Inspector({
 
     setExitingView(view);
     setView(nextView);
-    setViewTransitionState(nextView === 'changes' ? 'to-changes' : 'to-properties');
+    setViewTransitionState(
+      nextView === 'changes'
+        ? 'to-changes'
+        : nextView === 'layers'
+          ? 'to-layers'
+          : 'to-properties'
+    );
     viewTimerRef.current = window.setTimeout(() => {
       setExitingView(null);
       setViewTransitionState('idle');
@@ -427,7 +439,7 @@ export function Inspector({
   }
 
   useEffect(() => {
-    if (pendingDrafts.length !== 0 || view === 'properties') {
+    if (pendingDrafts.length !== 0 || view !== 'changes') {
       return;
     }
 
@@ -701,6 +713,15 @@ export function Inspector({
     );
   }
 
+  function renderLayersView() {
+    return (
+      <LayersPanel
+        onSelectByKey={onSelectByKey}
+        selectedInstanceKey={selectedInstanceKey}
+      />
+    );
+  }
+
   function renderPanelView(nextView: InspectorView, presence: PresenceState) {
     return (
       <div
@@ -710,7 +731,11 @@ export function Inspector({
         data-view={nextView}
         key={`${nextView}-${presence}`}
       >
-        {nextView === 'changes' ? renderChangesView() : renderPropertiesView()}
+        {nextView === 'changes'
+          ? renderChangesView()
+          : nextView === 'layers'
+            ? renderLayersView()
+            : renderPropertiesView()}
       </div>
     );
   }
@@ -786,6 +811,29 @@ export function Inspector({
                 </>
               )}
             </div>
+
+            {view !== 'changes' ? (
+              <div data-hawk-eye-ui="panel-tabs" role="tablist">
+                {PRIMARY_PANEL_TABS.map((tab) => {
+                  const isActive = view === tab.id;
+
+                  return (
+                    <button
+                      aria-selected={isActive}
+                      data-active={isActive ? 'true' : 'false'}
+                      data-hawk-eye-ui="panel-tab"
+                      data-view={tab.id}
+                      key={tab.id}
+                      onClick={() => transitionToView(tab.id)}
+                      role="tab"
+                      type="button"
+                    >
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
 
             {showMetaActions ? (
               <div
