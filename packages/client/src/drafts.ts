@@ -336,10 +336,17 @@ export function createSelectionDraft(
   const properties = {} as SelectionDraft['properties'];
 
   for (const definition of editablePropertyDefinitions) {
-    const baseline =
+    const rawBaseline =
       computedStyle.getPropertyValue(definition.cssProperty).trim() ||
       element.style.getPropertyValue(definition.cssProperty).trim();
     const inlineValue = element.style.getPropertyValue(definition.cssProperty).trim();
+    const baseline =
+      definition.control === 'number' &&
+      !['gridColumns', 'gridRows'].includes(definition.id) &&
+      rawBaseline &&
+      isNaN(parseFloat(rawBaseline))
+        ? ''
+        : rawBaseline;
 
     properties[definition.id] = {
       baseline,

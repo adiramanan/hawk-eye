@@ -1,7 +1,10 @@
 export { BoxShadowInput } from './BoxShadowInput';
 export { ColorInput } from './ColorInput';
 export { ColorPicker } from './ColorPicker';
+export { FillInput } from './FillInput';
+export { GradientEditor } from './GradientEditor';
 export { GridTrackEditor } from './GridTrackEditor';
+export { ImageFillEditor } from './ImageFillEditor';
 export { NumberInput } from './NumberInput';
 export { PerCornerControl } from './PerCornerControl';
 export { PerSideControl } from './PerSideControl';

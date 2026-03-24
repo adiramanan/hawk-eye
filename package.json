@@ -26,9 +26,16 @@
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "token-audit": "node scripts/token-audit.js",
     "test": "vitest --run",
     "package:check": "pnpm build && cd packages/hawk-eye && pnpm dlx publint && pnpm dlx @arethetypeswrong/cli --pack . --profile node16",
     "ci": "pnpm lint && pnpm type-check && pnpm test && pnpm build && pnpm package:check"
+  },
+  "pnpm": {
+    "overrides": {
+      "flatted": ">=3.4.2",
+      "esbuild": ">=0.25.0"
+    }
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
