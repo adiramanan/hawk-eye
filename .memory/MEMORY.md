@@ -22,4 +22,8 @@
 
 ## Current Product State
 - Inspector trigger, selection, live preview, style analysis, detach flow, and save-to-branch flow are implemented.
-- The next known product milestone is context-aware section visibility in the panel.
+- Phase 1 (advanced typography) and Phase 2 (transitions) of the property gap roadmap are shipped.
+- The next known product milestone is Phase 3 (CSS transforms) — see `.memory/project_property_gap_roadmap.md`.
+
+## Property Gap Roadmap
+- Full gap analysis vs paper.design and 8-phase implementation plan: `.memory/project_property_gap_roadmap.md`

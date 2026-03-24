@@ -1,6 +1,7 @@
 import { type JSX, type ReactNode } from 'react';
 import {
   ColorInput,
+  FillInput,
   GridTrackEditor,
   NumberInput,
   PerSideControl,
@@ -132,6 +133,13 @@ function CompactCard({
     control = (
       <SliderInput
         definition={definition}
+        onChange={(v) => onChange(propertyId, v)}
+        snapshot={snapshot}
+      />
+    );
+  } else if (definition.control === 'fill') {
+    control = (
+      <FillInput
         onChange={(v) => onChange(propertyId, v)}
         snapshot={snapshot}
       />
@@ -332,8 +340,8 @@ const LAYOUT_MODE_OPTIONS: Array<{ value: string; label: string; icon: JSX.Eleme
     label: 'Vertical Stack',
     icon: (
       <svg fill="none" height="20" viewBox="0 0 20 20" width="20" xmlns="http://www.w3.org/2000/svg">
-        <path d="M8.33331 15V5C8.33331 4.22343 8.33331 3.83515 8.20645 3.52886C8.03729 3.12048 7.71283 2.79602 7.30445 2.62687C6.99817 2.5 6.60988 2.5 5.83331 2.5C5.05674 2.5 4.66846 2.5 4.36217 2.62687C3.95379 2.79602 3.62934 3.12048 3.46018 3.52886C3.33331 3.83515 3.33331 4.22343 3.33331 5V15C3.33331 15.7766 3.33331 16.1649 3.46018 16.4711C3.62934 16.8795 3.95379 17.204 4.36217 17.3731C4.66846 17.5 5.05674 17.5 5.83331 17.5C6.60988 17.5 6.99817 17.5 7.30445 17.3731C7.71283 17.204 8.03729 16.8795 8.20645 16.4711C8.33331 16.1649 8.33331 15.7766 8.33331 15Z" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M16.6666 11.6667V5C16.6666 4.22343 16.6666 3.83515 16.5398 3.52886C16.3706 3.12048 16.0462 2.79602 15.6378 2.62687C15.3315 2.5 14.9432 2.5 14.1666 2.5C13.3901 2.5 13.0018 2.5 12.6955 2.62687C12.2871 2.79602 11.9627 3.12048 11.7935 3.52886C11.6666 3.83515 11.6666 4.22343 11.6666 5V11.6667C11.6666 12.4432 11.6666 12.8315 11.7935 13.1378C11.9627 13.5462 12.2871 13.8706 12.6955 14.0398C13.0018 14.1667 13.3901 14.1667 14.1666 14.1667C14.9432 14.1667 15.3315 14.1667 15.6378 14.0398C16.0462 13.8706 16.3706 13.5462 16.5398 13.1378C16.6666 12.8315 16.6666 12.4432 16.6666 11.6667Z" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M11.6667 8.3335C12.4432 8.3335 12.8315 8.3335 13.1378 8.20663C13.5462 8.03747 13.8706 7.71301 14.0398 7.30463C14.1667 6.99835 14.1667 6.61007 14.1667 5.8335C14.1667 5.05693 14.1667 4.66864 14.0398 4.36236C13.8706 3.95398 13.5462 3.62952 13.1378 3.46036C12.8315 3.3335 12.4432 3.3335 11.6667 3.3335L5 3.3335C4.22343 3.3335 3.83515 3.3335 3.52886 3.46036C3.12048 3.62952 2.79602 3.95398 2.62687 4.36236C2.5 4.66864 2.5 5.05693 2.5 5.8335C2.5 6.61006 2.5 6.99835 2.62687 7.30463C2.79602 7.71301 3.12048 8.03747 3.52886 8.20663C3.83515 8.3335 4.22343 8.3335 5 8.3335L11.6667 8.3335Z" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M15 16.6668C15.7766 16.6668 16.1649 16.6668 16.4711 16.54C16.8795 16.3708 17.204 16.0463 17.3731 15.638C17.5 15.3317 17.5 14.9434 17.5 14.1668C17.5 13.3903 17.5 13.002 17.3731 12.6957C17.204 12.2873 16.8795 11.9629 16.4711 11.7937C16.1649 11.6668 15.7766 11.6668 15 11.6668H5C4.22343 11.6668 3.83515 11.6668 3.52886 11.7937C3.12048 11.9629 2.79602 12.2873 2.62687 12.6957C2.5 13.002 2.5 13.3903 2.5 14.1668C2.5 14.9434 2.5 15.3317 2.62687 15.638C2.79602 16.0463 3.12048 16.3708 3.52886 16.54C3.83515 16.6668 4.22343 16.6668 5 16.6668L15 16.6668Z" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     ),
   },
@@ -342,8 +350,8 @@ const LAYOUT_MODE_OPTIONS: Array<{ value: string; label: string; icon: JSX.Eleme
     label: 'Horizontal Stack',
     icon: (
       <svg fill="none" height="20" viewBox="0 0 20 20" width="20" xmlns="http://www.w3.org/2000/svg">
-        <path d="M11.6667 8.3335C12.4432 8.3335 12.8315 8.3335 13.1378 8.20663C13.5462 8.03747 13.8706 7.71301 14.0398 7.30463C14.1667 6.99835 14.1667 6.61007 14.1667 5.8335C14.1667 5.05693 14.1667 4.66864 14.0398 4.36236C13.8706 3.95398 13.5462 3.62952 13.1378 3.46036C12.8315 3.3335 12.4432 3.3335 11.6667 3.3335L5 3.3335C4.22343 3.3335 3.83515 3.3335 3.52886 3.46036C3.12048 3.62952 2.79602 3.95398 2.62687 4.36236C2.5 4.66864 2.5 5.05693 2.5 5.8335C2.5 6.61006 2.5 6.99835 2.62687 7.30463C2.79602 7.71301 3.12048 8.03747 3.52886 8.20663C3.83515 8.3335 4.22343 8.3335 5 8.3335L11.6667 8.3335Z" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M15 16.6668C15.7766 16.6668 16.1649 16.6668 16.4711 16.54C16.8795 16.3708 17.204 16.0463 17.3731 15.638C17.5 15.3317 17.5 14.9434 17.5 14.1668C17.5 13.3903 17.5 13.002 17.3731 12.6957C17.204 12.2873 16.8795 11.9629 16.4711 11.7937C16.1649 11.6668 15.7766 11.6668 15 11.6668H5C4.22343 11.6668 3.83515 11.6668 3.52886 11.7937C3.12048 11.9629 2.79602 12.2873 2.62687 12.6957C2.5 13.002 2.5 13.3903 2.5 14.1668C2.5 14.9434 2.5 15.3317 2.62687 15.638C2.79602 16.0463 3.12048 16.3708 3.52886 16.54C3.83515 16.6668 4.22343 16.6668 5 16.6668L15 16.6668Z" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M8.33331 15V5C8.33331 4.22343 8.33331 3.83515 8.20645 3.52886C8.03729 3.12048 7.71283 2.79602 7.30445 2.62687C6.99817 2.5 6.60988 2.5 5.83331 2.5C5.05674 2.5 4.66846 2.5 4.36217 2.62687C3.95379 2.79602 3.62934 3.12048 3.46018 3.52886C3.33331 3.83515 3.33331 4.22343 3.33331 5V15C3.33331 15.7766 3.33331 16.1649 3.46018 16.4711C3.62934 16.8795 3.95379 17.204 4.36217 17.3731C4.66846 17.5 5.05674 17.5 5.83331 17.5C6.60988 17.5 6.99817 17.5 7.30445 17.3731C7.71283 17.204 8.03729 16.8795 8.20645 16.4711C8.33331 16.1649 8.33331 15.7766 8.33331 15Z" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M16.6666 11.6667V5C16.6666 4.22343 16.6666 3.83515 16.5398 3.52886C16.3706 3.12048 16.0462 2.79602 15.6378 2.62687C15.3315 2.5 14.9432 2.5 14.1666 2.5C13.3901 2.5 13.0018 2.5 12.6955 2.62687C12.2871 2.79602 11.9627 3.12048 11.7935 3.52886C11.6666 3.83515 11.6666 4.22343 11.6666 5V11.6667C11.6666 12.4432 11.6666 12.8315 11.7935 13.1378C11.9627 13.5462 12.2871 13.8706 12.6955 14.0398C13.0018 14.1667 13.3901 14.1667 14.1666 14.1667C14.9432 14.1667 15.3315 14.1667 15.6378 14.0398C16.0462 13.8706 16.3706 13.5462 16.5398 13.1378C16.6666 12.8315 16.6666 12.4432 16.6666 11.6667Z" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     ),
   },
@@ -1145,54 +1153,6 @@ function BorderSection(props: SectionProps) {
   );
 }
 
-// ── Transition Section ───────────────────────────────────────────────────
-
-function TransitionSection(props: SectionProps) {
-  const transitionPropSnapshot = props.selectedDraft.properties.transitionProperty;
-  const hasTransition =
-    transitionPropSnapshot.value !== 'none' &&
-    transitionPropSnapshot.value !== '' &&
-    transitionPropSnapshot.value !== transitionPropSnapshot.baseline;
-
-  return (
-    <CollapsibleSection
-      defaultExpanded
-      key="transition"
-      sectionId="transition"
-      title="Transition"
-    >
-      <div data-hawk-eye-ui="section-stack">
-        {/* Transition property — full width */}
-        <div data-hawk-eye-ui="compact-row-full">
-          {card('transitionProperty', props)}
-        </div>
-
-        {/* Duration | Delay row */}
-        {hasTransition && (
-          <div data-hawk-eye-ui="labelled-row">
-            <div data-hawk-eye-ui="labelled-col">
-              <span data-hawk-eye-ui="input-label">Duration</span>
-              {card('transitionDuration', props)}
-            </div>
-            <div data-hawk-eye-ui="labelled-col">
-              <span data-hawk-eye-ui="input-label">Delay</span>
-              {card('transitionDelay', props)}
-            </div>
-          </div>
-        )}
-
-        {/* Easing — full width */}
-        {hasTransition && (
-          <div data-hawk-eye-ui="labelled-single">
-            <span data-hawk-eye-ui="input-label">Easing</span>
-            {card('transitionTimingFunction', props)}
-          </div>
-        )}
-      </div>
-    </CollapsibleSection>
-  );
-}
-
 // ── Main panel ─────────────────────────────────────────────────────────────
 
 export function PropertiesPanel({
@@ -1227,7 +1187,7 @@ export function PropertiesPanel({
       <AppearanceSection key="appearance" {...sectionProps} />
       {showTypography ? <TypographySection key="typography" {...sectionProps} /> : null}
       <BorderSection key="border" {...sectionProps} />
-      <TransitionSection key="transition" {...sectionProps} />
+      {/* <TransitionSection key="transition" {...sectionProps} /> */}
     </section>
   );
 }

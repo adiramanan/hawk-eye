@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { DesignTool } from 'hawk-eye';
+import { DesignLab } from './DesignLab';
 
 type LaunchState =
   | 'idle'
@@ -73,6 +74,7 @@ function getLaunchMessage(state: LaunchState) {
 export default function App() {
   const inspectorAvailable = import.meta.env.DEV;
   const [launchState, setLaunchState] = useState<LaunchState>('idle');
+  const [view, setView] = useState<'demo' | 'design-lab'>('demo');
   const launchMessage = getLaunchMessage(launchState);
 
   function handleOpenInspector() {
@@ -82,6 +84,15 @@ export default function App() {
     }
 
     setLaunchState(openInspectorFromDemo());
+  }
+
+  if (view === 'design-lab') {
+    return (
+      <>
+        <DesignLab onBack={() => setView('demo')} />
+        {inspectorAvailable && <DesignTool />}
+      </>
+    );
   }
 
   return (
@@ -120,6 +131,13 @@ export default function App() {
                     type="button"
                   >
                     {inspectorAvailable ? 'Open Hawk-Eye' : 'Inspector Runs In Dev'}
+                  </button>
+                  <button
+                    className="he-button"
+                    onClick={() => setView('design-lab')}
+                    type="button"
+                  >
+                    Design Lab →
                   </button>
                   <div className="he-inline-note">
                     Save happens inside the inspector, not from this page.

@@ -12,7 +12,7 @@ import {
 import {
   cacheStyleAnalysis,
   getCachedStyleAnalysis,
-  issueSaveCapability,
+  rotateSaveCapability,
   parseSignedSourceToken,
   type CachedStyleAnalysis,
   type HawkEyeServerState,
@@ -58,7 +58,7 @@ export function resolveSelectionPayload(
     return null;
   }
 
-  const saveCapability = issueSaveCapability(state, data.clientId);
+  const saveCapability = rotateSaveCapability(state, data.clientId);
 
   return {
     source: parsedSource.source,

@@ -96,6 +96,7 @@ export type EditablePropertyId =
   | 'visibility'
   // Fill
   | 'backgroundColor'
+  | 'backgroundImage'
   | 'color'
   // Stroke / Border
   | 'borderColor'
@@ -185,7 +186,8 @@ export type EditablePropertyControl =
   | 'select'
   | 'segmented'
   | 'toggle'
-  | 'per-side';
+  | 'per-side'
+  | 'fill';
 
 export interface SelectOption {
   label: string;

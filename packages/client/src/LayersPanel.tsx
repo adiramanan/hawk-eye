@@ -7,6 +7,7 @@ interface LayerNode {
   instanceKey: string;
   label: string;
   source: string;
+  tagName: string;
   children: LayerNode[];
   depth: number;
 }
@@ -53,6 +54,7 @@ function buildLayerTree(): LayerNode[] {
       instanceKey: instanceKey ?? '',
       label: makeDisplayLabel(element, source),
       source,
+      tagName: element.tagName.toLowerCase(),
       children: [] as LayerNode[],
       depth: 0,
     };
@@ -120,7 +122,13 @@ function countNodes(nodes: LayerNode[]): number {
 function ChevronIcon() {
   return (
     <svg fill="none" height="16" viewBox="0 0 16 16" width="16">
-      <path d="M4 6L8 10L12 6" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" />
+      <path
+        d="M4 6L8 10L12 6"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.5"
+      />
     </svg>
   );
 }
@@ -171,7 +179,12 @@ function LayerNodeComponent({
           onClick={() => onSelectByKey(node.instanceKey)}
           type="button"
         >
-          <span data-hawk-eye-ui="layer-label">{node.label}</span>
+          <span data-hawk-eye-ui="layer-copy">
+            <span data-hawk-eye-ui="layer-label">{node.label}</span>
+            <span data-hawk-eye-ui="layer-source">
+              {node.tagName} · {makeLabel(node.source)}
+            </span>
+          </span>
         </button>
       </div>
       {isExpanded &&
@@ -212,16 +225,18 @@ export function LayersPanel({ selectedInstanceKey, onSelectByKey }: LayersPanelP
   }
 
   if (rootNodes.length === 0) {
-    return (
-      <div data-hawk-eye-ui="layers-empty">
-        No inspectable elements yet.
-      </div>
-    );
+    return <div data-hawk-eye-ui="layers-empty">No inspectable elements yet.</div>;
   }
 
   return (
     <section data-hawk-eye-ui="layers-section">
-      <p data-hawk-eye-ui="layers-heading">Layers ({totalLayers})</p>
+      <div data-hawk-eye-ui="layers-heading-row">
+        <p data-hawk-eye-ui="layers-heading">Layers</p>
+        <span data-hawk-eye-ui="layers-count">{totalLayers}</span>
+      </div>
+      <p data-hawk-eye-ui="layers-summary">
+        Select the live source node you want to inspect or edit.
+      </p>
       <div data-hawk-eye-ui="layers-tree">
         {rootNodes.map((node) => (
           <LayerNodeComponent
