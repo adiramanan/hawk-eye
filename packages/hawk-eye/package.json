@@ -35,6 +35,26 @@
         "default": "./dist/vite.cjs"
       }
     },
+    "./vue": {
+      "import": {
+        "types": "./dist/vue.d.ts",
+        "default": "./dist/vue.js"
+      },
+      "require": {
+        "types": "./dist/vue.d.cts",
+        "default": "./dist/vue.cjs"
+      }
+    },
+    "./svelte": {
+      "import": {
+        "types": "./dist/svelte.d.ts",
+        "default": "./dist/svelte.js"
+      },
+      "require": {
+        "types": "./dist/svelte.d.cts",
+        "default": "./dist/svelte.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -44,6 +64,8 @@
   ],
   "keywords": [
     "react",
+    "vue",
+    "svelte",
     "vite",
     "design",
     "inspector"
@@ -68,13 +90,30 @@
   "peerDependencies": {
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
-    "vite": "^5.0.0"
+    "svelte": "^4.0.0 || ^5.0.0",
+    "vite": "^5.0.0",
+    "vue": "^3.3.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    },
+    "vue": {
+      "optional": true
+    },
+    "svelte": {
+      "optional": true
+    }
   },
   "dependencies": {
     "ts-morph": "^21.0.0"
   },
   "devDependencies": {
+    "tsup": "^8.0.0",
     "typescript": "^5.9.2",
-    "tsup": "^8.0.0"
+    "vue": "^3.5.30"
   }
 }

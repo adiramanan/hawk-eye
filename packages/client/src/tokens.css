@@ -44,7 +44,7 @@
   --ds-demo-dark: #10212b;
   --ds-demo-dark-soft: #17303d;
 
-  /* ---- SPACING: 8-step scale ---- */
+  /* ---- SPACING: 8-step scale + utilities ---- */
   --ds-space-1: 4px;
   --ds-space-2: 6px;
   --ds-space-3: 8px;
@@ -53,6 +53,13 @@
   --ds-space-6: 24px;
   --ds-space-7: 32px;
   --ds-space-8: 48px;
+  /* Utility spacing for common measurements */
+  --ds-space-10px: 10px;
+  --ds-space-14px: 14px;
+  --ds-space-25px: 25px;
+  --ds-space-28px: 28px;
+  --ds-space-2px: 2px;
+  --ds-space-1px: 1px;
 
   /* ---- TYPOGRAPHY: Font Family ---- */
   --ds-font-sans: 'Geist Variable', 'IBM Plex Sans', 'Segoe UI', sans-serif;
@@ -192,6 +199,13 @@
   --spacing-xl: var(--ds-space-6, 24px);
   --spacing-2xl: var(--ds-space-7, 32px);
   --spacing-3xl: var(--ds-space-8, 48px);
+  /* Utility spacing aliases */
+  --spacing-10px: var(--ds-space-10px, 10px);
+  --spacing-14px: var(--ds-space-14px, 14px);
+  --spacing-25px: var(--ds-space-25px, 25px);
+  --spacing-28px: var(--ds-space-28px, 28px);
+  --spacing-2px: var(--ds-space-2px, 2px);
+  --spacing-1px: var(--ds-space-1px, 1px);
 
   /* ---- TYPOGRAPHY ALIASES ---- */
   --font-family-base: var(--ds-font-sans);
@@ -242,6 +256,44 @@
   --z-modal: var(--ds-z-modal, 1050);
   --z-tooltip: var(--ds-z-tooltip, 1070);
   --z-max: var(--ds-z-max, 2147483647);
+}
+
+/* ============================================================================
+   THEME SUPPORT: LIGHT & DARK MODE
+
+   Default: dark theme (current dark values)
+
+   To enable light theme:
+   - Add `[data-hawk-eye-theme="light"]` to the host element
+   - Or add `prefers-color-scheme: light` media query override
+   ============================================================================ */
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --ds-gray-50: #ffffff;
+    --ds-gray-100: #f3f4f6;
+    --ds-gray-200: #e5e7eb;
+    --ds-gray-300: #d1d5db;
+    --ds-gray-400: #9ca3af;
+    --ds-gray-500: #6b7280;
+    --ds-gray-600: #4b5563;
+    --ds-gray-700: #374151;
+    --ds-gray-800: #1f2937;
+    --ds-gray-900: #111827;
+  }
+}
+
+[data-hawk-eye-theme="light"] {
+  --ds-gray-50: #ffffff;
+  --ds-gray-100: #f3f4f6;
+  --ds-gray-200: #e5e7eb;
+  --ds-gray-300: #d1d5db;
+  --ds-gray-400: #9ca3af;
+  --ds-gray-500: #6b7280;
+  --ds-gray-600: #4b5563;
+  --ds-gray-700: #374151;
+  --ds-gray-800: #1f2937;
+  --ds-gray-900: #111827;
 }
 
 /* ============================================================================

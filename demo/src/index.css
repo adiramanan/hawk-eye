@@ -236,7 +236,7 @@
 
 .he-panel,
 .he-surface-card {
-  border: 1px solid var(--demo-line);
+  border: var(--spacing-1px) solid var(--demo-line);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 251, 253, 0.78)),
     var(--demo-surface);
@@ -250,7 +250,7 @@
 
 .he-panel-dark {
   padding: var(--spacing-xl);
-  border: 1px solid var(--demo-dark-line);
+  border: var(--spacing-1px) solid var(--demo-dark-line);
   background:
     radial-gradient(circle at top left, rgba(78, 171, 255, 0.14), transparent 36%),
     linear-gradient(180deg, var(--demo-panel-dark-top) 0%, var(--demo-panel-dark-bottom) 100%);
@@ -263,7 +263,7 @@
 }
 
 .he-surface-card-dark {
-  border: 1px solid var(--demo-dark-line);
+  border: var(--spacing-1px) solid var(--demo-dark-line);
   background:
     radial-gradient(circle at top right, rgba(15, 109, 241, 0.2), transparent 40%),
     linear-gradient(180deg, var(--demo-card-dark-top) 0%, var(--demo-card-dark-bottom) 100%);
@@ -311,7 +311,7 @@
 
 .he-chip {
   padding: 0.55rem 0.9rem;
-  border: 1px solid rgba(15, 23, 42, 0.08);
+  border: var(--spacing-1px) solid rgba(15, 23, 42, 0.08);
   background: rgba(255, 255, 255, 0.7);
   color: var(--demo-muted);
   font-size: 0.82rem;
@@ -329,7 +329,7 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.9rem 1rem;
-  border: 1px solid rgba(15, 23, 42, 0.08);
+  border: var(--spacing-1px) solid rgba(15, 23, 42, 0.08);
   border-radius: var(--radius-full);
   background: rgba(255, 255, 255, 0.62);
   color: var(--demo-muted);
@@ -401,7 +401,7 @@
   justify-content: space-between;
   gap: 1rem;
   padding-bottom: 0.85rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: var(--spacing-1px) solid rgba(255, 255, 255, 0.08);
 }
 
 .he-fact-row:last-child {
@@ -458,7 +458,7 @@
 
 .he-step-card {
   padding: 1.15rem;
-  border: 1px solid rgba(15, 23, 42, 0.08);
+  border: var(--spacing-1px) solid rgba(15, 23, 42, 0.08);
   border-radius: 1.5rem;
   background: rgba(255, 255, 255, 0.58);
 }
@@ -484,7 +484,7 @@
   justify-content: space-between;
   gap: 0.9rem;
   padding: 1rem;
-  border: 1px solid rgba(15, 23, 42, 0.08);
+  border: var(--spacing-1px) solid rgba(15, 23, 42, 0.08);
   border-radius: 1.35rem;
   background: rgba(255, 255, 255, 0.58);
 }
@@ -518,7 +518,7 @@
   display: grid;
   gap: 0.35rem;
   padding: 1rem;
-  border: 1px solid rgba(15, 23, 42, 0.08);
+  border: var(--spacing-1px) solid rgba(15, 23, 42, 0.08);
   border-radius: 1.35rem;
   background: rgba(15, 23, 42, 0.03);
 }
@@ -542,7 +542,7 @@
   justify-content: space-between;
   gap: 1rem;
   padding: 0.9rem 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: var(--spacing-1px) solid rgba(255, 255, 255, 0.08);
 }
 
 .he-tone-row:last-child {
