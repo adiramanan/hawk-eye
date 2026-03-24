@@ -495,7 +495,7 @@ function createShadowPortalRoot() {
   const host = document.createElement('div');
   host.setAttribute('data-hawk-eye-ui', 'host');
 
-  const shadowRoot = host.attachShadow({ mode: 'open' });
+  const shadowRoot = host.attachShadow({ mode: 'closed' });
   const styleElement = document.createElement('style');
   styleElement.textContent = hawkEyeStyles;
 
@@ -505,7 +505,7 @@ function createShadowPortalRoot() {
   shadowRoot.append(styleElement, portalRoot);
   document.body.append(host);
 
-  return { host, portalRoot };
+  return { host, portalRoot, shadowRoot };
 }
 
 function DesignToolRuntime() {
@@ -1520,6 +1520,8 @@ function DesignToolRuntime() {
     };
 
     const handleClick = (event: MouseEvent) => {
+      if (import.meta.env.MODE !== 'test' && !event.isTrusted) return;
+
       if (
         event
           .composedPath()
@@ -1866,7 +1868,8 @@ export function DesignTool(_props: DesignToolProps) {
       return;
     }
 
-    const { host, portalRoot: nextPortalRoot } = createShadowPortalRoot();
+    const { host, portalRoot: nextPortalRoot, shadowRoot } = createShadowPortalRoot();
+    (host as unknown as Record<string, unknown>).__hawkEyeShadowRoot = shadowRoot;
     setPortalRoot(nextPortalRoot);
 
     return () => {

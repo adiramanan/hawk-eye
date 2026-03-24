@@ -169,8 +169,9 @@ function renderDesignTool() {
   });
 
   const host = document.querySelector('[data-hawk-eye-ui="host"]') as HTMLDivElement | null;
+  const shadowRoot = (host as unknown as Record<string, unknown>)?.__hawkEyeShadowRoot as ShadowRoot | undefined;
 
-  if (!host?.shadowRoot) {
+  if (!host || !shadowRoot) {
     throw new Error('Hawk-Eye shadow root was not created');
   }
 
@@ -194,10 +195,10 @@ function renderDesignTool() {
       cleanup();
     },
     debugText() {
-      return host.shadowRoot?.textContent ?? '';
+      return shadowRoot?.textContent ?? '';
     },
     host,
-    shadowRoot: host.shadowRoot,
+    shadowRoot,
   };
 }
 

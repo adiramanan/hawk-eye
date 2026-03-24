@@ -115,6 +115,11 @@ export function issueSaveCapability(state: HawkEyeServerState, clientId: string)
   return capability;
 }
 
+export function rotateSaveCapability(state: HawkEyeServerState, clientId: string) {
+  state.saveCapabilities.delete(clientId);
+  return issueSaveCapability(state, clientId);
+}
+
 export function hasValidSaveCapability(
   state: HawkEyeServerState,
   clientId: string | undefined,
