@@ -93,19 +93,12 @@ export const RefactoredNumberInput = React.forwardRef<
       onScrubDelta={handleScrubDelta}
       multiplier={1}
       disabled={disabled}
-      style={{
-        display: 'flex',
-        gap: 'var(--spacing-xs)',
-        alignItems: 'center',
-      }}
     >
       {/* Numeric input */}
       <NumericInput
         value={innerValue}
         onChange={handleNumberChange}
         disabled={disabled}
-        placeholder="0"
-        style={{ flex: 1 }}
       />
 
       {/* Unit selector */}

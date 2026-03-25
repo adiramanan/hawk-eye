@@ -5,7 +5,7 @@
  * Verifies reducer purity, action dispatch, and subscriptions.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createHawkEyeStore, hawkEyeReducer, initialState } from '../store';
 import type { HawkEyeState, StoreAction } from '../store';
 

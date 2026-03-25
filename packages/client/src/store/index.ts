@@ -11,7 +11,7 @@
  *   const unsubscribe = store.subscribe((state) => console.log(state));
  */
 
-import type { HawkEyeState, HawkEyeStore, StoreAction, StoreListener } from './types';
+import type { HawkEyeStore, StoreAction, StoreListener } from './types';
 import { hawkEyeReducer, initialState } from './reducer';
 
 export type { HawkEyeState, HawkEyeStore, StoreAction, StoreListener } from './types';

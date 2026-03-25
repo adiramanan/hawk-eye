@@ -5,7 +5,7 @@
  * Standalone unit switcher component.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useCallback } from 'react';
 
 export interface UnitSelectorProps {
   value: string;
@@ -22,12 +22,9 @@ const DEFAULT_UNITS = ['px', 'em', 'rem', '%', 'vw', 'vh'];
  */
 export const UnitSelector = React.forwardRef<HTMLSelectElement, UnitSelectorProps>(
   function UnitSelector({ value, onChange, units = DEFAULT_UNITS, disabled = false }, ref) {
-    const [isOpen, setIsOpen] = useState(false);
-
     const handleChange = useCallback(
       (e: React.ChangeEvent<HTMLSelectElement>) => {
         onChange(e.target.value);
-        setIsOpen(false);
       },
       [onChange]
     );

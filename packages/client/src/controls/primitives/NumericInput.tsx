@@ -6,7 +6,28 @@
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { parseExpression } from '../../utils/parse-expression';
+
+/**
+ * Simple expression parser for math expressions in numeric inputs.
+ * Supports basic arithmetic: +, -, *, /
+ */
+function parseExpression(expr: string): string {
+  const trimmed = expr.trim();
+  // If it's a plain number, return as-is
+  const num = parseFloat(trimmed);
+  if (!isNaN(num) && String(num) === trimmed) {
+    return trimmed;
+  }
+  // Try to evaluate simple arithmetic (only safe operations)
+  if (/^[\d\s+\-*/.()]+$/.test(trimmed)) {
+    // eslint-disable-next-line no-new-func
+    const result = new Function(`return (${trimmed})`)();
+    if (typeof result === 'number' && isFinite(result)) {
+      return String(result);
+    }
+  }
+  return trimmed;
+}
 
 export interface NumericInputProps {
   value: string;

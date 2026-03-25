@@ -28,7 +28,7 @@ export class PluginRegistry {
       throw new Error(`Plugin already registered: ${plugin.name}`);
     }
     this.plugins.set(plugin.name, plugin);
-    console.log(`Registered plugin: ${plugin.name} v${plugin.version}`);
+    // Plugin registered successfully
   }
 
   /**

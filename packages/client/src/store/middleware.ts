@@ -5,8 +5,7 @@
  * Follows a simple pipeline pattern: (store, action) => nextAction
  */
 
-import type { HawkEyeStore, StoreAction, HawkEyeState } from './types';
-import type { SelectionDraft } from '../types';
+import type { HawkEyeStore, StoreAction } from './types';
 import {
   applyDraftToElement,
   clearDraftOverrides,
@@ -50,7 +49,7 @@ export const previewMiddleware: Middleware = (store) => (next) => (action) => {
  * Validation Middleware
  * Validates property values before applying them
  */
-export const validationMiddleware: Middleware = (store) => (next) => (action) => {
+export const validationMiddleware: Middleware = (_store) => (next) => (action) => {
   // For now, just pass through - validation logic can be added here
   // This middleware placeholder allows for future validation rules
   next(action);

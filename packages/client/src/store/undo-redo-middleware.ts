@@ -16,7 +16,7 @@ export function undoRedoMiddleware(
 ) {
   return (state: HawkEyeState, action: StoreAction): HawkEyeState => {
     // Skip recording for undo/redo actions themselves
-    if (action.type === 'UNDO' || action.type === 'REDO') {
+    if ((action as { type: string }).type === 'UNDO' || (action as { type: string }).type === 'REDO') {
       return state;
     }
 
@@ -104,7 +104,7 @@ export function useUndoRedo(dispatch: (action: StoreAction) => void): UndoRedoHo
  */
 export function attachUndoRedoKeyboardShortcuts(hooks: UndoRedoHooks) {
   function handleKeyDown(event: KeyboardEvent) {
-    const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+    const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
     const modifier = isMac ? event.metaKey : event.ctrlKey;
 
     if (modifier && event.key === 'z') {

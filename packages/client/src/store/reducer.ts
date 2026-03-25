@@ -78,7 +78,9 @@ export function hawkEyeReducer(state: HawkEyeState, action: StoreAction): HawkEy
       };
 
     case 'DELETE_DRAFT': {
-      const { [action.payload]: deleted, ...remaining } = state.drafts;
+      const remaining = Object.fromEntries(
+        Object.entries(state.drafts).filter(([key]) => key !== action.payload)
+      );
       return {
         ...state,
         drafts: remaining,
