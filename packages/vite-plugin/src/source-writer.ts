@@ -474,23 +474,8 @@ function getSizeModeInlineMutations(mutation: ElementMutation): PropertyMutation
 }
 
 function getCompanionInlineMutations(mutation: ElementMutation): PropertyMutation[] {
-  const nextMutations: PropertyMutation[] = [];
-  const hasBackgroundColorMutation = mutation.properties.some(
-    (propertyMutation) =>
-      propertyMutation.propertyId === 'backgroundColor' &&
-      propertyMutation.newValue.trim() !== propertyMutation.oldValue.trim()
-  );
-
-  if (hasBackgroundColorMutation) {
-    nextMutations.push({
-      propertyId: 'backgroundImage',
-      cssProperty: 'background-image',
-      oldValue: '',
-      newValue: 'none',
-    });
-  }
-
-  return nextMutations;
+  // No companion mutations needed - background shorthand property handles all fill types
+  return [];
 }
 
 function applyElementMutation(
