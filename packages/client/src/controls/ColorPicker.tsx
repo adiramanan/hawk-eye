@@ -47,7 +47,7 @@ export function ColorPicker({ id, label, value, onChange, onClose, anchorRect }:
   }, [hsv]);
 
   useEffect(() => {
-    function handleClick(event: MouseEvent) {
+    function handlePointerDown(event: PointerEvent) {
       const path = event.composedPath();
       if (popoverRef.current && !path.includes(popoverRef.current)) {
         onClose();
@@ -56,10 +56,10 @@ export function ColorPicker({ id, label, value, onChange, onClose, anchorRect }:
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') onClose();
     }
-    document.addEventListener('mousedown', handleClick, true);
+    document.addEventListener('pointerdown', handlePointerDown, true);
     document.addEventListener('keydown', handleKeyDown, true);
     return () => {
-      document.removeEventListener('mousedown', handleClick, true);
+      document.removeEventListener('pointerdown', handlePointerDown, true);
       document.removeEventListener('keydown', handleKeyDown, true);
     };
   }, [onClose]);
