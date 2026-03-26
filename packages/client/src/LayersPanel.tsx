@@ -234,9 +234,6 @@ export function LayersPanel({ selectedInstanceKey, onSelectByKey }: LayersPanelP
         <p data-hawk-eye-ui="layers-heading">Layers</p>
         <span data-hawk-eye-ui="layers-count">{totalLayers}</span>
       </div>
-      <p data-hawk-eye-ui="layers-summary">
-        Select the live source node you want to inspect or edit.
-      </p>
       <div data-hawk-eye-ui="layers-tree">
         {rootNodes.map((node) => (
           <LayerNodeComponent
