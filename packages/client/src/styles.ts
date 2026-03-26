@@ -649,14 +649,14 @@ export const hawkEyeStyles = `
   [data-hawk-eye-ui="footer-status"][data-presence="entering"] {
     @starting-style {
       opacity: 0;
-      transform: translateY(5px);
+      transform: translateY(var(--spacing-sm));
       filter: blur(4px);
     }
   }
 
   [data-hawk-eye-ui="footer-status"][data-presence="exiting"] {
     opacity: 0;
-    transform: translateY(-5px);
+    transform: translateY(calc(-1 * var(--spacing-sm)));
     filter: blur(4px);
     pointer-events: none;
   }
@@ -2625,7 +2625,7 @@ export const hawkEyeStyles = `
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--spacing-xs);
-    margin-bottom: -2px;
+    margin-bottom: calc(-1 * var(--spacing-2px));
   }
 
   [data-hawk-eye-ui="typo-label-row"] span {
@@ -2642,7 +2642,7 @@ export const hawkEyeStyles = `
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: -2px;
+    margin-bottom: calc(-1 * var(--spacing-2px));
   }
 
   [data-hawk-eye-ui="typo-section-label"] {
