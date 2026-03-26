@@ -8,7 +8,7 @@
 
 ## Overview
 
-Hawk-Eye typography is built on Geist Variable, a modern font optimized for screen rendering. The system provides clear scales for font sizes, weights, and line heights.
+Hawk-Eye typography is built on Inter, a modern font optimized for screen rendering. The system provides clear scales for font sizes, weights, and line heights.
 
 **When to use:**
 - All text rendering in the UI
@@ -21,10 +21,10 @@ Hawk-Eye typography is built on Geist Variable, a modern font optimized for scre
 ## Font Family
 
 ```css
---font-family-base: Geist Variable, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+--font-family-base: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 ```
 
-Primary font is **Geist Variable** with system fallbacks for broad compatibility.
+Primary font is **Inter** with system fallbacks for broad compatibility.
 
 ## Font Sizes
 

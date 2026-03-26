@@ -1,5 +1,5 @@
 @import "tw-animate-css";
-@import "@fontsource-variable/geist";
+@import "@fontsource/inter";
 @import "../../packages/client/src/tokens.css";
 @tailwind base;
 @tailwind components;
@@ -51,7 +51,7 @@
     --sidebar-accent-foreground: oklch(0.228 0.013 107.4);
     --sidebar-border: oklch(0.93 0.007 106.5);
     --sidebar-ring: oklch(0.737 0.021 106.9);
-    --font-sans: "Geist Variable", "SF Pro Text", "SF Pro Display", ui-sans-serif,
+    --font-sans: "Inter", "SF Pro Text", "SF Pro Display", ui-sans-serif,
       system-ui, sans-serif;
     --demo-canvas: #eef4f7;
     --demo-canvas-deep: #dbe6ec;
