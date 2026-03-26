@@ -25,6 +25,9 @@ const GRADIENT_TYPES: Array<{ label: string; value: GradientType }> = [
   { label: 'Repeating Conic', value: 'repeating-conic' },
 ];
 
+const DEFAULT_GRADIENT_STOP_1 = '#ff0000';
+const DEFAULT_GRADIENT_STOP_2 = '#0000ff';
+
 function isLinearConfig(cfg: GradientConfig): cfg is LinearGradientConfig {
   return cfg.type === 'linear' || cfg.type === 'repeating-linear';
 }
@@ -42,8 +45,8 @@ function createDefaultGradient(): LinearGradientConfig {
     type: 'linear',
     angle: 90,
     stops: [
-      { color: '#ff0000', position: 0 },
-      { color: '#0000ff', position: 100 },
+      { color: DEFAULT_GRADIENT_STOP_1, position: 0 },
+      { color: DEFAULT_GRADIENT_STOP_2, position: 100 },
     ],
   };
 }

@@ -181,6 +181,14 @@
   --color-text-disabled: var(--ds-gray-500, #47505c);
   --color-text-inverse: #0f1318;
 
+  /* ---- DEFAULT FILL COLORS ---- */
+  --color-fill-solid-default: var(--ds-black, #000000);
+  --color-gradient-stop-1: #ff0000;
+  --color-gradient-stop-2: #0000ff;
+
+  /* ---- SHADOW DEFAULTS ---- */
+  --color-shadow-default: rgba(15, 23, 42, 0.18);
+
   /* ---- PANEL STATES ---- */
   --color-panel-glow: rgba(97, 193, 255, 0.14);
   --color-selection-bg: color-mix(in srgb, var(--ds-blue-400) 16%, transparent);

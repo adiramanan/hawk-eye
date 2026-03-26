@@ -31,18 +31,21 @@ function detectFillMode(cssValue: string): FillMode {
   return 'solid';
 }
 
+const DEFAULT_SOLID_COLOR = '#000000';
+const DEFAULT_GRADIENT = 'linear-gradient(90deg, #ff0000 0%, #0000ff 100%)';
+
 /**
  * Convert between fill modes when switching tabs
  */
 function convertFillMode(currentValue: string, fromMode: FillMode, toMode: FillMode): string {
   if (toMode === 'solid') {
     // Default to black when switching to solid
-    return '#000000';
+    return DEFAULT_SOLID_COLOR;
   }
 
   if (toMode === 'gradient') {
     // Default gradient
-    return 'linear-gradient(90deg, #ff0000 0%, #0000ff 100%)';
+    return DEFAULT_GRADIENT;
   }
 
   if (toMode === 'image') {
@@ -81,9 +84,9 @@ export function FillInput({ snapshot, onChange }: FillInputProps) {
   const solidColorSnapshot: PropertySnapshot = {
     ...snapshot,
     // If current value looks like a color, use it; otherwise use a default
-    value: detectFillMode(currentValue) === 'solid' ? (currentValue || '#000000') : '#000000',
-    baseline: detectFillMode(snapshot.baseline) === 'solid' ? (snapshot.baseline || '#000000') : '#000000',
-    inputValue: detectFillMode(currentValue) === 'solid' ? (currentValue || '#000000') : '#000000',
+    value: detectFillMode(currentValue) === 'solid' ? (currentValue || DEFAULT_SOLID_COLOR) : DEFAULT_SOLID_COLOR,
+    baseline: detectFillMode(snapshot.baseline) === 'solid' ? (snapshot.baseline || DEFAULT_SOLID_COLOR) : DEFAULT_SOLID_COLOR,
+    inputValue: detectFillMode(currentValue) === 'solid' ? (currentValue || DEFAULT_SOLID_COLOR) : DEFAULT_SOLID_COLOR,
     invalid: false,
   };
 

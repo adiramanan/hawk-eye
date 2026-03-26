@@ -59,6 +59,8 @@ function looksLikeColor(token: string) {
   );
 }
 
+const DEFAULT_SHADOW_COLOR = 'rgba(15, 23, 42, 0.18)';
+
 function parseBoxShadow(value: string): ParsedBoxShadow {
   const trimmed = value.trim();
 
@@ -68,7 +70,7 @@ function parseBoxShadow(value: string): ParsedBoxShadow {
       y: '4px',
       blur: '12px',
       spread: '0px',
-      color: 'rgba(15, 23, 42, 0.18)',
+      color: DEFAULT_SHADOW_COLOR,
       inset: false,
       unsupported: false,
     };
@@ -80,7 +82,7 @@ function parseBoxShadow(value: string): ParsedBoxShadow {
       y: '4px',
       blur: '12px',
       spread: '0px',
-      color: 'rgba(15, 23, 42, 0.18)',
+      color: DEFAULT_SHADOW_COLOR,
       inset: false,
       unsupported: true,
     };
@@ -96,7 +98,7 @@ function parseBoxShadow(value: string): ParsedBoxShadow {
     y: lengthTokens[1] ?? '4px',
     blur: lengthTokens[2] ?? '12px',
     spread: lengthTokens[3] ?? '0px',
-    color: colorToken || 'rgba(15, 23, 42, 0.18)',
+    color: colorToken || DEFAULT_SHADOW_COLOR,
     inset,
     unsupported: false,
   };

@@ -7,6 +7,8 @@
 
 import React, { useCallback } from 'react';
 
+const DEFAULT_BASE_COLOR = '#ff0000';
+
 export type HSVComponent = 'hue' | 'saturation' | 'value';
 
 export interface HSVSliderProps {
@@ -54,7 +56,7 @@ function getComponentInfo(component: HSVComponent): {
  * HSVSlider - Individual HSV component slider
  */
 export const HSVSlider = React.forwardRef<HTMLDivElement, HSVSliderProps>(
-  function HSVSlider({ component, value, onChange, disabled = false, baseColor = '#ff0000' }, ref) {
+  function HSVSlider({ component, value, onChange, disabled = false, baseColor = DEFAULT_BASE_COLOR }, ref) {
     const info = getComponentInfo(component);
     const gradient = getSliderGradient(component, baseColor);
 
@@ -78,13 +80,13 @@ export const HSVSlider = React.forwardRef<HTMLDivElement, HSVSliderProps>(
       >
         {/* Label and value */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--he-label)' }}>
+          <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)' }}>
             {info.label}
           </span>
           <span
             style={{
               fontSize: 'var(--font-size-xs)',
-              color: 'var(--he-fg)',
+              color: 'var(--color-text-primary)',
               fontWeight: 600,
               minWidth: '45px',
               textAlign: 'right',
@@ -100,7 +102,7 @@ export const HSVSlider = React.forwardRef<HTMLDivElement, HSVSliderProps>(
             position: 'relative',
             height: '28px',
             borderRadius: 'var(--radius-sm)',
-            border: '1px solid var(--he-input-border)',
+            border: '1px solid var(--color-input-border)',
             overflow: 'hidden',
           }}
         >
