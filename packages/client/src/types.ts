@@ -192,6 +192,7 @@ export type EditablePropertyControl =
 export interface SelectOption {
   label: string;
   value: string;
+  hiddenInV1?: boolean;
 }
 
 export interface EditablePropertyDefinition {
@@ -218,6 +219,8 @@ export interface EditablePropertyDefinition {
   tailwindPrefix?: string;
   /** CSS value template for complex transforms, e.g. 'span {value} / span {value}' */
   cssTransform?: string;
+  /** Hide this property from the UI in v1 (defer to future versions) */
+  hiddenInV1?: boolean;
 }
 
 export interface PropertySnapshot {
@@ -244,3 +247,26 @@ export interface SelectionDraft extends SelectionDetails {
   sizeControl: SizeControlState;
   context: ElementContext;
 }
+
+/**
+ * V1 Properties: 34 core properties across 4 groups
+ * Used to filter properties in PropertiesPanel and documentation
+ */
+export const V1_PROPERTIES: EditablePropertyId[] = [
+  // Group 1: Size & Spacing (10)
+  'width', 'height',
+  'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+  'marginTop', 'marginRight', 'marginBottom', 'marginLeft',
+  // Group 2: Appearance (9)
+  'opacity', 'mixBlendMode',
+  'borderRadius', 'borderTopLeftRadius', 'borderTopRightRadius',
+  'borderBottomRightRadius', 'borderBottomLeftRadius',
+  'backgroundColor', 'visibility',
+  // Group 3: Type (9)
+  'fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'letterSpacing',
+  'textAlign', 'textDecoration', 'textTransform',
+  'color',
+  // Group 4: Stroke (6)
+  'borderColor', 'borderStyle',
+  'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
+];

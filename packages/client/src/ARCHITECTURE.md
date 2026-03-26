@@ -162,6 +162,45 @@ type SpacingToken = 'spacing-xs' | 'spacing-sm' | ...;
 const color = getToken<ColorToken>('color-text-primary'); // Type checked!
 ```
 
+### V1 Property Scope
+
+**Overview**: Hawk-Eye v1 ships with 34 core properties across 4 groups, deferring advanced features to v2.
+
+**V1 Properties (34 total)**:
+
+1. **Size & Spacing (10)**
+   - Size: `width`, `height` (with size modes: fixed/hug/fill/relative)
+   - Padding: `paddingTop`, `paddingRight`, `paddingBottom`, `paddingLeft`
+   - Margin: `marginTop`, `marginRight`, `marginBottom`, `marginLeft`
+
+2. **Appearance (9)**
+   - `opacity`, `mixBlendMode`
+   - `borderRadius`, `borderTopLeftRadius`, `borderTopRightRadius`, `borderBottomRightRadius`, `borderBottomLeftRadius`
+   - `backgroundColor`, `visibility`
+
+3. **Type (9)**
+   - `fontFamily`, `fontSize`, `fontWeight`, `lineHeight`, `letterSpacing`
+   - `textAlign`, `textDecoration`, `textTransform`
+   - `color` (text color)
+
+4. **Stroke (6)**
+   - `borderColor`, `borderStyle`
+   - `borderTopWidth`, `borderRightWidth`, `borderBottomWidth`, `borderLeftWidth`
+
+**Deferred Properties (45 total)** - Hidden in v1 UI, implemented in v2:
+- Position (6): `positionType`, `top`, `right`, `bottom`, `left`, `zIndex`
+- Auto Layout (13): `display`, `flexDirection`, `flexWrap`, `justifyContent`, `alignItems`, `alignSelf`, `gap`, `rowGap`, `columnGap`, `gridColumns`, `gridRows`, `flexGrow`, `flexShrink`
+- Sizing Constraints (4): `minWidth`, `maxWidth`, `minHeight`, `maxHeight`
+- Appearance (1): `overflow`
+- Effects (3): `boxShadow`, `filter`, `backdropFilter`
+- Transitions (4): `transitionProperty`, `transitionDuration`, `transitionTimingFunction`, `transitionDelay`
+- Advanced Text (5): `whiteSpace`, `textOverflow`, `wordBreak`, `overflowWrap`, `lineClamp`
+- Fill/Images (1): `backgroundImage`
+- Layout Advanced (3): `cursor`, `pointerEvents`, `userSelect`
+- Advanced Features: Transforms, Gradients, CSS Variables, Export/Copy as Code
+
+**Implementation**: All properties use `hiddenInV1?: boolean` flag in `EditablePropertyDefinition`. Deferred properties are filtered from UI in `PropertiesPanel.tsx` but remain functional in backend (values persist if set via DevTools).
+
 ---
 
 ## Pillar 1: Composable Primitives

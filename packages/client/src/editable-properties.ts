@@ -16,7 +16,8 @@ export const editablePropertyDefinitions = [
     control: 'select',
     placeholder: 'relative',
     options: [
-      { label: 'Static', value: 'static' },
+      { label: 'Static', value: 'static',
+  hiddenInV1: true },
       { label: 'Relative', value: 'relative' },
       { label: 'Absolute', value: 'absolute' },
       { label: 'Fixed', value: 'fixed' },
@@ -35,6 +36,7 @@ export const editablePropertyDefinitions = [
     units: ['px', 'rem', '%', 'auto'],
     defaultUnit: 'px',
     tailwindPrefix: 'top',
+  hiddenInV1: true,
   },
   {
     id: 'right',
@@ -47,6 +49,7 @@ export const editablePropertyDefinitions = [
     units: ['px', 'rem', '%', 'auto'],
     defaultUnit: 'px',
     tailwindPrefix: 'right',
+  hiddenInV1: true,
   },
   {
     id: 'bottom',
@@ -59,6 +62,7 @@ export const editablePropertyDefinitions = [
     units: ['px', 'rem', '%', 'auto'],
     defaultUnit: 'px',
     tailwindPrefix: 'bottom',
+  hiddenInV1: true,
   },
   {
     id: 'left',
@@ -71,6 +75,7 @@ export const editablePropertyDefinitions = [
     units: ['px', 'rem', '%', 'auto'],
     defaultUnit: 'px',
     tailwindPrefix: 'left',
+  hiddenInV1: true,
   },
   {
     id: 'zIndex',
@@ -81,6 +86,7 @@ export const editablePropertyDefinitions = [
     control: 'number',
     placeholder: '0',
     tailwindPrefix: 'z',
+  hiddenInV1: true,
   },
 
   // ── Auto Layout (Flexbox / Grid) ─────────────────────────────────────
@@ -93,7 +99,8 @@ export const editablePropertyDefinitions = [
     control: 'select',
     placeholder: 'block',
     options: [
-      { label: 'Block', value: 'block' },
+      { label: 'Block', value: 'block',
+  hiddenInV1: true },
       { label: 'Flex', value: 'flex' },
       { label: 'Grid', value: 'grid' },
       { label: 'Inline', value: 'inline' },
@@ -112,7 +119,8 @@ export const editablePropertyDefinitions = [
     control: 'segmented',
     placeholder: 'row',
     options: [
-      { label: 'Row', value: 'row' },
+      { label: 'Row', value: 'row',
+  hiddenInV1: true },
       { label: 'Col', value: 'column' },
       { label: 'Row-R', value: 'row-reverse' },
       { label: 'Col-R', value: 'column-reverse' },
@@ -128,7 +136,8 @@ export const editablePropertyDefinitions = [
     control: 'segmented',
     placeholder: 'nowrap',
     options: [
-      { label: 'No Wrap', value: 'nowrap' },
+      { label: 'No Wrap', value: 'nowrap',
+  hiddenInV1: true },
       { label: 'Wrap', value: 'wrap' },
       { label: 'Reverse', value: 'wrap-reverse' },
     ],
@@ -143,7 +152,8 @@ export const editablePropertyDefinitions = [
     control: 'segmented',
     placeholder: 'flex-start',
     options: [
-      { label: 'Start', value: 'flex-start' },
+      { label: 'Start', value: 'flex-start',
+  hiddenInV1: true },
       { label: 'Center', value: 'center' },
       { label: 'End', value: 'flex-end' },
       { label: 'Between', value: 'space-between' },
@@ -159,7 +169,8 @@ export const editablePropertyDefinitions = [
     control: 'segmented',
     placeholder: 'stretch',
     options: [
-      { label: 'Start', value: 'flex-start' },
+      { label: 'Start', value: 'flex-start',
+  hiddenInV1: true },
       { label: 'Center', value: 'center' },
       { label: 'End', value: 'flex-end' },
       { label: 'Stretch', value: 'stretch' },
@@ -175,7 +186,8 @@ export const editablePropertyDefinitions = [
     control: 'select',
     placeholder: 'auto',
     options: [
-      { label: 'Auto', value: 'auto' },
+      { label: 'Auto', value: 'auto',
+  hiddenInV1: true },
       { label: 'Start', value: 'flex-start' },
       { label: 'Center', value: 'center' },
       { label: 'End', value: 'flex-end' },
@@ -194,6 +206,7 @@ export const editablePropertyDefinitions = [
     units: ['px', 'rem'],
     defaultUnit: 'px',
     tailwindPrefix: 'gap',
+  hiddenInV1: true,
   },
   {
     id: 'rowGap',
@@ -206,6 +219,7 @@ export const editablePropertyDefinitions = [
     units: ['px', 'rem'],
     defaultUnit: 'px',
     tailwindPrefix: 'gap-y',
+  hiddenInV1: true,
   },
   {
     id: 'columnGap',
@@ -218,6 +232,7 @@ export const editablePropertyDefinitions = [
     units: ['px', 'rem'],
     defaultUnit: 'px',
     tailwindPrefix: 'gap-x',
+  hiddenInV1: true,
   },
   {
     id: 'gridColumns',
@@ -229,6 +244,7 @@ export const editablePropertyDefinitions = [
     placeholder: '3',
     tailwindPrefix: 'grid-cols',
     cssTransform: 'repeat({value}, 1fr)',
+    hiddenInV1: true,
   },
   {
     id: 'gridRows',
@@ -240,6 +256,7 @@ export const editablePropertyDefinitions = [
     placeholder: '2',
     tailwindPrefix: 'grid-rows',
     cssTransform: 'repeat({value}, 1fr)',
+    hiddenInV1: true,
   },
   {
     id: 'flexGrow',
@@ -251,6 +268,7 @@ export const editablePropertyDefinitions = [
     placeholder: '0',
     min: 0,
     tailwindPrefix: 'grow',
+  hiddenInV1: true,
   },
   {
     id: 'flexShrink',
@@ -262,6 +280,7 @@ export const editablePropertyDefinitions = [
     placeholder: '1',
     min: 0,
     tailwindPrefix: 'shrink',
+  hiddenInV1: true,
   },
   {
     id: 'flexBasis',
@@ -274,6 +293,7 @@ export const editablePropertyDefinitions = [
     units: ['px', 'rem', '%', 'auto'],
     defaultUnit: 'px',
     tailwindPrefix: 'basis',
+  hiddenInV1: true,
   },
   {
     id: 'gridAutoFlow',
@@ -284,7 +304,8 @@ export const editablePropertyDefinitions = [
     control: 'select',
     placeholder: 'row',
     options: [
-      { label: 'Row', value: 'row' },
+      { label: 'Row', value: 'row',
+  hiddenInV1: true },
       { label: 'Column', value: 'column' },
       { label: 'Dense', value: 'dense' },
       { label: 'Row dense', value: 'row dense' },
@@ -303,6 +324,7 @@ export const editablePropertyDefinitions = [
     min: 1,
     tailwindPrefix: 'col-span',
     cssTransform: 'span {value} / span {value}',
+    hiddenInV1: true,
   },
   {
     id: 'rowSpan',
@@ -315,6 +337,7 @@ export const editablePropertyDefinitions = [
     min: 1,
     tailwindPrefix: 'row-span',
     cssTransform: 'span {value} / span {value}',
+    hiddenInV1: true,
   },
 
   // ── Size ──────────────────────────────────────────────────────────────
@@ -353,6 +376,7 @@ export const editablePropertyDefinitions = [
     units: ['px', 'rem', '%'],
     defaultUnit: 'px',
     tailwindPrefix: 'min-w',
+  hiddenInV1: true,
   },
   {
     id: 'maxWidth',
@@ -365,6 +389,7 @@ export const editablePropertyDefinitions = [
     units: ['px', 'rem', '%', 'none'],
     defaultUnit: 'px',
     tailwindPrefix: 'max-w',
+  hiddenInV1: true,
   },
   {
     id: 'minHeight',
@@ -377,6 +402,7 @@ export const editablePropertyDefinitions = [
     units: ['px', 'rem', '%'],
     defaultUnit: 'px',
     tailwindPrefix: 'min-h',
+  hiddenInV1: true,
   },
   {
     id: 'maxHeight',
@@ -389,6 +415,7 @@ export const editablePropertyDefinitions = [
     units: ['px', 'rem', '%', 'none'],
     defaultUnit: 'px',
     tailwindPrefix: 'max-h',
+  hiddenInV1: true,
   },
 
   // ── Spacing ───────────────────────────────────────────────────────────
@@ -598,7 +625,8 @@ export const editablePropertyDefinitions = [
     control: 'select',
     placeholder: 'visible',
     options: [
-      { label: 'Visible', value: 'visible' },
+      { label: 'Visible', value: 'visible',
+  hiddenInV1: true },
       { label: 'Hidden', value: 'hidden' },
       { label: 'Scroll', value: 'scroll' },
       { label: 'Auto', value: 'auto' },
@@ -640,6 +668,7 @@ export const editablePropertyDefinitions = [
     control: 'text',
     placeholder: "url('...')",
     tailwindPrefix: 'bg',
+  hiddenInV1: true,
   },
   {
     id: 'color',
@@ -736,6 +765,7 @@ export const editablePropertyDefinitions = [
     control: 'text',
     placeholder: 'e.g. 4 4',
     tailwindPrefix: 'stroke',
+  hiddenInV1: true,
   },
 
   // ── Typography ────────────────────────────────────────────────────────
@@ -871,7 +901,8 @@ export const editablePropertyDefinitions = [
     control: 'select',
     placeholder: 'normal',
     options: [
-      { label: 'Normal', value: 'normal' },
+      { label: 'Normal', value: 'normal',
+  hiddenInV1: true },
       { label: 'No wrap', value: 'nowrap' },
       { label: 'Pre', value: 'pre' },
       { label: 'Pre-wrap', value: 'pre-wrap' },
@@ -888,7 +919,8 @@ export const editablePropertyDefinitions = [
     control: 'select',
     placeholder: 'clip',
     options: [
-      { label: 'Clip', value: 'clip' },
+      { label: 'Clip', value: 'clip',
+  hiddenInV1: true },
       { label: 'Ellipsis', value: 'ellipsis' },
     ],
     tailwindPrefix: 'text-overflow',
@@ -902,7 +934,8 @@ export const editablePropertyDefinitions = [
     control: 'select',
     placeholder: 'normal',
     options: [
-      { label: 'Normal', value: 'normal' },
+      { label: 'Normal', value: 'normal',
+  hiddenInV1: true },
       { label: 'Break all', value: 'break-all' },
       { label: 'Keep all', value: 'keep-all' },
       { label: 'Break word', value: 'break-word' },
@@ -918,7 +951,8 @@ export const editablePropertyDefinitions = [
     control: 'select',
     placeholder: 'normal',
     options: [
-      { label: 'Normal', value: 'normal' },
+      { label: 'Normal', value: 'normal',
+  hiddenInV1: true },
       { label: 'Break word', value: 'break-word' },
       { label: 'Anywhere', value: 'anywhere' },
     ],
@@ -934,6 +968,7 @@ export const editablePropertyDefinitions = [
     placeholder: 'none',
     min: 1,
     tailwindPrefix: 'line-clamp',
+  hiddenInV1: true,
   },
 
   // ── Effects ───────────────────────────────────────────────────────────
@@ -946,6 +981,7 @@ export const editablePropertyDefinitions = [
     control: 'text',
     placeholder: '0 1px 3px rgba(0,0,0,0.1)',
     tailwindPrefix: 'shadow',
+  hiddenInV1: true,
   },
   {
     id: 'filter',
@@ -956,6 +992,7 @@ export const editablePropertyDefinitions = [
     control: 'text',
     placeholder: 'none',
     tailwindPrefix: 'filter',
+  hiddenInV1: true,
   },
   {
     id: 'backdropFilter',
@@ -966,6 +1003,7 @@ export const editablePropertyDefinitions = [
     control: 'text',
     placeholder: 'none',
     tailwindPrefix: 'backdrop',
+  hiddenInV1: true,
   },
 
   // ── Transition ────────────────────────────────────────────────────────
@@ -978,6 +1016,7 @@ export const editablePropertyDefinitions = [
     control: 'text',
     placeholder: 'none',
     tailwindPrefix: 'transition',
+  hiddenInV1: true,
   },
   {
     id: 'transitionDuration',
@@ -990,6 +1029,7 @@ export const editablePropertyDefinitions = [
     units: ['ms', 's'],
     defaultUnit: 'ms',
     tailwindPrefix: 'duration',
+  hiddenInV1: true,
   },
   {
     id: 'transitionTimingFunction',
@@ -1000,7 +1040,8 @@ export const editablePropertyDefinitions = [
     control: 'select',
     placeholder: 'ease',
     options: [
-      { label: 'Ease', value: 'ease' },
+      { label: 'Ease', value: 'ease',
+  hiddenInV1: true },
       { label: 'Linear', value: 'linear' },
       { label: 'Ease in', value: 'ease-in' },
       { label: 'Ease out', value: 'ease-out' },
@@ -1019,6 +1060,7 @@ export const editablePropertyDefinitions = [
     units: ['ms', 's'],
     defaultUnit: 'ms',
     tailwindPrefix: 'delay',
+  hiddenInV1: true,
   },
 
   // ── Layout (advanced) ────────────────────────────────────────────────
@@ -1031,7 +1073,8 @@ export const editablePropertyDefinitions = [
     control: 'select',
     placeholder: 'auto',
     options: [
-      { label: 'Auto', value: 'auto' },
+      { label: 'Auto', value: 'auto',
+  hiddenInV1: true },
       { label: 'Default', value: 'default' },
       { label: 'Pointer', value: 'pointer' },
       { label: 'Move', value: 'move' },
@@ -1050,7 +1093,8 @@ export const editablePropertyDefinitions = [
     control: 'select',
     placeholder: 'auto',
     options: [
-      { label: 'Auto', value: 'auto' },
+      { label: 'Auto', value: 'auto',
+  hiddenInV1: true },
       { label: 'None', value: 'none' },
     ],
     tailwindPrefix: 'pointer-events',
@@ -1064,7 +1108,8 @@ export const editablePropertyDefinitions = [
     control: 'select',
     placeholder: 'auto',
     options: [
-      { label: 'Auto', value: 'auto' },
+      { label: 'Auto', value: 'auto',
+  hiddenInV1: true },
       { label: 'None', value: 'none' },
       { label: 'Text', value: 'text' },
       { label: 'All', value: 'all' },

@@ -25,6 +25,17 @@ import type {
   SizeAxis,
   SizeMode,
 } from './types';
+import { V1_PROPERTIES } from './types';
+
+// ── V1 Scoping ──────────────────────────────────────────────────────────────
+
+/**
+ * Check if a property should be rendered in the UI.
+ * In v1, only properties in V1_PROPERTIES are shown.
+ */
+function shouldShowProperty(propertyId: EditablePropertyId): boolean {
+  return V1_PROPERTIES.includes(propertyId);
+}
 
 // CollapsibleSection replaced by a static section — no collapse toggle
 function CollapsibleSection({ title, sectionId, children }: { title: string; sectionId?: string; children: ReactNode; defaultExpanded?: boolean; key?: string }) {
@@ -449,6 +460,9 @@ const Y_AXIS_OPTIONS: Array<{ value: string; label: string; icon: JSX.Element }>
 // ── Layout Section ───────────────────────────────────────────────────────
 
 function LayoutSection(props: SectionProps) {
+  // All layout properties (display, flexDirection, etc.) are deferred to v2+
+  return null;
+
   const displayValue = props.selectedDraft.properties.display?.value ?? '';
   const flexDirection = props.selectedDraft.properties.flexDirection?.value ?? '';
   const isFlex = displayValue === 'flex' || displayValue === 'inline-flex';
@@ -840,13 +854,20 @@ function AppearanceSection(props: SectionProps) {
         <div data-appearance-row="true" data-hawk-eye-ui="labelled-row">
           <div data-hawk-eye-ui="labelled-col">
             <span data-hawk-eye-ui="input-label">Opacity</span>
-            {card('opacity', props)}
+            {shouldShowProperty('opacity') ? card('opacity', props) : null}
           </div>
           <div data-hawk-eye-ui="labelled-col">
             <span data-hawk-eye-ui="input-label">Blending Mode</span>
-            {card('mixBlendMode', props)}
+            {shouldShowProperty('mixBlendMode') ? card('mixBlendMode', props) : null}
           </div>
         </div>
+
+        {/* Visibility */}
+        {shouldShowProperty('visibility') && (
+          <div data-hawk-eye-ui="compact-row-full">
+            {card('visibility', props)}
+          </div>
+        )}
       </div>
     </CollapsibleSection>
   );
@@ -916,109 +937,147 @@ function TypographySection(props: SectionProps) {
     >
       <div data-hawk-eye-ui="section-stack">
         {/* Font family — full width */}
-        <div data-hawk-eye-ui="compact-row-full">
-          {card('fontFamily', props)}
-        </div>
+        {shouldShowProperty('fontFamily') && (
+          <div data-hawk-eye-ui="compact-row-full">
+            {card('fontFamily', props)}
+          </div>
+        )}
 
         {/* Text fill — full width */}
-        <div data-hawk-eye-ui="compact-row-full">
-          {card('color', props)}
-        </div>
+        {shouldShowProperty('color') && (
+          <div data-hawk-eye-ui="compact-row-full">
+            {card('color', props)}
+          </div>
+        )}
 
         {/* Weight | Size — equal columns */}
         <div data-hawk-eye-ui="compact-row">
-          {card('fontWeight', props)}
-          {card('fontSize', props)}
+          {shouldShowProperty('fontWeight') && card('fontWeight', props)}
+          {shouldShowProperty('fontSize') && card('fontSize', props)}
         </div>
 
         {/* Line height | Letter spacing — labels above each */}
         <div data-hawk-eye-ui="labelled-row">
-          <div data-hawk-eye-ui="labelled-col">
-            <span data-hawk-eye-ui="input-label">Line height</span>
-            {card('lineHeight', props)}
-          </div>
-          <div data-hawk-eye-ui="labelled-col">
-            <span data-hawk-eye-ui="input-label">Letter Spacing</span>
-            {card('letterSpacing', props)}
-          </div>
+          {shouldShowProperty('lineHeight') && (
+            <div data-hawk-eye-ui="labelled-col">
+              <span data-hawk-eye-ui="input-label">Line height</span>
+              {card('lineHeight', props)}
+            </div>
+          )}
+          {shouldShowProperty('letterSpacing') && (
+            <div data-hawk-eye-ui="labelled-col">
+              <span data-hawk-eye-ui="input-label">Letter Spacing</span>
+              {card('letterSpacing', props)}
+            </div>
+          )}
         </div>
 
         {/* Alignment — label above icon buttons */}
-        <div data-hawk-eye-ui="labelled-single">
-          <span data-hawk-eye-ui="input-label">Alignment</span>
-          <div data-hawk-eye-ui="icon-segmented">
-            {TEXT_ALIGN_OPTIONS.map(({ value, label, icon }, index) => (
-              <button
-                aria-label={`Text alignment: ${label}`}
-                aria-pressed={effectiveAlign === value}
-                data-active={effectiveAlign === value ? 'true' : 'false'}
-                data-hawk-eye-control={`textAlign-${value}`}
-                data-hawk-eye-ui="icon-seg-btn"
-                key={value}
-                onKeyDown={(event) => {
-                  if (!isGroupNavigationKey(event.key)) {
-                    return;
-                  }
+        {shouldShowProperty('textAlign') && (
+          <div data-hawk-eye-ui="labelled-single">
+            <span data-hawk-eye-ui="input-label">Alignment</span>
+            <div data-hawk-eye-ui="icon-segmented">
+              {TEXT_ALIGN_OPTIONS.map(({ value, label, icon }, index) => (
+                <button
+                  aria-label={`Text alignment: ${label}`}
+                  aria-pressed={effectiveAlign === value}
+                  data-active={effectiveAlign === value ? 'true' : 'false'}
+                  data-hawk-eye-control={`textAlign-${value}`}
+                  data-hawk-eye-ui="icon-seg-btn"
+                  key={value}
+                  onKeyDown={(event) => {
+                    if (!isGroupNavigationKey(event.key)) {
+                      return;
+                    }
 
-                  event.preventDefault();
+                    event.preventDefault();
 
-                  const nextIndex = getNextGroupIndex(
-                    event.key,
-                    index,
-                    TEXT_ALIGN_OPTIONS.length
-                  );
-                  const nextOption = TEXT_ALIGN_OPTIONS[nextIndex];
-
-                  if (!nextOption) {
-                    return;
-                  }
-
-                  props.onChange('textAlign', nextOption.value);
-                  const buttons =
-                    event.currentTarget.parentElement?.querySelectorAll<globalThis.HTMLButtonElement>(
-                      'button'
+                    const nextIndex = getNextGroupIndex(
+                      event.key,
+                      index,
+                      TEXT_ALIGN_OPTIONS.length
                     );
-                  buttons?.[nextIndex]?.focus();
-                }}
-                onClick={() => props.onChange('textAlign', value)}
-                title={label}
-                type="button"
-              >
-                {icon}
-              </button>
-            ))}
-          </div>
-        </div>
+                    const nextOption = TEXT_ALIGN_OPTIONS[nextIndex];
 
-        {/* Text overflow row */}
-        <div data-hawk-eye-ui="labelled-row">
-          <div data-hawk-eye-ui="labelled-col">
-            <span data-hawk-eye-ui="input-label">White space</span>
-            {card('whiteSpace', typographyProps)}
-          </div>
-          <div data-hawk-eye-ui="labelled-col">
-            <span data-hawk-eye-ui="input-label">Text overflow</span>
-            {card('textOverflow', typographyProps)}
-          </div>
-        </div>
+                    if (!nextOption) {
+                      return;
+                    }
 
-        {/* Word break / overflow wrap row */}
-        <div data-hawk-eye-ui="labelled-row">
-          <div data-hawk-eye-ui="labelled-col">
-            <span data-hawk-eye-ui="input-label">Word break</span>
-            {card('wordBreak', typographyProps)}
+                    props.onChange('textAlign', nextOption.value);
+                    const buttons =
+                      event.currentTarget.parentElement?.querySelectorAll<globalThis.HTMLButtonElement>(
+                        'button'
+                      );
+                    buttons?.[nextIndex]?.focus();
+                  }}
+                  onClick={() => props.onChange('textAlign', value)}
+                  title={label}
+                  type="button"
+                >
+                  {icon}
+                </button>
+              ))}
+            </div>
           </div>
-          <div data-hawk-eye-ui="labelled-col">
-            <span data-hawk-eye-ui="input-label">Overflow wrap</span>
-            {card('overflowWrap', typographyProps)}
-          </div>
-        </div>
+        )}
 
-        {/* Line clamp */}
-        <div data-hawk-eye-ui="labelled-single">
-          <span data-hawk-eye-ui="input-label">Line clamp</span>
-          {card('lineClamp', typographyProps)}
-        </div>
+        {/* Text decoration — v1 property */}
+        {shouldShowProperty('textDecoration') && (
+          <div data-hawk-eye-ui="compact-row-full">
+            {card('textDecoration', props)}
+          </div>
+        )}
+
+        {/* Text transform — v1 property */}
+        {shouldShowProperty('textTransform') && (
+          <div data-hawk-eye-ui="compact-row-full">
+            {card('textTransform', props)}
+          </div>
+        )}
+
+        {/* Text overflow row — deferred properties */}
+        {(shouldShowProperty('whiteSpace') || shouldShowProperty('textOverflow')) && (
+          <div data-hawk-eye-ui="labelled-row">
+            {shouldShowProperty('whiteSpace') && (
+              <div data-hawk-eye-ui="labelled-col">
+                <span data-hawk-eye-ui="input-label">White space</span>
+                {card('whiteSpace', typographyProps)}
+              </div>
+            )}
+            {shouldShowProperty('textOverflow') && (
+              <div data-hawk-eye-ui="labelled-col">
+                <span data-hawk-eye-ui="input-label">Text overflow</span>
+                {card('textOverflow', typographyProps)}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Word break / overflow wrap row — deferred properties */}
+        {(shouldShowProperty('wordBreak') || shouldShowProperty('overflowWrap')) && (
+          <div data-hawk-eye-ui="labelled-row">
+            {shouldShowProperty('wordBreak') && (
+              <div data-hawk-eye-ui="labelled-col">
+                <span data-hawk-eye-ui="input-label">Word break</span>
+                {card('wordBreak', typographyProps)}
+              </div>
+            )}
+            {shouldShowProperty('overflowWrap') && (
+              <div data-hawk-eye-ui="labelled-col">
+                <span data-hawk-eye-ui="input-label">Overflow wrap</span>
+                {card('overflowWrap', typographyProps)}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Line clamp — deferred property */}
+        {shouldShowProperty('lineClamp') && (
+          <div data-hawk-eye-ui="labelled-single">
+            <span data-hawk-eye-ui="input-label">Line clamp</span>
+            {card('lineClamp', typographyProps)}
+          </div>
+        )}
       </div>
     </CollapsibleSection>
   );
@@ -1133,19 +1192,21 @@ function BorderSection(props: SectionProps) {
       title="Border"
     >
       <div data-hawk-eye-ui="section-stack">
-        {card('borderStyle', borderProps)}
-        {card('borderColor', borderProps)}
+        {shouldShowProperty('borderStyle') && card('borderStyle', borderProps)}
+        {shouldShowProperty('borderColor') && card('borderColor', borderProps)}
         {hasStroke && (
           <>
             {isDashed && supportsDashPattern ? <DashGapCard {...borderProps} /> : null}
-            <PerSideCard
-              cardId="borderWidth"
-              label="Stroke Weight"
-              onChange={borderProps.onChange}
-              onResetProperty={borderProps.onResetProperty}
-              propertyIds={{ top: 'borderTopWidth', right: 'borderRightWidth', bottom: 'borderBottomWidth', left: 'borderLeftWidth' }}
-              selectedDraft={borderProps.selectedDraft}
-            />
+            {shouldShowProperty('borderTopWidth') && (
+              <PerSideCard
+                cardId="borderWidth"
+                label="Stroke Weight"
+                onChange={borderProps.onChange}
+                onResetProperty={borderProps.onResetProperty}
+                propertyIds={{ top: 'borderTopWidth', right: 'borderRightWidth', bottom: 'borderBottomWidth', left: 'borderLeftWidth' }}
+                selectedDraft={borderProps.selectedDraft}
+              />
+            )}
           </>
         )}
       </div>
