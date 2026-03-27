@@ -261,7 +261,7 @@ export const V1_PROPERTIES: EditablePropertyId[] = [
   'opacity', 'mixBlendMode',
   'borderRadius', 'borderTopLeftRadius', 'borderTopRightRadius',
   'borderBottomRightRadius', 'borderBottomLeftRadius',
-  'backgroundColor', 'visibility',
+  'backgroundColor',
   // Group 3: Type (9)
   'fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'letterSpacing',
   'textAlign', 'textDecoration', 'textTransform',

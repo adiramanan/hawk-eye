@@ -822,8 +822,6 @@ function SizeSpacingSection(props: SectionProps) {
 // ── Appearance Section ───────────────────────────────────────────────────
 
 function AppearanceSection(props: SectionProps) {
-  const showBackgroundFill = shouldShowAppearanceFill(props.selectedDraft.context);
-
   return (
     <CollapsibleSection
       defaultExpanded
@@ -832,9 +830,6 @@ function AppearanceSection(props: SectionProps) {
       title="Appearance"
     >
       <div data-hawk-eye-ui="section-stack">
-        {/* Fill colour — full width */}
-        {showBackgroundFill ? card('backgroundColor', props) : null}
-
         {/* Corner Radius — PerSideCard */}
         <PerSideCard
           cardId="cornerRadius"
@@ -862,12 +857,6 @@ function AppearanceSection(props: SectionProps) {
           </div>
         </div>
 
-        {/* Visibility */}
-        {shouldShowProperty('visibility') && (
-          <div data-hawk-eye-ui="compact-row-full">
-            {card('visibility', props)}
-          </div>
-        )}
       </div>
     </CollapsibleSection>
   );
@@ -914,9 +903,15 @@ const TEXT_ALIGN_OPTIONS: Array<{ value: string; label: string; icon: JSX.Elemen
   },
 ];
 
+function normalizeTextAlign(value: string): string {
+  if (value === 'start') return 'left';
+  if (value === 'end') return 'right';
+  return value;
+}
+
 function TypographySection(props: SectionProps) {
   const alignSnapshot = props.selectedDraft.properties.textAlign;
-  const effectiveAlign = alignSnapshot.inputValue || alignSnapshot.baseline;
+  const effectiveAlign = normalizeTextAlign(alignSnapshot.inputValue || alignSnapshot.baseline);
 
   const typographyProps: SectionProps = {
     ...props,
@@ -1021,17 +1016,21 @@ function TypographySection(props: SectionProps) {
           </div>
         )}
 
-        {/* Text decoration — v1 property */}
-        {shouldShowProperty('textDecoration') && (
-          <div data-hawk-eye-ui="compact-row-full">
-            {card('textDecoration', props)}
-          </div>
-        )}
-
-        {/* Text transform — v1 property */}
-        {shouldShowProperty('textTransform') && (
-          <div data-hawk-eye-ui="compact-row-full">
-            {card('textTransform', props)}
+        {/* Text decoration | Case — labelled row */}
+        {(shouldShowProperty('textDecoration') || shouldShowProperty('textTransform')) && (
+          <div data-hawk-eye-ui="labelled-row">
+            {shouldShowProperty('textDecoration') && (
+              <div data-hawk-eye-ui="labelled-col">
+                <span data-hawk-eye-ui="input-label">Decoration</span>
+                {card('textDecoration', props)}
+              </div>
+            )}
+            {shouldShowProperty('textTransform') && (
+              <div data-hawk-eye-ui="labelled-col">
+                <span data-hawk-eye-ui="input-label">Case</span>
+                {card('textTransform', props)}
+              </div>
+            )}
           </div>
         )}
 

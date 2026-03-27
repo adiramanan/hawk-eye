@@ -250,7 +250,7 @@ class TokenAudit {
       const valueStr = propMatch[1];
       const valueOffset = propMatch.index + propMatch[0].indexOf(valueStr);
 
-      const pxMatches = [...valueStr.matchAll(/(\d+)px\b/g)];
+      const pxMatches = [...valueStr.matchAll(/(?<![.\d])(\d+)px\b/g)];
       pxMatches.forEach((pxMatch) => {
         const absIndex = valueOffset + pxMatch.index;
         if (this.isInsideVarFallback(line, absIndex)) return;

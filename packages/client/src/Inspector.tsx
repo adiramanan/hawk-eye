@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { LayersPanel } from './LayersPanel';
+import { LayersPanel, makeDisplayLabel } from './LayersPanel';
 import { PropertiesPanel } from './PropertiesPanel';
 import type {
   EditablePropertyId,
@@ -45,6 +45,7 @@ interface InspectorProps {
   onSelectByKey(instanceKey: string): void;
   onToggleAspectRatioLock(): void;
   onToggle(intent?: ToggleIntent): void;
+  onTogglePreviewEdits(visible: boolean): void;
 }
 
 interface DragState {
@@ -141,6 +142,32 @@ function RefreshIcon() {
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth="1.25"
+      />
+    </svg>
+  );
+}
+
+function EyeIcon() {
+  return (
+    <svg fill="none" height="16" viewBox="0 0 20 20" width="16" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M2.01677 10.5942C1.90328 10.2153 1.90328 9.78473 2.01677 9.40582C3.0945 5.91689 6.25376 3.33333 10 3.33333C13.7462 3.33333 16.9055 5.91689 17.9832 9.40582C18.0967 9.78473 18.0967 10.2153 17.9832 10.5942C16.9055 14.0831 13.7462 16.6667 10 16.6667C6.25376 16.6667 3.0945 14.0831 2.01677 10.5942Z"
+        stroke="currentColor" strokeWidth="1.25"
+      />
+      <path
+        d="M12.5 10C12.5 11.3807 11.3807 12.5 10 12.5C8.61929 12.5 7.5 11.3807 7.5 10C7.5 8.61929 8.61929 7.5 10 7.5C11.3807 7.5 12.5 8.61929 12.5 10Z"
+        stroke="currentColor" strokeWidth="1.25"
+      />
+    </svg>
+  );
+}
+
+function EyeOffIcon() {
+  return (
+    <svg fill="none" height="16" viewBox="0 0 20 20" width="16" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M2.5 2.5L17.5 17.5M8.81946 8.81946C8.3123 9.32662 8 10.0266 8 10.8C8 12.3464 9.34315 13.6 11 13.6C11.7734 13.6 12.4734 13.2877 12.9806 12.7806M6.02137 5.02137C4.23462 6.05984 2.81004 7.69303 2.01677 9.65247C1.90328 9.94386 1.90328 10.2728 2.01677 10.5642C3.0945 13.5832 6.25376 15.8333 10 15.8333C11.5842 15.8333 13.065 15.3956 14.3188 14.6372M9.11096 5.02637C9.40256 4.98726 9.699 4.96667 10 4.96667C13.7462 4.96667 16.9055 7.2168 17.9832 10.2357C18.0967 10.5271 18.0967 10.8561 17.9832 11.1475C17.5501 12.3085 16.8396 13.3401 15.9188 14.1667"
+        stroke="currentColor" strokeLinecap="round" strokeWidth="1.25"
       />
     </svg>
   );
@@ -318,7 +345,7 @@ const PRIMARY_PANEL_TABS: Array<{
   label: string;
 }> = [
   { id: 'layers', label: 'Layers' },
-  { id: 'properties', label: 'Properties' },
+  { id: 'properties', label: 'Design' },
 ];
 
 function getToggleIntentFromClick(detail: number): ToggleIntent {
@@ -351,6 +378,7 @@ export function Inspector({
   onSelectByKey,
   onToggleAspectRatioLock,
   onToggle,
+  onTogglePreviewEdits,
 }: InspectorProps) {
   const [panelPos, setPanelPos] = useState(getDefaultPanelPos);
   const [panelSize] = useState(() => ({
@@ -359,6 +387,8 @@ export function Inspector({
   }));
   const [view, setView] = useState<InspectorView>('properties');
   const [exitingView, setExitingView] = useState<InspectorView | null>(null);
+  const [layerCount, setLayerCount] = useState(0);
+  const [previewEditsVisible, setPreviewEditsVisible] = useState(true);
   const [viewTransitionState, setViewTransitionState] = useState<ViewTransitionState>('idle');
   const [displayedStatus, setDisplayedStatus] = useState<FooterStatusEntry | null>(() =>
     getFooterStatusEntry({
@@ -395,9 +425,6 @@ export function Inspector({
   const showTrigger = shellState !== 'open';
   const triggerState =
     shellState === 'opening' ? 'exiting' : shellState === 'closing' ? 'entering' : 'closed';
-  const showMetaActions = showDetach && (view === 'properties' || exitingView === 'properties');
-  const metaPresence: PresenceState =
-    view !== 'changes' ? (exitingView !== 'changes' ? 'current' : 'entering') : 'exiting';
   const selectedTagLabel = getSelectedTagLabel(selectedDraft);
   const pendingEditsLabel = totalChanges === 1 ? '1 edit ready' : `${totalChanges} edits ready`;
   const panelEyebrow =
@@ -409,13 +436,12 @@ export function Inspector({
           ? 'Active selection'
           : 'Inspector ready';
   const panelTitle = view === 'changes' ? 'Pending Changes' : 'Hawk-Eye';
-  const panelMetaLabel = view === 'layers' ? 'Mode' : selectedDraft ? 'Editing' : 'Status';
-  const panelMetaValue =
-    view === 'layers'
-      ? 'Live DOM map'
-      : selectedTagLabel
-        ? `<${selectedTagLabel}>`
-        : 'Choose a surface';
+
+  useEffect(() => {
+    if (totalChanges === 0 && !previewEditsVisible) {
+      setPreviewEditsVisible(true);
+    }
+  }, [totalChanges, previewEditsVisible]);
 
   function transitionToView(nextView: InspectorView) {
     if (nextView === view) {
@@ -730,7 +756,7 @@ export function Inspector({
   }
 
   function renderLayersView() {
-    return <LayersPanel onSelectByKey={onSelectByKey} selectedInstanceKey={selectedInstanceKey} />;
+    return <LayersPanel onLayerCount={setLayerCount} onSelectByKey={onSelectByKey} selectedInstanceKey={selectedInstanceKey} />;
   }
 
   function renderPanelView(nextView: InspectorView, presence: PresenceState) {
@@ -759,12 +785,19 @@ export function Inspector({
       data-hawk-eye-ui="root"
     >
       <div data-hawk-eye-ui="surface">
-        {enabled && activeMeasurement ? (
+        {enabled && hovered && !selected ? (
           <>
-            <div data-hawk-eye-ui="outline" style={toOutlineStyle(activeMeasurement)} />
-            <div data-hawk-eye-ui="measure" style={toMeasureStyle(activeMeasurement)}>
-              {formatMeasurement(activeMeasurement.rect.width)} x{' '}
-              {formatMeasurement(activeMeasurement.rect.height)}
+            <div data-hawk-eye-ui="outline" style={toOutlineStyle(hovered)} />
+            <div data-hawk-eye-ui="measure" style={toMeasureStyle(hovered)}>
+              {makeDisplayLabel(hovered.element, hovered.source)}
+            </div>
+          </>
+        ) : null}
+        {enabled && selected ? (
+          <>
+            <div data-hawk-eye-ui="outline" style={{ ...toOutlineStyle(selected), background: 'transparent' }} />
+            <div data-hawk-eye-ui="measure" style={toMeasureStyle(selected)}>
+              {makeDisplayLabel(selected.element, selected.source)}
             </div>
           </>
         ) : null}
@@ -810,14 +843,10 @@ export function Inspector({
                       <HawkEyeMark ui="panel-brand-image" />
                     </span>
                     <div data-hawk-eye-ui="panel-header-copy">
-                      <p data-hawk-eye-ui="panel-eyebrow">{panelEyebrow}</p>
                       <span data-hawk-eye-ui="panel-title">{panelTitle}</span>
                     </div>
                   </div>
                   <div data-hawk-eye-ui="panel-header-actions">
-                    {totalChanges > 0 ? (
-                      <span data-hawk-eye-ui="panel-header-badge">{pendingEditsLabel}</span>
-                    ) : null}
                     <button
                       aria-label="Close panel"
                       data-hawk-eye-ui="panel-close-btn"
@@ -851,33 +880,15 @@ export function Inspector({
                       type="button"
                     >
                       {tab.label}
+                      {tab.id === 'layers' && layerCount > 0 ? (
+                        <span data-hawk-eye-ui="panel-tab-count">{layerCount}</span>
+                      ) : null}
                     </button>
                   );
                 })}
               </div>
             ) : null}
 
-            {view !== 'changes' ? (
-              <div data-hawk-eye-ui="panel-meta" data-presence={metaPresence}>
-                <div
-                  data-hawk-eye-ui="panel-meta-badge"
-                  data-state={selectedDraft ? 'active' : view === 'layers' ? 'layers' : 'idle'}
-                >
-                  <span data-hawk-eye-ui="panel-meta-badge-label">{panelMetaLabel}</span>
-                  <span data-hawk-eye-ui="panel-meta-badge-value">{panelMetaValue}</span>
-                </div>
-                {showMetaActions ? (
-                  <button
-                    data-hawk-eye-control="detach"
-                    data-hawk-eye-ui="panel-meta-btn"
-                    onClick={onDetach}
-                    type="button"
-                  >
-                    Detach
-                  </button>
-                ) : null}
-              </div>
-            ) : null}
 
             <div data-hawk-eye-ui="panel-body">
               <div data-hawk-eye-ui="view-stack" data-state={viewTransitionState}>
@@ -937,6 +948,23 @@ export function Inspector({
                   </span>
                 </button>
                 <button
+                  aria-label={previewEditsVisible ? 'Hide edits preview' : 'Show edits preview'}
+                  aria-pressed={!previewEditsVisible}
+                  data-active={!previewEditsVisible ? 'true' : 'false'}
+                  data-hawk-eye-ui="footer-preview-toggle-btn"
+                  onClick={() => {
+                    const next = !previewEditsVisible;
+                    setPreviewEditsVisible(next);
+                    onTogglePreviewEdits(next);
+                  }}
+                  type="button"
+                >
+                  {previewEditsVisible ? <EyeOffIcon /> : <EyeIcon />}
+                  <span data-hawk-eye-ui="sr-only">
+                    {previewEditsVisible ? 'Hide edits' : 'Show edits'}
+                  </span>
+                </button>
+                <button
                   aria-label="Revert unsaved changes"
                   data-hawk-eye-ui="footer-revert-btn"
                   disabled={savePending || totalChanges === 0}
@@ -987,7 +1015,6 @@ export function Inspector({
             <span data-hawk-eye-ui="trigger-brand-mark">
               <HawkEyeMark ui="trigger-brand-image" />
             </span>
-            <span data-hawk-eye-ui="trigger-copy">Hawk-Eye</span>
           </button>
         ) : null}
       </div>

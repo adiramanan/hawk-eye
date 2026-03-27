@@ -216,6 +216,18 @@ All components use these semantic tokens (no hardcoded values):
 
 ---
 
+### 6. Inspector Panel
+
+| Figma | Code | Notes |
+|-------|------|-------|
+| **Property 1=Editor** (142:6500) | `packages/client/src/Inspector.tsx` | Main panel shell + tab navigation |
+| "Layers" tab | `PRIMARY_PANEL_TABS[0]` — id: `'layers'` | Navigates to LayersPanel view |
+| "Design" tab | `PRIMARY_PANEL_TABS[1]` — id: `'properties'` | Navigates to PropertiesPanel view |
+| Header title | `panelTitle` + `panel-brand-mark` | No eyebrow text per Figma spec |
+| Footer ("N Edits >") | `footer-changes-btn` | Shown when `totalChanges > 0` |
+
+---
+
 ## Parity Verification Checklist
 
 Run these checks to ensure design-code parity:

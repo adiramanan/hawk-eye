@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { HAWK_EYE_SOURCE_ATTRIBUTE } from '../../../shared/protocol';
 import { createInspectableElementKey } from './drafts';
 
@@ -14,6 +14,7 @@ interface LayerNode {
 
 interface LayersPanelProps {
   selectedInstanceKey: string | null;
+  onLayerCount?(count: number): void;
   onSelectByKey(instanceKey: string): void;
 }
 
@@ -26,18 +27,30 @@ function makeLabel(source: string): string {
   return `${basename}:${line}`;
 }
 
-function makeDisplayLabel(element: HTMLElement, source: string) {
+const TEXT_TAGS = new Set([
+  'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+  'span', 'a', 'button', 'label', 'li',
+  'caption', 'figcaption', 'dt', 'dd',
+  'code', 'em', 'strong', 'small', 'blockquote', 'legend',
+]);
+
+export function makeDisplayLabel(element: HTMLElement, source: string) {
   const ariaLabel = element.getAttribute('aria-label')?.trim();
-  if (ariaLabel) {
-    return ariaLabel;
+  if (ariaLabel) return ariaLabel;
+
+  const tag = element.tagName.toLowerCase();
+  const classes = Array.from(element.classList);
+  if (classes.length > 0) {
+    const label = `${tag}.${classes.join('.')}`;
+    return label.length <= 40 ? label : `${tag}.${classes[0]}`;
   }
 
-  const text = element.textContent?.replace(/\s+/g, ' ').trim();
-  if (text) {
-    return text.slice(0, 36);
+  if (TEXT_TAGS.has(tag) && element.children.length === 0) {
+    const text = element.textContent?.replace(/\s+/g, ' ').trim();
+    if (text) return text.slice(0, 40);
   }
 
-  return makeLabel(source);
+  return tag;
 }
 
 function buildLayerTree(): LayerNode[] {
@@ -181,9 +194,6 @@ function LayerNodeComponent({
         >
           <span data-hawk-eye-ui="layer-copy">
             <span data-hawk-eye-ui="layer-label">{node.label}</span>
-            <span data-hawk-eye-ui="layer-source">
-              {node.tagName} · {makeLabel(node.source)}
-            </span>
           </span>
         </button>
       </div>
@@ -202,11 +212,15 @@ function LayerNodeComponent({
   );
 }
 
-export function LayersPanel({ selectedInstanceKey, onSelectByKey }: LayersPanelProps) {
+export function LayersPanel({ selectedInstanceKey, onLayerCount, onSelectByKey }: LayersPanelProps) {
   const rootNodes = buildLayerTree();
   const [collapsedKeys, setCollapsedKeys] = useState<Set<string>>(new Set());
   const totalLayers = countNodes(rootNodes);
   const expandableKeys = collectExpandableKeys(rootNodes);
+
+  useEffect(() => {
+    onLayerCount?.(totalLayers);
+  }, [totalLayers, onLayerCount]);
 
   function handleToggle(key: string) {
     if (!expandableKeys.has(key)) {
@@ -230,10 +244,6 @@ export function LayersPanel({ selectedInstanceKey, onSelectByKey }: LayersPanelP
 
   return (
     <section data-hawk-eye-ui="layers-section">
-      <div data-hawk-eye-ui="layers-heading-row">
-        <p data-hawk-eye-ui="layers-heading">Layers</p>
-        <span data-hawk-eye-ui="layers-count">{totalLayers}</span>
-      </div>
       <div data-hawk-eye-ui="layers-tree">
         {rootNodes.map((node) => (
           <LayerNodeComponent

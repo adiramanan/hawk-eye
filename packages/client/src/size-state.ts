@@ -5,8 +5,8 @@ export const WIDTH_SIZE_MODE_CSS_PROPERTY = '--hawk-eye-width-mode';
 export const HEIGHT_SIZE_MODE_CSS_PROPERTY = '--hawk-eye-height-mode';
 
 const FIXED_SIZE_UNITS: Record<SizeAxis, string[]> = {
-  width: ['px'],
-  height: ['px'],
+  width: ['px', 'em'],
+  height: ['px', 'em'],
 };
 
 const RELATIVE_SIZE_UNITS: Record<SizeAxis, string[]> = {

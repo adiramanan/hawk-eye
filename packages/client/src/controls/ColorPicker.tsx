@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import {
   type HsvColor,
   parseColor,
@@ -14,6 +14,7 @@ interface ColorPickerProps {
   onChange(value: string): void;
   onClose(): void;
   anchorRect: DOMRect;
+  triggerRef?: RefObject<HTMLElement | null>;
 }
 
 function clamp(v: number, min: number, max: number) {
@@ -28,7 +29,7 @@ function toOpaqueHex(hsv: HsvColor): string {
   return rgbaToHex({ ...hsvToRgba(hsv), a: 1 }).slice(1, 7).toUpperCase();
 }
 
-export function ColorPicker({ id, label, value, onChange, onClose, anchorRect }: ColorPickerProps) {
+export function ColorPicker({ id, label, value, onChange, onClose, anchorRect, triggerRef }: ColorPickerProps) {
   const initialHsv = useMemo<HsvColor>(() => {
     const rgba = parseColor(value);
     return rgba ? rgbaToHsv(rgba) : { h: 0, s: 1, v: 1, a: 1 };
@@ -47,22 +48,30 @@ export function ColorPicker({ id, label, value, onChange, onClose, anchorRect }:
   }, [hsv]);
 
   useEffect(() => {
-    function handlePointerDown(event: PointerEvent) {
+    // The picker is portaled into the shadow root. From `document`, composedPath()
+    // cannot see shadow-DOM internals, so clicks inside the picker would always
+    // appear "outside" and close it immediately. Listen on the shadow root instead.
+    const root = popoverRef.current?.getRootNode();
+    const pointerTarget = (root instanceof ShadowRoot ? root : document) as EventTarget;
+
+    function handlePointerDown(event: Event) {
       const path = event.composedPath();
-      if (popoverRef.current && !path.includes(popoverRef.current)) {
+      const inPicker = popoverRef.current && path.includes(popoverRef.current);
+      const inTrigger = triggerRef?.current && path.includes(triggerRef.current);
+      if (!inPicker && !inTrigger) {
         onClose();
       }
     }
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') onClose();
     }
-    document.addEventListener('pointerdown', handlePointerDown, true);
+    pointerTarget.addEventListener('pointerdown', handlePointerDown, true);
     document.addEventListener('keydown', handleKeyDown, true);
     return () => {
-      document.removeEventListener('pointerdown', handlePointerDown, true);
+      pointerTarget.removeEventListener('pointerdown', handlePointerDown, true);
       document.removeEventListener('keydown', handleKeyDown, true);
     };
-  }, [onClose]);
+  }, [onClose, triggerRef]);
 
   function commitHsv(next: HsvColor) {
     setHsv(next);

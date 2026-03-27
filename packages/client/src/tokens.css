@@ -13,21 +13,23 @@
 
 :root {
   /* ---- COLORS: Neutral Scale ---- */
+  /* Source of truth: Figma node 145:8013. Neutral (untinted) grays. */
   --ds-black: #000000;
   --ds-white: #ffffff;
-  --ds-gray-50: #f4f6f8;
-  --ds-gray-100: #dde3ea;
-  --ds-gray-200: #b7c0cb;
-  --ds-gray-300: #91a0af;
-  --ds-gray-400: #6c7787;
-  --ds-gray-500: #47505c;
-  --ds-gray-600: #323944;
-  --ds-gray-700: #242a33;
-  --ds-gray-800: #181d24;
-  --ds-gray-900: #0f1318;
+  --ds-gray-50: #fcfcfc;   /* Figma: text-[#fcfcfc] — near-white primary text */
+  --ds-gray-100: #e9e9e9;  /* Figma: text-[#e9e9e9] — label/fg text */
+  --ds-gray-200: #bcbcbc;  /* Figma: text-[#bcbcbc] — secondary text, icon normal */
+  --ds-gray-300: #8a8a8a;  /* interpolated between gray-200 and gray-500 */
+  --ds-gray-400: #6e6e6e;  /* interpolated — muted text */
+  --ds-gray-500: #595959;  /* Figma: border-[#595959] — borders, icon inactive */
+  --ds-gray-600: #4a4a4a;  /* interpolated between gray-500 and gray-700 */
+  --ds-gray-700: #3b3b3b;  /* Figma: bg-[#3b3b3b] — input/element backgrounds */
+  --ds-gray-800: #262626;  /* Figma: text-[#262626] — dark text on light surfaces */
+  --ds-gray-900: #222222;  /* Figma: bg-[#222] — main panel background */
 
   /* ---- COLORS: Semantic Colors ---- */
-  --ds-blue-400: #61c1ff;
+  --ds-blue-400: #61c1ff;  /* Figma accent (confirmed: #e1f1ff ≈ 18% mix on white) */
+  --ds-blue-link: #007ef4; /* Figma: text-[#007ef4] — interactive links/accent text */
   --ds-blue-500: #2f9cf5;
   --ds-blue-600: #1167c6;
   --ds-red-400: #ff7a6b;

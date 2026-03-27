@@ -150,7 +150,7 @@ export function GradientEditor({ snapshot, onChange }: GradientEditorProps) {
         style={{
           background: previewCss,
           height: '40px',
-          borderRadius: '4px',
+          borderRadius: 'var(--radius-sm)',
           marginBottom: 'var(--spacing-md)',
           border: '1px solid var(--color-border)',
         }}
@@ -293,7 +293,7 @@ export function GradientEditor({ snapshot, onChange }: GradientEditorProps) {
                 height: '32px',
                 backgroundColor: stop.color,
                 border: '1px solid var(--color-border)',
-                borderRadius: '4px',
+                borderRadius: 'var(--radius-sm)',
                 cursor: 'pointer',
                 padding: 0,
               }}
@@ -325,7 +325,7 @@ export function GradientEditor({ snapshot, onChange }: GradientEditorProps) {
               max="100"
               style={{ width: '50px' }}
             />
-            <span style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>%</span>
+            <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>%</span>
 
             {/* Remove Button */}
             {config.stops.length > 2 && (
@@ -333,11 +333,11 @@ export function GradientEditor({ snapshot, onChange }: GradientEditorProps) {
                 onClick={() => removeStop(index)}
                 style={{
                   padding: 'var(--spacing-xs) var(--spacing-base)',
-                  fontSize: '12px',
+                  fontSize: 'var(--font-size-sm)',
                   cursor: 'pointer',
                   background: 'var(--color-bg-secondary)',
                   border: '1px solid var(--color-border)',
-                  borderRadius: '4px',
+                  borderRadius: 'var(--radius-sm)',
                 }}
               >
                 ✕
@@ -353,11 +353,11 @@ export function GradientEditor({ snapshot, onChange }: GradientEditorProps) {
             width: '100%',
             padding: 'var(--spacing-sm)',
             marginTop: 'var(--spacing-base)',
-            fontSize: '12px',
+            fontSize: 'var(--font-size-sm)',
             cursor: 'pointer',
             background: 'var(--color-bg-secondary)',
             border: '1px solid var(--color-border)',
-            borderRadius: '4px',
+            borderRadius: 'var(--radius-sm)',
           }}
         >
           + Add Stop

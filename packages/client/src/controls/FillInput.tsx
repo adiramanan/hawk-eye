@@ -5,7 +5,7 @@ import { GradientEditor } from './GradientEditor';
 import { ImageFillEditor } from './ImageFillEditor';
 import { detectGradientType } from '../utils/gradient-parser';
 
-type FillMode = 'solid' | 'gradient' | 'image';
+type FillMode = 'none' | 'solid' | 'gradient' | 'image';
 
 interface FillInputProps {
   snapshot: PropertySnapshot;
@@ -13,7 +13,7 @@ interface FillInputProps {
 }
 
 function detectFillMode(cssValue: string): FillMode {
-  if (!cssValue || cssValue === 'none') return 'solid';
+  if (!cssValue || cssValue === 'none') return 'none';
 
   const trimmed = cssValue.trim().toLowerCase();
 
@@ -38,6 +38,10 @@ const DEFAULT_GRADIENT = 'linear-gradient(90deg, #ff0000 0%, #0000ff 100%)';
  * Convert between fill modes when switching tabs
  */
 function convertFillMode(currentValue: string, fromMode: FillMode, toMode: FillMode): string {
+  if (toMode === 'none') {
+    return 'none';
+  }
+
   if (toMode === 'solid') {
     // Default to black when switching to solid
     return DEFAULT_SOLID_COLOR;
@@ -67,6 +71,13 @@ const SOLID_COLOR_DEFINITION: EditablePropertyDefinition = {
   placeholder: 'rgb(255, 255, 255)',
 };
 
+const FILL_TAB_LABELS: Record<FillMode, string> = {
+  none: 'None',
+  solid: 'Solid',
+  gradient: 'Gradient',
+  image: 'Image',
+};
+
 export function FillInput({ snapshot, onChange }: FillInputProps) {
   const currentValue = snapshot.inputValue || snapshot.baseline || '';
   const detectedMode = detectFillMode(currentValue);
@@ -94,27 +105,34 @@ export function FillInput({ snapshot, onChange }: FillInputProps) {
     <div data-hawk-eye-ui="fill-input">
       {/* Mode Tabs */}
       <div data-hawk-eye-ui="fill-tabs" style={{ display: 'flex', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-md)' }}>
-        {(['solid', 'gradient', 'image'] as const).map((mode) => (
+        {(['none', 'solid', 'gradient', 'image'] as const).map((mode) => (
           <button
             key={mode}
             onClick={() => switchMode(mode)}
             style={{
               flex: 1,
               padding: 'var(--spacing-sm) var(--spacing-base)',
-              fontSize: '12px',
-              fontWeight: activeMode === mode ? 'bold' : 'normal',
+              fontSize: 'var(--font-size-sm)',
+              fontWeight: activeMode === mode ? 'var(--font-weight-bold)' : 'var(--font-weight-base)',
               cursor: 'pointer',
-              backgroundColor: activeMode === mode ? 'var(--color-bg-active)' : 'var(--color-bg-secondary)',
+              backgroundColor: activeMode === mode ? 'var(--color-selection-bg)' : 'var(--color-bg-secondary)',
               color: activeMode === mode ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
               border: '1px solid var(--color-border)',
-              borderRadius: '4px',
-              transition: 'all 0.2s',
+              borderRadius: 'var(--radius-sm)',
+              transition: 'all var(--duration-base) var(--easing-standard)',
             }}
           >
-            {mode.charAt(0).toUpperCase() + mode.slice(1)}
+            {FILL_TAB_LABELS[mode]}
           </button>
         ))}
       </div>
+
+      {/* None Mode */}
+      {activeMode === 'none' && (
+        <div data-hawk-eye-ui="fill-none" style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-sm)', textAlign: 'center', padding: 'var(--spacing-sm) 0' }}>
+          No background fill
+        </div>
+      )}
 
       {/* Solid Color Mode */}
       {activeMode === 'solid' && (

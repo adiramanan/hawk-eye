@@ -1808,6 +1808,17 @@ function DesignToolRuntime() {
     closeInspector(intent);
   }
 
+  function handleTogglePreviewEdits(visible: boolean) {
+    for (const draft of pendingDrafts) {
+      if (visible) {
+        const element = getInspectableElementByKey(draft.instanceKey);
+        if (element) applyDraftToElement(element, draft);
+      } else {
+        clearDraftOverrides(draft);
+      }
+    }
+  }
+
   const motionTimings: InspectorMotionTimings = {
     shell: prefersReducedMotion ? 0 : SHELL_HANDOFF_DURATION_MS,
     status: prefersReducedMotion ? 0 : STATUS_TRANSITION_DURATION_MS,
@@ -1844,6 +1855,7 @@ function DesignToolRuntime() {
       onSelectByKey={selectByKey}
       onToggleAspectRatioLock={toggleAspectRatioLock}
       onToggle={attemptToggleInspector}
+      onTogglePreviewEdits={handleTogglePreviewEdits}
       pendingDrafts={pendingDrafts}
       prefersReducedMotion={prefersReducedMotion}
       saveBlockedReason={saveBlockedReason}

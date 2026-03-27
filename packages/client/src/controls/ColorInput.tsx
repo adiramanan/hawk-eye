@@ -101,6 +101,7 @@ export function ColorInput({ definition, snapshot, onChange }: ColorInputProps) 
             label={definition.label}
             onChange={onChange}
             onClose={() => setPickerOpen(false)}
+            triggerRef={swatchRef}
             value={displayValue}
           />
         </ColorPickerPortal>
