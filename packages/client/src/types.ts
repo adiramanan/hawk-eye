@@ -1,4 +1,5 @@
 import type {
+  AuthoredClassTarget,
   ClassAttributeState,
   SelectionPayload,
   SizeMode,
@@ -6,6 +7,7 @@ import type {
   StyleMode,
 } from '../../../shared/protocol';
 export type {
+  AuthoredClassTarget,
   ClassAttributeState,
   ClientPropertyMutation as PropertyMutationPayload,
   ElementMutationRequest as ElementMutationPayload,
@@ -26,6 +28,8 @@ export interface SelectionDetails extends SelectionPayload {
   instanceKey: string;
   classNames: string[];
   classAttributeState: ClassAttributeState;
+  classTargets: AuthoredClassTarget[];
+  activeClassTargetId: string | null;
   inlineStyles: Record<string, string>;
   saveCapability: string | null;
   saveEnabled: boolean;
@@ -248,6 +252,8 @@ export interface SelectionDraft extends SelectionDetails {
   properties: Record<EditablePropertyId, PropertySnapshot>;
   sizeControl: SizeControlState;
   context: ElementContext;
+  classTargets: AuthoredClassTarget[];
+  activeClassTargetId: string | null;
 }
 
 /**

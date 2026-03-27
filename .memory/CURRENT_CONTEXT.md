@@ -4,9 +4,15 @@
 - Codex
 
 ## Last Session
-- 2026-03-27T21:01:28.000Z (20260327T210128000Z--codex)
+- 2026-03-27T21:28:50.000Z (20260327T211404000Z--codex)
 
 ## Current Status
+- Semantic class editing is now wired through the inspector: the panel can show a class-target dropdown, preview edits through an injected class rule style block, and detach a selected element so later edits stay local.
+- The save path now distinguishes element source coordinates from authored class targets, so semantic class edits write to stylesheet sources instead of JSX className strings.
+- The client, plugin, demo mock, and tests were updated together, and the focused design-tool/save-handler/source-writer/drafts checks passed after the type-check cleanup.
+- The footer action pattern now uses one shared `FooterActionButton` component across both properties and changes panels, with a `variant` prop for compact vs labeled rendering.
+- The properties footer now uses the same shared action component as the changes footer, so footer action structure and icon shells are consistent across panels.
+- Figma MCP access to node `119:974` failed with a permissions error, so the latest footer refactor was applied from the current code pattern instead of fresh node data.
 - The changes-panel footer now uses a dedicated `FooterActionButton` component in `packages/client/src/components/FooterActionButton.tsx`, with an explicit icon shell, tooltip, and tone flag for the Figma-matched labeled buttons.
 - The changes footer styling now uses literal 10px/12px padding, 4px icon-label gap, 8px radius, and blue/gray fills to match the `Apply` button pattern from Figma node `139:3074`.
 - The changes footer regression now checks the new icon shell and label data attrs instead of the old generic footer marker.
@@ -25,6 +31,7 @@
 - The changes view now matches the latest Figma panel direction more closely: it uses a `Changes Done` header with a back affordance, a divider under the header, tighter dark edit cards, and the softer two-button reset overlay from the design.
 - The dedicated changes footer and footer-status strip are now removed so the changes screen reads as a review surface; apply/revert actions remain in the properties footer.
 - The v1 inspector no longer exposes width, height, or aspect-ratio controls; the underlying size-mode implementation remains in place for a later v2 return.
+- Grid child column/span and row/span controls are also hidden in v1 now, so parent-grid span editing is deferred with the rest of the layout controls.
 - The empty inspector state is now centered, with icon, title, and body copy aligned to the middle of the panel.
 - Width and height mode changes now immediately reapply the full draft to the selected element, so live size-mode metadata stays synced and fill, relative, and hug do not fall back to fixed behavior during editing.
 - Width and height draft creation now preserves keyword baselines such as `auto` and `fit-content`, so fill and hug sizing survive draft creation, reset, and re-selection instead of being blanked out.
@@ -43,6 +50,7 @@
 
 ## Next Steps
 - Run a quick browser pass on the restored changes footer to confirm the spacing, icon sizing, and visible labels match the Figma reference in the live panel.
+- Re-attempt the Figma MCP read once file access is available if you want the footer styling revalidated directly against node `119:974`.
 - Run a quick manual pass across padding, margin, corner radius, and stroke weight toggles in the live panel to confirm all grouped controls now commit immediately and keep their visible value/color consistent.
 - Run a quick manual pass on one-sided border cases in the live panel, especially bottom-only and left-only strokes with explicit colors, to confirm grouped width edits preserve the visible stroke color.
 - Run a quick manual pass on margin, padding, and stroke grouped toggles in the live panel to confirm the value propagates immediately when linking controls back together.
@@ -67,6 +75,23 @@
 - Triage broader lint/build/test debt outside the focused design-tool suite before final release.
 
 ## Touched Areas
+- packages/client/src/DesignTool.tsx
+- packages/client/src/Inspector.tsx
+- packages/client/src/PropertiesPanel.tsx
+- packages/client/src/drafts.ts
+- packages/client/src/styles.ts
+- packages/client/src/types.ts
+- packages/client/src/ws-client.ts
+- packages/vite-plugin/src/save-handler.ts
+- packages/vite-plugin/src/source-writer.ts
+- packages/vite-plugin/src/style-analyzer.ts
+- packages/vite-plugin/src/stylesheet-index.ts
+- packages/vite-plugin/src/ws-server.ts
+- shared/protocol.ts
+- tests/design-tool.test.ts
+- tests/save-handler.test.ts
+- demo/src/design-lab-mock.ts
+- demo/src/DesignLab.tsx
 - packages/client/src/controls/PerCornerControl.tsx
 - .memory/sessions/20260327T203845000Z--codex.md
 - packages/client/src/DesignTool.tsx
@@ -81,6 +106,10 @@
 - packages/client/src/assets.d.ts
 - .memory/sessions/20260327T201844000Z--codex.md
 - packages/client/src/PropertiesPanel.tsx
+- tests/design-tool.test.ts
+- .memory/sessions/20260327T211744000Z--codex.md
+- .memory/CURRENT_CONTEXT.md
+- .memory/receipts.jsonl
 - packages/client/src/styles.ts
 - .memory/sessions/20260327T200717000Z--codex.md
 - packages/client/src/Inspector.tsx

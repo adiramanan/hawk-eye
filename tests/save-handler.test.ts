@@ -14,6 +14,7 @@ import {
   createHawkEyeServerState,
   issueSaveCapability,
 } from '../packages/vite-plugin/src/plugin-state';
+import { getAuthoredClassTargets } from '../packages/vite-plugin/src/stylesheet-index';
 import { HAWK_EYE_SAVE_RESULT_EVENT } from '../shared/protocol';
 
 const tempRoots: string[] = [];
@@ -135,6 +136,74 @@ describe('save handler', () => {
       warnings: [],
     });
     expect(readFileSync(workspace.filePath, 'utf8')).toContain('className="pt-6 bg-white"');
+  });
+
+  it('writes authored class target edits to the stylesheet source only', () => {
+    const source = `
+      export function App() {
+        return (
+          <section>
+            <button className="dense">Dense</button>
+            <button className="dense btn-primary">Dense primary</button>
+          </section>
+        );
+      }
+    `;
+    const workspace = createTempWorkspace(source);
+    const stylesPath = join(workspace.root, 'src/styles.css');
+    const position = getLineAndColumn(source, '<button className="dense">');
+    const state = createSaveState();
+    const { capability, client, clientId } = createAuthorizedClient(state);
+
+    writeFileSync(stylesPath, '.dense { padding-top: 4px; }', 'utf8');
+    state.root = workspace.root;
+
+    const selectionFingerprint = createFingerprint(
+      workspace.filePath,
+      position.line,
+      position.column
+    );
+    const classTarget = getAuthoredClassTargets(workspace.root)[0];
+
+    if (!classTarget) {
+      throw new Error('Expected an authored class target to be discovered.');
+    }
+
+    const result = handleSaveRequest(state, client as never, {
+      clientId,
+      capability,
+      mutations: [
+        {
+          file: classTarget.file,
+          line: classTarget.line,
+          column: classTarget.column,
+          detached: false,
+          fingerprint: selectionFingerprint,
+          sourceLocation: {
+            file: 'src/App.tsx',
+            line: position.line,
+            column: position.column,
+          },
+          classTarget,
+          properties: [
+            {
+              propertyId: 'paddingTop',
+              oldValue: '4px',
+              newValue: '6px',
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(client.send).toHaveBeenCalledWith(HAWK_EYE_SAVE_RESULT_EVENT, result);
+    expect(result).toEqual({
+      success: true,
+      modifiedFiles: ['src/styles.css'],
+      warnings: [],
+    });
+    expect(readFileSync(stylesPath, 'utf8')).toContain('padding-top: 6px;');
+    expect(readFileSync(workspace.filePath, 'utf8')).toContain('className="dense btn-primary"');
   });
 
   it('rejects writes with an invalid capability token', () => {

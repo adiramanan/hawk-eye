@@ -168,3 +168,7 @@ export function cacheStyleAnalysis(
   state.styleAnalysisCache.set(key, analysis);
   trimStyleAnalysisCache(state);
 }
+
+export function clearStyleAnalysisCache(state: HawkEyeServerState) {
+  state.styleAnalysisCache.clear();
+}

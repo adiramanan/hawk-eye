@@ -2,10 +2,12 @@ import type { HMRBroadcasterClient, ViteDevServer } from 'vite';
 import {
   HAWK_EYE_SAVE_EVENT,
   HAWK_EYE_SAVE_RESULT_EVENT,
+  type AuthoredClassTarget,
   type ClientPropertyMutation,
   type MutationWarning,
   type MutationWarningCode,
   type SavePayload as ClientSavePayload,
+  type SourceLocation,
   type SaveResult,
   type SizeModeMetadata,
 } from '../../../shared/protocol';
@@ -18,6 +20,10 @@ import {
   createStyleAnalysisFingerprint,
 } from './style-analyzer';
 import { writeSourceMutations } from './source-writer';
+import {
+  invalidateAuthoredClassTargetIndex,
+  resolveAuthoredClassTargetById,
+} from './stylesheet-index';
 
 function isClientPropertyMutation(value: unknown): value is ClientPropertyMutation {
   if (!value || typeof value !== 'object') {
@@ -49,6 +55,39 @@ function isSizeModeMetadata(value: unknown): value is SizeModeMetadata {
   return isValidModeValue(candidate.width) && isValidModeValue(candidate.height);
 }
 
+function isSourceLocation(value: unknown): value is SourceLocation {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const candidate = value as Record<string, unknown>;
+
+  return (
+    typeof candidate.file === 'string' &&
+    typeof candidate.line === 'number' &&
+    typeof candidate.column === 'number'
+  );
+}
+
+function isAuthoredClassTarget(value: unknown): value is AuthoredClassTarget {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const candidate = value as Record<string, unknown>;
+
+  return (
+    typeof candidate.id === 'string' &&
+    typeof candidate.className === 'string' &&
+    typeof candidate.label === 'string' &&
+    typeof candidate.file === 'string' &&
+    typeof candidate.line === 'number' &&
+    typeof candidate.column === 'number' &&
+    typeof candidate.selector === 'string' &&
+    typeof candidate.fingerprint === 'string'
+  );
+}
+
 function isClientSavePayload(value: unknown): value is ClientSavePayload {
   if (!value || typeof value !== 'object') {
     return false;
@@ -57,28 +96,30 @@ function isClientSavePayload(value: unknown): value is ClientSavePayload {
   const candidate = value as Record<string, unknown>;
 
   return (
-    typeof candidate.clientId === 'string' &&
-    typeof candidate.capability === 'string' &&
-    Array.isArray(candidate.mutations) &&
-    candidate.mutations.every((mutation) => {
+      typeof candidate.clientId === 'string' &&
+      typeof candidate.capability === 'string' &&
+      Array.isArray(candidate.mutations) &&
+      candidate.mutations.every((mutation) => {
       if (!mutation || typeof mutation !== 'object') {
         return false;
       }
 
       const record = mutation as Record<string, unknown>;
 
-      return (
-        typeof record.file === 'string' &&
-        typeof record.line === 'number' &&
-        typeof record.column === 'number' &&
-        typeof record.detached === 'boolean' &&
-        typeof record.fingerprint === 'string' &&
-        Array.isArray(record.properties) &&
-        record.properties.every(isClientPropertyMutation) &&
-        (record.sizeModeMetadata === undefined || isSizeModeMetadata(record.sizeModeMetadata))
-      );
-    })
-  );
+        return (
+          typeof record.file === 'string' &&
+          typeof record.line === 'number' &&
+          typeof record.column === 'number' &&
+          typeof record.detached === 'boolean' &&
+          typeof record.fingerprint === 'string' &&
+          Array.isArray(record.properties) &&
+          record.properties.every(isClientPropertyMutation) &&
+          (record.sourceLocation === undefined || isSourceLocation(record.sourceLocation)) &&
+          (record.classTarget === undefined || isAuthoredClassTarget(record.classTarget)) &&
+          (record.sizeModeMetadata === undefined || isSizeModeMetadata(record.sizeModeMetadata))
+        );
+      })
+    );
 }
 
 function buildErrorResult(error: string, warnings: MutationWarning[] = []): SaveResult {
@@ -99,6 +140,8 @@ function getWarningPriority(code: MutationWarningCode) {
       return 80;
     case 'unsupported-dynamic-class':
       return 70;
+    case 'stale-class-target':
+      return 65;
     case 'inline-fallback':
       return 60;
     case 'unsupported-tailwind-property':
@@ -188,28 +231,33 @@ function normalizeSavePayload(
   | {
       ok: false;
       result: SaveResult;
-    } {
+  } {
   const warnings: MutationWarning[] = [];
   const normalizedMutations: ElementMutation[] = [];
 
   for (const mutation of payload.mutations) {
-    const resolvedFile = resolveWorkspaceFile(state.root, mutation.file);
+    const selectionLocation = mutation.sourceLocation ?? {
+      file: mutation.file,
+      line: mutation.line,
+      column: mutation.column,
+    };
+    const selectionResolution = resolveWorkspaceFile(state.root, selectionLocation.file);
 
-    if (!resolvedFile.ok) {
+    if (!selectionResolution.ok) {
       return {
         ok: false,
         result: buildErrorResult(
-          `Write aborted because ${mutation.file} is not a valid writable source target.`,
+          `Write aborted because ${selectionLocation.file} is not a valid writable source target.`,
           [
             {
               code: 'path-outside-root',
-              file: mutation.file,
-              line: mutation.line,
-              column: mutation.column,
+              file: selectionLocation.file,
+              line: selectionLocation.line,
+              column: selectionLocation.column,
               message:
-                resolvedFile.reason === 'symlink-not-allowed'
-                  ? `Skipped ${mutation.file} because symlinked source targets are not allowed.`
-                  : `Skipped ${mutation.file} because it resolves outside the workspace root.`,
+                selectionResolution.reason === 'symlink-not-allowed'
+                  ? `Skipped ${selectionLocation.file} because symlinked source targets are not allowed.`
+                  : `Skipped ${selectionLocation.file} because it resolves outside the workspace root.`,
             },
           ]
         ),
@@ -220,15 +268,15 @@ function normalizeSavePayload(
 
     try {
       styleAnalysis = analyzeStyleAtPosition(
-        resolvedFile.value.absoluteFile,
-        mutation.line,
-        mutation.column
+        selectionResolution.value.absoluteFile,
+        selectionLocation.line,
+        selectionLocation.column
       );
     } catch {
       return {
         ok: false,
         result: buildErrorResult(
-          `Write aborted because the current source at ${mutation.file}:${mutation.line}:${mutation.column} could not be analyzed.`,
+          `Write aborted because the current source at ${selectionLocation.file}:${selectionLocation.line}:${selectionLocation.column} could not be analyzed.`,
           []
         ),
       };
@@ -240,18 +288,58 @@ function normalizeSavePayload(
       return {
         ok: false,
         result: buildErrorResult(
-          `Write aborted because ${mutation.file}:${mutation.line}:${mutation.column} changed after selection. Re-select the element and try again.`,
+          `Write aborted because ${selectionLocation.file}:${selectionLocation.line}:${selectionLocation.column} changed after selection. Re-select the element and try again.`,
           [
             {
               code: 'stale-selection',
-              file: mutation.file,
-              line: mutation.line,
-              column: mutation.column,
-              message: `The current style fingerprint for ${mutation.file}:${mutation.line}:${mutation.column} no longer matches the selected element.`,
+              file: selectionLocation.file,
+              line: selectionLocation.line,
+              column: selectionLocation.column,
+              message: `The current style fingerprint for ${selectionLocation.file}:${selectionLocation.line}:${selectionLocation.column} no longer matches the selected element.`,
             },
           ]
         ),
       };
+    }
+
+    if (mutation.classTarget) {
+      const resolvedClassTarget = resolveAuthoredClassTargetById(state.root, mutation.classTarget.id);
+
+      if (!resolvedClassTarget) {
+        return {
+          ok: false,
+          result: buildErrorResult(
+            `Write aborted because ${mutation.classTarget.label} could not be resolved.`,
+            [
+              {
+                code: 'stale-class-target',
+                file: mutation.classTarget.file,
+                line: mutation.classTarget.line,
+                column: mutation.classTarget.column,
+                message: `The authored class target ${mutation.classTarget.label} no longer exists.`,
+              },
+            ]
+          ),
+        };
+      }
+
+      if (resolvedClassTarget.fingerprint !== mutation.classTarget.fingerprint) {
+        return {
+          ok: false,
+          result: buildErrorResult(
+            `Write aborted because ${mutation.classTarget.label} changed after selection. Re-select the class target and try again.`,
+            [
+              {
+                code: 'stale-class-target',
+                file: mutation.classTarget.file,
+                line: mutation.classTarget.line,
+                column: mutation.classTarget.column,
+                message: `The current class target fingerprint for ${mutation.classTarget.label} no longer matches the selected rule.`,
+              },
+            ]
+          ),
+        };
+      }
     }
 
     const properties: PropertyMutation[] = [];
@@ -278,6 +366,8 @@ function normalizeSavePayload(
       column: mutation.column,
       styleMode: mutation.detached ? 'detached' : styleAnalysis.mode,
       detached: mutation.detached,
+      sourceLocation: selectionLocation,
+      classTarget: mutation.classTarget,
       properties,
       sizeModeMetadata: mutation.sizeModeMetadata,
     });
@@ -327,6 +417,11 @@ export function applySourceChanges(
 
   const writeResult = writeSourceMutations(state.root, normalizedPayload.value);
   const warnings = [...normalizedPayload.warnings, ...writeResult.warnings];
+
+  if (writeResult.modifiedFiles.length > 0) {
+    invalidateAuthoredClassTargetIndex(state.root);
+    state.styleAnalysisCache.clear();
+  }
 
   if (writeResult.modifiedFiles.length === 0) {
     return buildErrorResult(

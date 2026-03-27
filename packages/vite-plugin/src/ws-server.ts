@@ -19,17 +19,20 @@ import {
 } from './plugin-state';
 import { resolveWorkspaceFile } from './path-security';
 import { analyzeStyleAtPosition, createStyleAnalysisFingerprint } from './style-analyzer';
+import { getAuthoredClassTargetsForClassNames } from './stylesheet-index';
 
 function createUnknownStyleAnalysis(): CachedStyleAnalysis {
   return {
     mode: 'unknown' satisfies StyleMode,
     classNames: [],
+    classTargets: [],
     inlineStyles: {},
     classAttributeState: 'missing',
     styleAttributeState: 'missing',
     fingerprint: createStyleAnalysisFingerprint({
       mode: 'unknown',
       classNames: [],
+      classTargets: [],
       inlineStyles: {},
       classAttributeState: 'missing',
       styleAttributeState: 'missing',
@@ -123,8 +126,10 @@ export function resolveStyleAnalysisPayload(
       selection.line,
       selection.column
     );
+    const classTargets = getAuthoredClassTargetsForClassNames(state.root, result.classNames);
     analysis = {
       ...result,
+      classTargets,
       fingerprint: createStyleAnalysisFingerprint(result),
     };
   } catch {

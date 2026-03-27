@@ -95,8 +95,10 @@ export function DesignLab({ onBack }: DesignLabProps) {
                 <PropertiesPanel
                   context={draft.context}
                   onChange={() => {}}
+                  onChangeClassTarget={() => {}}
                   onChangeSizeMode={() => {}}
                   onChangeSizeValue={() => {}}
+                  onDetach={() => {}}
                   onResetAll={() => {}}
                   onResetProperty={() => {}}
                   onToggleAspectRatioLock={() => {}}

@@ -7,6 +7,7 @@ export interface FooterActionButtonProps
   ariaLabel: string;
   iconSrc: string;
   label: string;
+  variant?: 'compact' | 'labelled';
   tone?: 'primary' | 'secondary';
   title: string;
   ui: string;
@@ -19,6 +20,7 @@ export function FooterActionButton({
   iconSrc,
   label,
   onClick,
+  variant = 'compact',
   tone = 'secondary',
   title,
   ui,
@@ -29,6 +31,7 @@ export function FooterActionButton({
       data-active={active ? 'true' : undefined}
       data-hawk-eye-ui={ui}
       data-tone={tone}
+      data-variant={variant}
       disabled={disabled}
       onClick={onClick}
       title={title}
@@ -37,7 +40,11 @@ export function FooterActionButton({
       <span aria-hidden="true" data-hawk-eye-ui="footer-action-icon-shell">
         <img alt="" data-hawk-eye-ui="footer-action-icon" draggable={false} src={iconSrc} />
       </span>
-      <span data-hawk-eye-ui="footer-action-label">{label}</span>
+      {variant === 'labelled' ? (
+        <span data-hawk-eye-ui="footer-action-label">{label}</span>
+      ) : (
+        <span data-hawk-eye-ui="sr-only">{label}</span>
+      )}
     </button>
   );
 }

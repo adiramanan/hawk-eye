@@ -40,6 +40,7 @@ interface InspectorProps {
   selectedDraft: SelectionDraft | null;
   selectedInstanceKey: string | null;
   onChange(propertyId: EditablePropertyId, value: string): void;
+  onChangeClassTarget(targetId: string): void;
   onChangeSizeMode(axis: SizeAxis, mode: SizeMode): void;
   onChangeSizeValue(axis: SizeAxis, value: string): void;
   onDetach(): void;
@@ -148,49 +149,6 @@ function RefreshIcon() {
         strokeWidth="1.25"
       />
     </svg>
-  );
-}
-
-interface FooterButtonProps {
-  active?: boolean;
-  ariaLabel: string;
-  disabled?: boolean;
-  iconSrc: string;
-  label: string;
-  onClick(): void;
-  title: string;
-  ui: string;
-  visibleLabel?: boolean;
-}
-
-function FooterButton({
-  active,
-  ariaLabel,
-  disabled,
-  iconSrc,
-  label,
-  onClick,
-  title,
-  ui,
-  visibleLabel = false,
-}: FooterButtonProps) {
-  return (
-    <button
-      aria-label={ariaLabel}
-      data-active={active ? 'true' : undefined}
-      data-hawk-eye-ui={ui}
-      disabled={disabled}
-      onClick={onClick}
-      title={title}
-      type="button"
-    >
-      <img alt="" aria-hidden="true" data-hawk-eye-ui="footer-button-icon" draggable={false} src={iconSrc} />
-      {visibleLabel ? (
-        <span data-hawk-eye-ui="footer-button-label">{label}</span>
-      ) : (
-        <span data-hawk-eye-ui="sr-only">{label}</span>
-      )}
-    </button>
   );
 }
 
@@ -360,9 +318,10 @@ export function Inspector({
   selectedDraft,
   selectedInstanceKey,
   onChange,
+  onChangeClassTarget,
   onChangeSizeMode,
   onChangeSizeValue,
-  onDetach: _onDetach,
+  onDetach,
   onResetAll,
   onResetProperty,
   onSave,
@@ -605,8 +564,10 @@ export function Inspector({
         <PropertiesPanel
           context={selectedDraft.context}
           onChange={onChange}
+          onChangeClassTarget={onChangeClassTarget}
           onChangeSizeMode={onChangeSizeMode}
           onChangeSizeValue={onChangeSizeValue}
+          onDetach={onDetach}
           onResetAll={onResetAll}
           onResetProperty={onResetProperty}
           onToggleAspectRatioLock={onToggleAspectRatioLock}
@@ -891,7 +852,7 @@ export function Inspector({
                     <ChevronRightIcon />
                   </span>
                 </button>
-                <FooterButton
+                <FooterActionButton
                   ariaLabel={savePending ? 'Updating design' : 'Update design'}
                   disabled={savePending || Boolean(saveBlockedReason) || totalChanges === 0}
                   iconSrc={applyButtonIconSrc}
@@ -899,8 +860,9 @@ export function Inspector({
                   onClick={onSave}
                   title={savePending ? 'Updating design' : 'Update design'}
                   ui="footer-apply-btn"
+                  variant="compact"
                 />
-                <FooterButton
+                <FooterActionButton
                   active={!previewEditsVisible}
                   ariaLabel={previewEditsVisible ? 'Hide edits preview' : 'Show edits preview'}
                   iconSrc={hideButtonIconSrc}
@@ -912,8 +874,9 @@ export function Inspector({
                   }}
                   title={previewEditsVisible ? 'Hide edits preview' : 'Show edits preview'}
                   ui="footer-preview-toggle-btn"
+                  variant="compact"
                 />
-                <FooterButton
+                <FooterActionButton
                   ariaLabel="Revert unsaved changes"
                   disabled={savePending || totalChanges === 0}
                   iconSrc={refreshButtonIconSrc}
@@ -921,6 +884,7 @@ export function Inspector({
                   onClick={handleResetAll}
                   title="Revert unsaved changes"
                   ui="footer-revert-btn"
+                  variant="compact"
                 />
               </div>
             ) : null}
@@ -934,6 +898,7 @@ export function Inspector({
                   label={savePending ? 'Updating…' : 'Apply'}
                   onClick={onSave}
                   tone="primary"
+                  variant="labelled"
                   title={savePending ? 'Updating design' : 'Apply changes'}
                   ui="footer-apply-btn"
                 />
@@ -947,6 +912,7 @@ export function Inspector({
                     onTogglePreviewEdits(next);
                   }}
                   tone="secondary"
+                  variant="labelled"
                   title={previewEditsVisible ? 'Hide edits preview' : 'Show edits preview'}
                   ui="footer-hide-btn"
                 />
@@ -957,6 +923,7 @@ export function Inspector({
                   label="Reset"
                   onClick={handleResetAll}
                   tone="secondary"
+                  variant="labelled"
                   title="Reset unsaved changes"
                   ui="footer-revert-btn"
                 />

@@ -380,6 +380,7 @@ export function createSelectionDraft(
   element: HTMLElement
 ): SelectionDraft {
   const computedStyle = window.getComputedStyle(element);
+  const classTargets = details.classTargets ?? [];
   const properties = {} as SelectionDraft['properties'];
 
   for (const definition of editablePropertyDefinitions) {
@@ -407,11 +408,18 @@ export function createSelectionDraft(
   }
 
   const context = buildElementContext(element);
+  const activeClassTargetId =
+    details.activeClassTargetId &&
+    classTargets.some((target) => target.id === details.activeClassTargetId)
+      ? details.activeClassTargetId
+      : classTargets[0]?.id ?? null;
 
   return {
     ...details,
     analysisFingerprint: details.analysisFingerprint,
     detached: false,
+    activeClassTargetId,
+    classTargets,
     properties,
     sizeControl: buildSizeControlState(element, properties),
     context,
@@ -423,6 +431,13 @@ export function mergeSelectionDraft(
   draft: SelectionDraft,
   details: SelectionDetails
 ): SelectionDraft {
+  const classTargets = details.classTargets ?? [];
+  const activeClassTargetId =
+    draft.activeClassTargetId &&
+    classTargets.some((target) => target.id === draft.activeClassTargetId)
+      ? draft.activeClassTargetId
+      : classTargets[0]?.id ?? null;
+
   return {
     ...draft,
     source: details.source,
@@ -436,6 +451,8 @@ export function mergeSelectionDraft(
     // Preserve the original detected strategy even after preview adds inline overrides.
     styleMode: draft.detached ? 'detached' : draft.styleMode,
     classNames: draft.classNames,
+    classTargets,
+    activeClassTargetId,
     inlineStyles: draft.inlineStyles,
     sizeControl: draft.sizeControl,
     context: draft.context,

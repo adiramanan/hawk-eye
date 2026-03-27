@@ -69,6 +69,7 @@ function createStyleAnalysisPayload(
     source: overrides.source,
     mode: 'tailwind',
     classNames: [],
+    classTargets: [],
     inlineStyles: {},
     classAttributeState: 'literal',
     styleAttributeState: 'missing',
@@ -76,6 +77,16 @@ function createStyleAnalysisPayload(
     saveCapability: SAVE_CAPABILITY,
     saveEnabled: true,
     ...overrides,
+  };
+}
+
+function createClassTarget(
+  overrides: Partial<StyleAnalysisPayload['classTargets'][number]> &
+    Pick<StyleAnalysisPayload['classTargets'][number], 'id' | 'className' | 'file' | 'line' | 'column' | 'selector' | 'fingerprint'>
+) {
+  return {
+    ...overrides,
+    label: overrides.label ?? `.${overrides.className}`,
   };
 }
 
@@ -763,6 +774,213 @@ describe('DesignTool', () => {
     cleanup();
   });
 
+  it('shows authored class targets in the panel and previews edits across every matching element', () => {
+    const hot = createHotStub();
+    globalThis.__HAWK_EYE_HOT__ = hot;
+
+    const style = document.createElement('style');
+    style.textContent = '.dense { padding-top: 16px; }';
+    document.head.append(style);
+
+    const target = document.createElement('button');
+    target.className = 'dense';
+    applyBaselineStyles(target, 'demo/src/App.tsx:42:7');
+    mockRect(target, { height: 44, left: 36, top: 72, width: 148 });
+
+    const peer = document.createElement('button');
+    peer.className = 'dense';
+    applyBaselineStyles(peer, 'demo/src/App.tsx:43:7');
+    mockRect(peer, { height: 44, left: 196, top: 72, width: 148 });
+
+    document.body.append(target, peer);
+    setElementFromPoint(target);
+
+    const { cleanup, shadowRoot } = renderDesignTool();
+    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+
+    click(trigger);
+    click(document);
+
+    act(() => {
+      hot.emit('hawk-eye:selection', {
+        source: 'demo/src/App.tsx:42:7',
+        file: 'demo/src/App.tsx',
+        line: 42,
+        column: 7,
+        saveCapability: SAVE_CAPABILITY,
+        saveEnabled: true,
+      });
+      hot.emit(
+        'hawk-eye:style-analysis',
+        createStyleAnalysisPayload({
+          source: 'demo/src/App.tsx:42:7',
+          mode: 'unknown',
+          classNames: ['dense'],
+          classTargets: [
+            createClassTarget({
+              id: 'src/styles.css::dense',
+              className: 'dense',
+              file: 'src/styles.css',
+              line: 1,
+              column: 1,
+              selector: '.dense',
+              fingerprint: 'dense-fp',
+            }),
+          ],
+          fingerprint: 'fp-42-7',
+        })
+      );
+    });
+
+    const classTargetSelect = getInputByLabel(shadowRoot, 'Class target');
+    expect(classTargetSelect.value).toBe('src/styles.css::dense');
+    expect(shadowRoot.textContent).toContain('Editing');
+    expect(shadowRoot.textContent).toContain('Detach');
+
+    updateInput(
+      getControl(shadowRoot, 'paddingTop') as InstanceType<typeof window.HTMLInputElement>,
+      '24px'
+    );
+
+    expect(target.style.paddingTop).toBe('24px');
+    expect(
+      document.head.querySelector('[data-hawk-eye-ui="class-target-preview-style"]')?.textContent
+    ).toContain('.dense');
+    expect(
+      document.head.querySelector('[data-hawk-eye-ui="class-target-preview-style"]')?.textContent
+    ).toContain('padding-top: 24px !important;');
+
+    cleanup();
+    style.remove();
+  });
+
+  it('detaches from a semantic class target and keeps later edits local to the selected element', () => {
+    const hot = createHotStub();
+    globalThis.__HAWK_EYE_HOT__ = hot;
+
+    const style = document.createElement('style');
+    style.textContent = '.dense { padding-top: 16px; }';
+    document.head.append(style);
+
+    const target = document.createElement('button');
+    target.className = 'dense';
+    applyBaselineStyles(target, 'demo/src/App.tsx:52:7');
+    mockRect(target, { height: 44, left: 36, top: 72, width: 148 });
+
+    const peer = document.createElement('button');
+    peer.className = 'dense';
+    applyBaselineStyles(peer, 'demo/src/App.tsx:53:7');
+    mockRect(peer, { height: 44, left: 196, top: 72, width: 148 });
+
+    document.body.append(target, peer);
+    setElementFromPoint(target);
+
+    const { cleanup, shadowRoot } = renderDesignTool();
+    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+
+    click(trigger);
+    click(document);
+
+    act(() => {
+      hot.emit('hawk-eye:selection', {
+        source: 'demo/src/App.tsx:52:7',
+        file: 'demo/src/App.tsx',
+        line: 52,
+        column: 7,
+        saveCapability: SAVE_CAPABILITY,
+        saveEnabled: true,
+      });
+      hot.emit(
+        'hawk-eye:style-analysis',
+        createStyleAnalysisPayload({
+          source: 'demo/src/App.tsx:52:7',
+          mode: 'unknown',
+          classNames: ['dense'],
+          classTargets: [
+            createClassTarget({
+              id: 'src/styles.css::dense',
+              className: 'dense',
+              file: 'src/styles.css',
+              line: 1,
+              column: 1,
+              selector: '.dense',
+              fingerprint: 'dense-fp',
+            }),
+          ],
+          fingerprint: 'fp-52-7',
+        })
+      );
+    });
+
+    const detachButton = shadowRoot.querySelector(
+      '[data-hawk-eye-ui="class-target-bar"] [data-hawk-eye-ui="pill-button"]'
+    );
+
+    if (!(detachButton instanceof window.HTMLButtonElement)) {
+      throw new Error('Missing detach button');
+    }
+
+    click(detachButton);
+
+    expect(shadowRoot.textContent).toContain('Detached from');
+    expect(shadowRoot.querySelector('[aria-label="Class target"]')).toBeNull();
+    expect(
+      document.head.querySelector('[data-hawk-eye-ui="class-target-preview-style"]')?.textContent
+    ).toBe('');
+
+    updateInput(
+      getControl(shadowRoot, 'paddingTop') as InstanceType<typeof window.HTMLInputElement>,
+      '28px'
+    );
+
+    expect(target.style.paddingTop).toBe('28px');
+    expect(window.getComputedStyle(peer).paddingTop).toBe('16px');
+
+    cleanup();
+    style.remove();
+  });
+
+  it('hides the authored class target dropdown for dynamic className selections', () => {
+    const hot = createHotStub();
+    globalThis.__HAWK_EYE_HOT__ = hot;
+
+    const target = document.createElement('button');
+    applyBaselineStyles(target, 'demo/src/App.tsx:61:7');
+    mockRect(target, { height: 44, left: 36, top: 72, width: 148 });
+    document.body.append(target);
+    setElementFromPoint(target);
+
+    const { cleanup, shadowRoot } = renderDesignTool();
+    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+
+    click(trigger);
+    click(document);
+
+    act(() => {
+      hot.emit('hawk-eye:selection', {
+        source: 'demo/src/App.tsx:61:7',
+        file: 'demo/src/App.tsx',
+        line: 61,
+        column: 7,
+        saveCapability: SAVE_CAPABILITY,
+        saveEnabled: true,
+      });
+      hot.emit(
+        'hawk-eye:style-analysis',
+        createStyleAnalysisPayload({
+          source: 'demo/src/App.tsx:61:7',
+          mode: 'unknown',
+          classAttributeState: 'dynamic',
+          classTargets: [],
+          fingerprint: 'fp-61-7',
+        })
+      );
+    });
+
+    expect(shadowRoot.querySelector('[data-hawk-eye-ui="class-target-bar"]')).toBeNull();
+    cleanup();
+  });
+
   it('applies dirty drafts to source only after clicking Update Design and keeps the selection active after a successful write', () => {
     vi.useFakeTimers();
     const hot = createHotStub();
@@ -823,6 +1041,11 @@ describe('DesignTool', () => {
           column: 11,
           detached: false,
           fingerprint: 'fp-52-11',
+          sourceLocation: {
+            file: 'demo/src/App.tsx',
+            line: 52,
+            column: 11,
+          },
           properties: [
             {
               propertyId: 'paddingTop',
@@ -1088,6 +1311,11 @@ describe('DesignTool', () => {
           column: 13,
           detached: false,
           fingerprint: 'fp-105-13',
+          sourceLocation: {
+            file: 'demo/src/App.tsx',
+            line: 105,
+            column: 13,
+          },
           properties: [
             {
               propertyId: 'paddingTop',
@@ -1211,6 +1439,11 @@ describe('DesignTool', () => {
           column: 11,
           detached: false,
           fingerprint: 'fp-68-11',
+          sourceLocation: {
+            file: 'demo/src/App.tsx',
+            line: 68,
+            column: 11,
+          },
           properties: [
             {
               propertyId: 'paddingTop',
@@ -1478,7 +1711,7 @@ describe('DesignTool', () => {
     cleanup();
   });
 
-  it('keeps size controls hidden while grid children still expose span controls', () => {
+  it('keeps size and grid child span controls hidden in v1', () => {
     const flexParent = document.createElement('div');
     flexParent.style.display = 'flex';
     flexParent.style.flexDirection = 'row';
@@ -1522,28 +1755,13 @@ describe('DesignTool', () => {
     setElementFromPoint(gridChild);
     click(document);
 
-    expect(shadowRoot.textContent).toContain('In Parent Grid');
     expect(shadowRoot.querySelector('[data-hawk-eye-control="width"]')).toBeNull();
     expect(shadowRoot.querySelector('[data-hawk-eye-control="height"]')).toBeNull();
-    expect(shadowRoot.querySelector('[data-hawk-eye-control="columnSpan"]')).not.toBeNull();
-    expect(shadowRoot.querySelector('[data-hawk-eye-control="rowSpan"]')).not.toBeNull();
-    expect(getControl(shadowRoot, 'columnSpan').value).toBe('1');
-    expect(getControl(shadowRoot, 'rowSpan').value).toBe('1');
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="columnSpan"]')).toBeNull();
+    expect(shadowRoot.querySelector('[data-hawk-eye-control="rowSpan"]')).toBeNull();
     expect(shadowRoot.querySelector('[data-hawk-eye-control="alignSelf"]')).toBeNull();
     expect(shadowRoot.querySelector('[data-hawk-eye-control="width-mode"]')).toBeNull();
     expect(shadowRoot.querySelector('[data-hawk-eye-control="height-mode"]')).toBeNull();
-
-    updateInput(
-      getControl(shadowRoot, 'columnSpan') as InstanceType<typeof window.HTMLInputElement>,
-      '2'
-    );
-    updateInput(
-      getControl(shadowRoot, 'rowSpan') as InstanceType<typeof window.HTMLInputElement>,
-      '3'
-    );
-
-    expect(gridChild.style.gridColumn).toBe('span 2 / span 2');
-    expect(gridChild.style.gridRow).toBe('span 3 / span 3');
     cleanup();
   });
 
@@ -1791,6 +2009,30 @@ describe('DesignTool', () => {
     expect(getFooterButton(shadowRoot, 'footer-revert-btn').getAttribute('title')).toBe(
       'Revert unsaved changes'
     );
+    expect(getFooterButton(shadowRoot, 'footer-apply-btn').getAttribute('data-variant')).toBe(
+      'compact'
+    );
+    expect(
+      getFooterButton(shadowRoot, 'footer-preview-toggle-btn').getAttribute('data-variant')
+    ).toBe('compact');
+    expect(getFooterButton(shadowRoot, 'footer-revert-btn').getAttribute('data-variant')).toBe(
+      'compact'
+    );
+    expect(
+      getFooterButton(shadowRoot, 'footer-apply-btn').querySelector(
+        '[data-hawk-eye-ui="footer-action-icon-shell"]'
+      )
+    ).not.toBeNull();
+    expect(
+      getFooterButton(shadowRoot, 'footer-apply-btn').querySelector(
+        '[data-hawk-eye-ui="footer-action-label"]'
+      )
+    ).toBeNull();
+    expect(
+      getFooterButton(shadowRoot, 'footer-apply-btn').querySelector(
+        '[data-hawk-eye-ui="sr-only"]'
+      )?.textContent
+    ).toBe('Update Design');
 
     const changesButton = shadowRoot.querySelector(
       '[data-hawk-eye-ui="footer-changes-btn"]'
@@ -1818,15 +2060,15 @@ describe('DesignTool', () => {
     expect(applyButton.getAttribute('data-tone')).toBe('primary');
     expect(hideButton.getAttribute('data-tone')).toBe('secondary');
     expect(resetButton.getAttribute('data-tone')).toBe('secondary');
+    expect(applyButton.getAttribute('data-variant')).toBe('labelled');
+    expect(hideButton.getAttribute('data-variant')).toBe('labelled');
+    expect(resetButton.getAttribute('data-variant')).toBe('labelled');
     expect(applyButton.querySelector('[data-hawk-eye-ui="footer-action-icon-shell"]')).not.toBeNull();
     expect(hideButton.querySelector('[data-hawk-eye-ui="footer-action-icon-shell"]')).not.toBeNull();
     expect(resetButton.querySelector('[data-hawk-eye-ui="footer-action-icon-shell"]')).not.toBeNull();
     expect(applyButton.querySelector('[data-hawk-eye-ui="footer-action-icon"]')).not.toBeNull();
     expect(hideButton.querySelector('[data-hawk-eye-ui="footer-action-icon"]')).not.toBeNull();
     expect(resetButton.querySelector('[data-hawk-eye-ui="footer-action-icon"]')).not.toBeNull();
-    expect(applyButton.querySelector('[data-hawk-eye-ui="footer-button-icon"]')).toBeNull();
-    expect(hideButton.querySelector('[data-hawk-eye-ui="footer-button-icon"]')).toBeNull();
-    expect(resetButton.querySelector('[data-hawk-eye-ui="footer-button-icon"]')).toBeNull();
     expect((applyButton.querySelector('img') as HTMLImageElement | null)?.src).toContain(
       'roller-brush'
     );

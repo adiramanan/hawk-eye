@@ -33,11 +33,11 @@ declare global {
 }
 
 function getImportMetaHot() {
-  return import.meta.hot;
+  return import.meta.hot as unknown as HotClient | undefined;
 }
 
 function getHotClient() {
-  return globalThis.__HAWK_EYE_HOT__ ?? getImportMetaHot();
+  return (globalThis.__HAWK_EYE_HOT__ ?? getImportMetaHot()) as HotClient | undefined;
 }
 
 function createClientId() {

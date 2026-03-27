@@ -1,4 +1,5 @@
 import type {
+  AuthoredClassTarget,
   MutationWarning,
   SizeModeMetadata,
   StyleMode,
@@ -18,6 +19,12 @@ export interface ElementMutation {
   styleMode: StyleMode;
   detached: boolean;
   properties: PropertyMutation[];
+  sourceLocation?: {
+    file: string;
+    line: number;
+    column: number;
+  };
+  classTarget?: AuthoredClassTarget | null;
   sizeModeMetadata?: SizeModeMetadata;
 }
 

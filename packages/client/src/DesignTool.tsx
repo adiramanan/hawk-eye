@@ -1,7 +1,7 @@
 import React, { startTransition, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { HAWK_EYE_SOURCE_ATTRIBUTE } from '../../../shared/protocol';
-import { FOCUSED_PROPERTY_IDS } from './editable-properties';
+import { editablePropertyDefinitionMap, FOCUSED_PROPERTY_IDS } from './editable-properties';
 import {
   applyDraftInputValue,
   applyDraftToElement,
@@ -33,6 +33,7 @@ import {
 } from './size-state';
 import { hawkEyeStyles } from './styles';
 import type {
+  AuthoredClassTarget,
   EditablePropertyId,
   MeasuredElement,
   SavePayload,
@@ -72,6 +73,8 @@ const BORDER_WIDTH_PROPERTY_IDS = new Set<EditablePropertyId>([
   'borderBottomWidth',
   'borderLeftWidth',
 ]);
+const CLASS_TARGET_PREVIEW_STYLE_ID = 'hawk-eye-class-target-preview-style';
+let classTargetPreviewStyleElement: HTMLStyleElement | null = null;
 
 function isTestRuntime() {
   const runtimeProcess = (globalThis as { process?: { env?: Record<string, string | undefined> } })
@@ -83,33 +86,155 @@ function isTestRuntime() {
   );
 }
 
+function getActiveClassTarget(draft: SelectionDraft): AuthoredClassTarget | null {
+  if (draft.detached || draft.classTargets.length === 0) {
+    return null;
+  }
+
+  return (
+    draft.classTargets.find((target) => target.id === draft.activeClassTargetId) ??
+    draft.classTargets[0] ??
+    null
+  );
+}
+
+function getClassTargetSourceLocation(draft: SelectionDraft) {
+  return {
+    file: draft.file,
+    line: draft.line,
+    column: draft.column,
+  };
+}
+
+function getClassTargetPreviewStyleElement() {
+  if (typeof document === 'undefined') {
+    return null;
+  }
+
+  if (classTargetPreviewStyleElement?.isConnected) {
+    return classTargetPreviewStyleElement;
+  }
+
+  const existing = document.getElementById(CLASS_TARGET_PREVIEW_STYLE_ID);
+
+  if (existing instanceof HTMLStyleElement) {
+    classTargetPreviewStyleElement = existing;
+    return existing;
+  }
+
+  const styleElement = document.createElement('style');
+  styleElement.id = CLASS_TARGET_PREVIEW_STYLE_ID;
+  styleElement.setAttribute('data-hawk-eye-ui', 'class-target-preview-style');
+  (document.head ?? document.documentElement).append(styleElement);
+  classTargetPreviewStyleElement = styleElement;
+  return styleElement;
+}
+
+function clearClassTargetPreview() {
+  const styleElement = getClassTargetPreviewStyleElement();
+
+  if (!styleElement) {
+    return;
+  }
+
+  styleElement.textContent = '';
+}
+
+function getClassTargetPreviewCssProperty(propertyId: EditablePropertyId, value: string) {
+  const definition = editablePropertyDefinitionMap[propertyId];
+
+  if (
+    propertyId === 'backgroundColor' &&
+    /(?:gradient\(|url\()/i.test(value.trim())
+  ) {
+    return 'background';
+  }
+
+  return definition?.cssProperty ?? '';
+}
+
+function renderClassTargetPreview(draft: SelectionDraft) {
+  const target = getActiveClassTarget(draft);
+  const styleElement = getClassTargetPreviewStyleElement();
+
+  if (!styleElement) {
+    return;
+  }
+
+  if (!target) {
+    styleElement.textContent = '';
+    return;
+  }
+
+  const dirtyPropertyIds = getDirtyPropertyIds(draft);
+
+  if (dirtyPropertyIds.length === 0) {
+    styleElement.textContent = '';
+    return;
+  }
+
+  const declarations = dirtyPropertyIds
+    .map((propertyId) => {
+      const snapshot = draft.properties[propertyId];
+      const cssProperty = getClassTargetPreviewCssProperty(propertyId, snapshot.value);
+
+      if (!cssProperty) {
+        return null;
+      }
+
+      return `  ${cssProperty}: ${snapshot.value} !important;`;
+    })
+    .filter((value): value is string => Boolean(value));
+
+  styleElement.textContent = declarations.length > 0 ? `${target.selector} {\n${declarations.join('\n')}\n}` : '';
+}
+
+function renderDraftPreview(draft: SelectionDraft) {
+  const element = getInspectableElementByKey(draft.instanceKey);
+
+  if (!element) {
+    clearClassTargetPreview();
+    return;
+  }
+
+  applyDraftToElement(element, draft);
+
+  if (getActiveClassTarget(draft)) {
+    renderClassTargetPreview(draft);
+    return;
+  }
+
+  clearClassTargetPreview();
+}
+
 function buildSavePayload(drafts: SelectionDraft[]): PendingSavePayload {
   const capability = drafts.find((draft) => draft.saveCapability)?.saveCapability;
   const mutations: PendingSavePayload['mutations'] = [];
 
   for (const draft of drafts) {
-    const propertyIds = draft.detached
-      ? Array.from(FOCUSED_PROPERTY_IDS)
-      : getDirtyPropertyIds(draft);
-    const sizeModeMetadata = getDirtySizeModes(draft);
+    const classTarget = getActiveClassTarget(draft);
+    const propertyIds = draft.detached ? Array.from(FOCUSED_PROPERTY_IDS) : getDirtyPropertyIds(draft);
+    const sizeModeMetadata = classTarget ? null : getDirtySizeModes(draft);
     const properties = propertyIds.map((propertyId) => ({
       propertyId,
       oldValue: draft.properties[propertyId].baseline,
       newValue: draft.properties[propertyId].value,
     }));
 
-    if (properties.length === 0 && !sizeModeMetadata.width && !sizeModeMetadata.height) {
+    if (properties.length === 0 && !sizeModeMetadata?.width && !sizeModeMetadata?.height) {
       continue;
     }
 
     mutations.push({
-      file: draft.file,
-      line: draft.line,
-      column: draft.column,
+      file: classTarget?.file ?? draft.file,
+      line: classTarget?.line ?? draft.line,
+      column: classTarget?.column ?? draft.column,
       detached: draft.detached,
       fingerprint: draft.analysisFingerprint,
+      sourceLocation: getClassTargetSourceLocation(draft),
+      ...(classTarget ? { classTarget } : {}),
       properties,
-      ...(sizeModeMetadata.width || sizeModeMetadata.height ? { sizeModeMetadata } : {}),
+      ...(sizeModeMetadata?.width || sizeModeMetadata?.height ? { sizeModeMetadata } : {}),
     });
   }
 
@@ -123,8 +248,16 @@ function mutationMatchesDraft(
   draft: SelectionDraft,
   mutation: PendingSavePayload['mutations'][number]
 ) {
+  const sourceLocation = mutation.sourceLocation ?? {
+    file: mutation.file,
+    line: mutation.line,
+    column: mutation.column,
+  };
+
   return (
-    draft.file === mutation.file && draft.line === mutation.line && draft.column === mutation.column
+    draft.file === sourceLocation.file &&
+    draft.line === sourceLocation.line &&
+    draft.column === sourceLocation.column
   );
 }
 
@@ -527,6 +660,8 @@ function buildSelectionDetails(
     tagName: measured.element.tagName.toLowerCase(),
     classNames: [],
     classAttributeState: 'missing',
+    classTargets: [],
+    activeClassTargetId: null,
     inlineStyles: {},
     styleAttributeState: 'missing',
   };
@@ -581,6 +716,7 @@ function DesignToolRuntime() {
   const [drafts, setDrafts] = useState<Record<string, SelectionDraft>>({});
   const [hovered, setHovered] = useState<MeasuredElement | null>(null);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const [previewEditsVisible, setPreviewEditsVisible] = useState(true);
   const [savePending, setSavePending] = useState(false);
   const [saveResult, setSaveResult] = useState<SaveResult | null>(null);
   const [selected, setSelected] = useState<MeasuredElement | null>(null);
@@ -597,6 +733,7 @@ function DesignToolRuntime() {
   const selectedRef = useRef<MeasuredElement | null>(null);
   const selectedInstanceKeyRef = useRef<string | null>(null);
   const syncMeasurementsFrameRef = useRef(0);
+  const previewEditsVisibleRef = useRef(true);
 
   useEffect(() => {
     draftsRef.current = drafts;
@@ -609,6 +746,10 @@ function DesignToolRuntime() {
   useEffect(() => {
     selectedRef.current = selected;
   }, [selected]);
+
+  useEffect(() => {
+    previewEditsVisibleRef.current = previewEditsVisible;
+  }, [previewEditsVisible]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
@@ -696,6 +837,8 @@ function DesignToolRuntime() {
       }
     }
 
+    clearClassTargetPreview();
+
     setDrafts({});
     setHovered(null);
     setSelected(null);
@@ -704,6 +847,15 @@ function DesignToolRuntime() {
 
   function clearSaveFeedback() {
     setSaveResult(null);
+  }
+
+  function syncSelectedDraftPreview(draft: SelectionDraft | null) {
+    if (!draft || !previewEditsVisibleRef.current) {
+      clearClassTargetPreview();
+      return;
+    }
+
+    renderDraftPreview(draft);
   }
 
   function rebindSelectedDraftToMeasurement(
@@ -788,7 +940,7 @@ function DesignToolRuntime() {
       const nextDraft = draftOverride ?? draftsRef.current[instanceKey];
 
       if (nextDraft) {
-        applyDraftToElement(nextMeasurement.element, nextDraft);
+        syncSelectedDraftPreview(nextDraft);
       }
     }
 
@@ -807,7 +959,7 @@ function DesignToolRuntime() {
       ? mergeSelectionDraft(currentDraft, details)
       : createSelectionDraft(details, measured.element);
 
-    applyDraftToElement(measured.element, nextDraft);
+    syncSelectedDraftPreview(nextDraft);
     setDrafts((current) => ({
       ...current,
       [measured.instanceKey]: nextDraft,
@@ -1057,7 +1209,7 @@ function DesignToolRuntime() {
         properties: nextProperties,
         sizeControl: nextSizeControl,
       };
-      applyDraftToElement(element, updatedDraft);
+      syncSelectedDraftPreview(updatedDraft);
       nextDraft = updatedDraft;
 
       return {
@@ -1223,7 +1375,7 @@ function DesignToolRuntime() {
         properties: nextProperties,
         sizeControl: nextSizeControl,
       };
-      applyDraftToElement(element, updatedDraft);
+      syncSelectedDraftPreview(updatedDraft);
       nextDraft = updatedDraft;
 
       return {
@@ -1310,6 +1462,44 @@ function DesignToolRuntime() {
 
     if (nextDraft) {
       refreshSelectedMeasurement(instanceKey, nextDraft);
+    }
+  }
+
+  function changeClassTarget(targetId: string) {
+    clearSaveFeedback();
+    const instanceKey = selectedInstanceKey;
+
+    if (!instanceKey) {
+      return;
+    }
+
+    let nextDraft: SelectionDraft | null = null;
+
+    setDrafts((current) => {
+      const currentDraft = current[instanceKey];
+
+      if (!currentDraft || currentDraft.detached) {
+        return current;
+      }
+
+      if (!currentDraft.classTargets.some((target) => target.id === targetId)) {
+        return current;
+      }
+
+      const updatedDraft = {
+        ...currentDraft,
+        activeClassTargetId: targetId,
+      };
+      nextDraft = updatedDraft;
+
+      return {
+        ...current,
+        [instanceKey]: updatedDraft,
+      };
+    });
+
+    if (nextDraft) {
+      syncSelectedDraftPreview(nextDraft);
     }
   }
 
@@ -1407,6 +1597,8 @@ function DesignToolRuntime() {
                 tagName: draft.tagName,
                 classNames: draft.classNames,
                 classAttributeState: draft.classAttributeState,
+                classTargets: draft.classTargets,
+                activeClassTargetId: draft.activeClassTargetId,
                 inlineStyles: draft.inlineStyles,
                 styleAttributeState: draft.styleAttributeState,
               }),
@@ -1447,6 +1639,13 @@ function DesignToolRuntime() {
                 styleAnalysisResolved: true,
                 classNames: payload.classNames,
                 classAttributeState: payload.classAttributeState,
+                classTargets: draft.detached ? draft.classTargets : payload.classTargets,
+                activeClassTargetId: draft.detached
+                  ? draft.activeClassTargetId
+                  : draft.activeClassTargetId &&
+                      payload.classTargets.some((target) => target.id === draft.activeClassTargetId)
+                    ? draft.activeClassTargetId
+                    : payload.classTargets[0]?.id ?? null,
                 inlineStyles: payload.inlineStyles,
                 saveCapability: payload.saveCapability,
                 saveEnabled: payload.saveEnabled,
@@ -1834,6 +2033,20 @@ function DesignToolRuntime() {
     (draft) => getDynamicClassPersistenceState(draft) === 'unsupported-dynamic-style'
   );
 
+  useEffect(() => {
+    if (!enabled || !previewEditsVisible) {
+      clearClassTargetPreview();
+      return;
+    }
+
+    if (!selectedDraft) {
+      clearClassTargetPreview();
+      return;
+    }
+
+    syncSelectedDraftPreview(selectedDraft);
+  }, [enabled, previewEditsVisible, selectedDraft]);
+
   let saveBlockedReason: string | null = null;
   let saveBlockedState: 'error' | 'pending' = 'pending';
 
@@ -1902,6 +2115,9 @@ function DesignToolRuntime() {
   }
 
   function handleTogglePreviewEdits(visible: boolean) {
+    setPreviewEditsVisible(visible);
+    previewEditsVisibleRef.current = visible;
+
     for (const draft of pendingDrafts) {
       if (visible) {
         const element = getInspectableElementByKey(draft.instanceKey);
@@ -1909,6 +2125,12 @@ function DesignToolRuntime() {
       } else {
         clearDraftOverrides(draft);
       }
+    }
+
+    if (!visible) {
+      clearClassTargetPreview();
+    } else if (selectedDraft) {
+      syncSelectedDraftPreview(selectedDraft);
     }
   }
 
@@ -1939,6 +2161,7 @@ function DesignToolRuntime() {
       hovered={hovered}
       motionTimings={motionTimings}
       onChange={updateDraftProperty}
+      onChangeClassTarget={changeClassTarget}
       onChangeSizeMode={updateSizeMode}
       onChangeSizeValue={updateSizeProperty}
       onDetach={detachSelectedDraft}

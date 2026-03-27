@@ -70,8 +70,10 @@ interface PropertiesPanelProps {
   selectedDraft: SelectionDraft;
   context: ElementContext;
   onChange(propertyId: EditablePropertyId, value: string): void;
+  onChangeClassTarget(targetId: string): void;
   onChangeSizeMode(axis: SizeAxis, mode: SizeMode): void;
   onChangeSizeValue(axis: SizeAxis, value: string): void;
+  onDetach(): void;
   onResetAll(): void;
   onResetProperty(instanceKey: string, propertyId: EditablePropertyId): void;
   onToggleAspectRatioLock(): void;
@@ -400,6 +402,63 @@ function card(
       scrubLabel={scrubLabel}
       selectedDraft={props.selectedDraft}
     />
+  );
+}
+
+function ClassTargetBar({
+  selectedDraft,
+  onChangeClassTarget,
+  onDetach,
+}: {
+  selectedDraft: SelectionDraft;
+  onChangeClassTarget(targetId: string): void;
+  onDetach(): void;
+}) {
+  const classTargets = selectedDraft.classTargets;
+
+  if (classTargets.length === 0) {
+    return null;
+  }
+
+  const activeTarget =
+    classTargets.find((target) => target.id === selectedDraft.activeClassTargetId) ??
+    classTargets[0];
+
+  if (!activeTarget) {
+    return null;
+  }
+
+  return (
+    <div data-hawk-eye-ui="class-target-bar">
+      <span data-hawk-eye-ui="class-target-label">
+        {selectedDraft.detached ? 'Detached from' : 'Editing'}
+      </span>
+      {selectedDraft.detached ? (
+        <span data-hawk-eye-ui="class-target-value">{activeTarget.label}</span>
+      ) : (
+        <>
+          <select
+            aria-label="Class target"
+            data-hawk-eye-ui="select-input"
+            onChange={(event) => onChangeClassTarget(event.currentTarget.value)}
+            value={activeTarget.id}
+          >
+            {classTargets.map((target) => (
+              <option key={target.id} value={target.id}>
+                {target.label}
+              </option>
+            ))}
+          </select>
+          <button
+            data-hawk-eye-ui="pill-button"
+            onClick={onDetach}
+            type="button"
+          >
+            Detach
+          </button>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -791,23 +850,6 @@ function LayoutSection(props: SectionProps) {
           </div>
         )}
 
-        {/* Grid Child Properties — only when parent is grid */}
-        {parentIsGrid && (
-          <div data-hawk-eye-ui="labelled-single">
-            <span data-hawk-eye-ui="input-label">In Parent Grid</span>
-            <div data-hawk-eye-ui="labelled-row">
-              <div data-hawk-eye-ui="labelled-col">
-                <span data-hawk-eye-ui="input-label">Column Span</span>
-                {card('columnSpan', props)}
-              </div>
-              <div data-hawk-eye-ui="labelled-col">
-                <span data-hawk-eye-ui="input-label">Row Span</span>
-                {card('rowSpan', props)}
-              </div>
-            </div>
-          </div>
-        )}
-
       </div>
     </CollapsibleSection>
   );
@@ -816,9 +858,6 @@ function LayoutSection(props: SectionProps) {
 // ── Spacing Section ──────────────────────────────────────────────────────
 
 function SizeSpacingSection(props: SectionProps) {
-  const parentDisplay = props.selectedDraft.context.parentDisplay;
-  const parentIsGrid = parentDisplay === 'grid' || parentDisplay === 'inline-grid';
-
   return (
     <CollapsibleSection
       defaultExpanded
@@ -827,22 +866,6 @@ function SizeSpacingSection(props: SectionProps) {
       title="Spacing"
     >
       <div data-hawk-eye-ui="section-stack">
-        {parentIsGrid && (
-          <div data-hawk-eye-ui="labelled-single">
-            <span data-hawk-eye-ui="input-label">In Parent Grid</span>
-            <div data-hawk-eye-ui="labelled-row">
-              <div data-hawk-eye-ui="labelled-col">
-                <span data-hawk-eye-ui="input-label">Column Span</span>
-                {card('columnSpan', props)}
-              </div>
-              <div data-hawk-eye-ui="labelled-col">
-                <span data-hawk-eye-ui="input-label">Row Span</span>
-                {card('rowSpan', props)}
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Padding PerSideCard */}
         <PerSideCard
           cardId="padding"
@@ -1224,10 +1247,12 @@ export function PropertiesPanel({
   selectedDraft,
   context,
   onChange,
+  onChangeClassTarget,
   onChangeSizeMode,
   onChangeSizeValue,
   onResetAll: _onResetAll,
   onResetProperty,
+  onDetach,
   onToggleAspectRatioLock,
 }: PropertiesPanelProps) {
   const sectionProps: SectionProps = {
@@ -1246,6 +1271,11 @@ export function PropertiesPanel({
 
   return (
     <section data-hawk-eye-ui="property-stack">
+      <ClassTargetBar
+        onChangeClassTarget={onChangeClassTarget}
+        onDetach={onDetach}
+        selectedDraft={selectedDraft}
+      />
       <LayoutSection key="layout" {...sectionProps} />
       <SizeSpacingSection key="sizeSpacing" {...sectionProps} />
       <AppearanceSection key="appearance" {...sectionProps} />

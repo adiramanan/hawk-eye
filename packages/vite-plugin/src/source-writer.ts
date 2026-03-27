@@ -1,3 +1,4 @@
+import { readFileSync, writeFileSync } from 'node:fs';
 import {
   Node,
   Project,
@@ -18,6 +19,9 @@ import {
   findJsxElementAtPosition as findJsxElementAtPositionFromAnalyzer,
   type StyleMode,
 } from './style-analyzer';
+import {
+  updateAuthoredClassTargetDeclarationText,
+} from './stylesheet-index';
 import {
   cssToTailwindClass,
   isTailwindRoundTripSupported,
@@ -48,6 +52,13 @@ interface LoadedSourceFile {
   originalText: string;
   relativeFile: string;
   sourceFile: SourceFile;
+}
+
+interface LoadedStyleFile {
+  absoluteFile: string;
+  originalText: string;
+  relativeFile: string;
+  text: string;
 }
 
 interface ClassMutationResult {
@@ -510,6 +521,10 @@ function getCompanionInlineMutations(mutation: ElementMutation): PropertyMutatio
   return nextMutations;
 }
 
+function isClassTargetMutation(mutation: ElementMutation) {
+  return Boolean(mutation.classTarget);
+}
+
 function applyElementMutation(
   node: JsxOpeningLike,
   mutation: ElementMutation,
@@ -591,6 +606,77 @@ function applyElementMutation(
   );
 }
 
+function applyClassTargetMutation(
+  root: string,
+  mutation: ElementMutation,
+  loadedStyleFiles: Map<string, LoadedStyleFile>,
+  warnings: MutationWarning[]
+) {
+  if (!mutation.classTarget) {
+    return;
+  }
+
+  const resolvedFile = resolveWorkspaceFile(root, mutation.file);
+  if (!resolvedFile.ok) {
+    warnings.push({
+      code:
+        resolvedFile.reason === 'file-not-found' ? 'file-not-found' : 'path-outside-root',
+      file: mutation.file,
+      line: mutation.line,
+      column: mutation.column,
+      message:
+        resolvedFile.reason === 'symlink-not-allowed'
+          ? `Skipped ${mutation.file} because symlinked source targets are not allowed.`
+          : `Skipped ${mutation.file} because it is not a valid workspace source path.`,
+    });
+    return;
+  }
+
+  let loadedStyleFile = loadedStyleFiles.get(resolvedFile.value.absoluteFile);
+
+  if (!loadedStyleFile) {
+    const text = readFileSync(resolvedFile.value.absoluteFile, 'utf8');
+    loadedStyleFile = {
+      absoluteFile: resolvedFile.value.absoluteFile,
+      originalText: text,
+      relativeFile: mutation.file,
+      text,
+    };
+    loadedStyleFiles.set(resolvedFile.value.absoluteFile, loadedStyleFile);
+  }
+
+  let nextText = loadedStyleFile.text;
+
+  for (const propertyMutation of mutation.properties) {
+    const propertyName = getInlineCssProperty(propertyMutation);
+    const nextResult = updateAuthoredClassTargetDeclarationText(
+      {
+        ...mutation.classTarget,
+        absoluteFile: resolvedFile.value.absoluteFile,
+      },
+      nextText,
+      propertyName,
+      propertyMutation.newValue
+    );
+
+    if (!nextResult) {
+      warnings.push({
+        code: 'stale-class-target',
+        file: mutation.file,
+        line: mutation.line,
+        column: mutation.column,
+        propertyId: propertyMutation.propertyId,
+        message: `Skipped ${propertyMutation.propertyId} because the class target could not be resolved.`,
+      });
+      continue;
+    }
+
+    nextText = nextResult.nextText;
+  }
+
+  loadedStyleFile.text = nextText;
+}
+
 function getOrLoadSourceFile(
   project: Project,
   loadedFiles: Map<string, LoadedSourceFile>,
@@ -625,9 +711,15 @@ export function writeSourceMutations(
 ): SourceWriteResult {
   const project = createProject();
   const loadedFiles = new Map<string, LoadedSourceFile>();
+  const loadedStyleFiles = new Map<string, LoadedStyleFile>();
   const warnings: MutationWarning[] = [];
 
   for (const mutation of payload.mutations) {
+    if (isClassTargetMutation(mutation)) {
+      applyClassTargetMutation(root, mutation, loadedStyleFiles, warnings);
+      continue;
+    }
+
     const resolvedFile = resolveWorkspaceFile(root, mutation.file);
 
     if (!resolvedFile.ok) {
@@ -670,6 +762,14 @@ export function writeSourceMutations(
     applyElementMutation(jsxElement, mutation, warnings);
   }
 
+  for (const loadedStyleFile of loadedStyleFiles.values()) {
+    if (loadedStyleFile.text === loadedStyleFile.originalText) {
+      continue;
+    }
+
+    writeFileSync(loadedStyleFile.absoluteFile, loadedStyleFile.text, 'utf8');
+  }
+
   const modifiedFiles: string[] = [];
 
   for (const loadedSourceFile of loadedFiles.values()) {
@@ -679,6 +779,14 @@ export function writeSourceMutations(
 
     loadedSourceFile.sourceFile.saveSync();
     modifiedFiles.push(loadedSourceFile.relativeFile);
+  }
+
+  for (const loadedStyleFile of loadedStyleFiles.values()) {
+    if (loadedStyleFile.text === loadedStyleFile.originalText) {
+      continue;
+    }
+
+    modifiedFiles.push(loadedStyleFile.relativeFile);
   }
 
   return {

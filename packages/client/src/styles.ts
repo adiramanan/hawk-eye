@@ -629,17 +629,6 @@ export const hawkEyeStyles = `
   [data-hawk-eye-ui="footer-preview-toggle-btn"] img,
   [data-hawk-eye-ui="footer-hide-btn"] img,
   [data-hawk-eye-ui="footer-revert-btn"] img,
-  [data-hawk-eye-ui="footer-button-icon"] {
-    width: 16px;
-    height: 16px;
-    flex-shrink: 0;
-    display: block;
-  }
-
-  [data-hawk-eye-ui="footer-button-label"] {
-    white-space: nowrap;
-  }
-
   [data-hawk-eye-ui="sr-only"] {
     position: absolute;
     width: var(--spacing-1px);
@@ -1719,6 +1708,36 @@ export const hawkEyeStyles = `
     border-color: var(--he-ring);
     background-color: #434343;
     box-shadow: 0 0 0 var(--spacing-xs) color-mix(in srgb, var(--he-ring) 18%, transparent);
+  }
+
+  [data-hawk-eye-ui="class-target-bar"] {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-md);
+    min-width: 0;
+  }
+
+  [data-hawk-eye-ui="class-target-label"] {
+    color: var(--he-label);
+    flex-shrink: 0;
+    font-family: var(--he-font-ui);
+    font-size: 11px;
+    letter-spacing: -0.2px;
+    line-height: 1;
+  }
+
+  [data-hawk-eye-ui="class-target-value"] {
+    color: var(--he-fg);
+    font-family: var(--he-font-ui);
+    font-size: 11px;
+    letter-spacing: -0.2px;
+    line-height: 1;
+  }
+
+  [data-hawk-eye-ui="class-target-bar"] [data-hawk-eye-ui="select-input"] {
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   /* ── Segmented control ───────────────────────────────────────── */

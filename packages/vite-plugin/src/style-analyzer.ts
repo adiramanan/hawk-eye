@@ -8,6 +8,7 @@ import {
   type SourceFile,
 } from 'ts-morph';
 import type {
+  AuthoredClassTarget,
   ClassAttributeState,
   StyleAttributeState,
   StyleMode,
@@ -19,6 +20,7 @@ export type {
 } from '../../../shared/protocol';
 
 export interface StyleAnalysisResult {
+  classTargets?: AuthoredClassTarget[];
   mode: StyleMode;
   classNames: string[];
   inlineStyles: Record<string, string>;

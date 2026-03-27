@@ -13,6 +13,23 @@ export type SizeMode = 'fixed' | 'hug' | 'fill' | 'relative';
 export type ClassAttributeState = 'literal' | 'dynamic' | 'missing';
 export type StyleAttributeState = 'object' | 'expression' | 'dynamic' | 'missing';
 
+export interface SourceLocation {
+  file: string;
+  line: number;
+  column: number;
+}
+
+export interface AuthoredClassTarget {
+  id: string;
+  className: string;
+  label: string;
+  file: string;
+  line: number;
+  column: number;
+  selector: string;
+  fingerprint: string;
+}
+
 export interface InspectRequest {
   clientId: string;
   source: string;
@@ -33,6 +50,7 @@ export interface StyleAnalysisPayload {
   classNames: string[];
   inlineStyles: Record<string, string>;
   classAttributeState: ClassAttributeState;
+  classTargets: AuthoredClassTarget[];
   styleAttributeState: StyleAttributeState;
   fingerprint: string;
   saveCapability: SaveCapability | null;
@@ -57,6 +75,8 @@ export interface ElementMutationRequest {
   detached: boolean;
   fingerprint: string;
   properties: ClientPropertyMutation[];
+  sourceLocation?: SourceLocation;
+  classTarget?: AuthoredClassTarget | null;
   sizeModeMetadata?: SizeModeMetadata;
 }
 
@@ -74,6 +94,7 @@ export type MutationWarningCode =
   | 'path-outside-root'
   | 'save-disabled'
   | 'stale-selection'
+  | 'stale-class-target'
   | 'unsupported-dynamic-class'
   | 'unsupported-dynamic-style'
   | 'unsupported-tailwind-property';

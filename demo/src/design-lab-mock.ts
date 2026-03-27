@@ -102,6 +102,8 @@ export function mockSelectionDraft(): SelectionDraft {
     instanceKey: 'mock-inspector-panel',
     classNames: [],
     classAttributeState: 'missing',
+    classTargets: [],
+    activeClassTargetId: null,
     inlineStyles: {},
     styleAttributeState: 'missing',
     styleAnalysisResolved: true,
