@@ -160,7 +160,7 @@ export default function App() {
                   {runtimeFacts.map((fact) => (
                     <div className="he-fact-row" key={fact.label}>
                       <span className="text-sm text-slate-300">{fact.label}</span>
-                      <span className="he-status-chip" data-tone={fact.tone}>
+                      <span className="he-status-chip" data-tone={fact.tone} style={{ color: "rgb(116, 174, 255)" }}>
                         {fact.value}
                       </span>
                     </div>
@@ -168,7 +168,9 @@ export default function App() {
                 </div>
                 <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
                   <p className="he-panel-label he-panel-label-dark">Public entrypoints</p>
-                  <code className="he-code mt-3" style={{ fontFamily: "SFMono-Regular, Menlo, Monaco, monospace" }}>hawk-eye · hawk-eye/vite</code>
+                  <code className="he-code mt-3" style={{ fontFamily: "SFMono-Regular, Menlo, Monaco, monospace",
+                      textAlign: "center"
+                }}>hawk-eye · hawk-eye/vite</code>
                 </div>
               </aside>
             </div>

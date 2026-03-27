@@ -30,6 +30,22 @@ interface ApplyInputResult {
 }
 
 const INSTANCE_KEY_SEPARATOR = '@@';
+const AUTHORED_SIZE_PROPERTY_IDS = new Set([
+  'width',
+  'height',
+  'minWidth',
+  'maxWidth',
+  'minHeight',
+  'maxHeight',
+]);
+const SIZE_KEYWORD_PROPERTY_IDS = new Set([
+  'width',
+  'height',
+  'minWidth',
+  'maxWidth',
+  'minHeight',
+  'maxHeight',
+]);
 const elementInstanceKeyCache = new WeakMap<
   HTMLElement,
   {
@@ -288,6 +304,16 @@ function buildElementContext(element: HTMLElement): ElementContext {
     'sup','dt','dd','figcaption','button'
   ]);
   const REPLACED_TAGS = new Set(['img','video','canvas','iframe','input','select','textarea']);
+  const NON_SIZABLE_DISPLAYS = new Set([
+    'contents',
+    'inline',
+    'table-column',
+    'table-column-group',
+    'table-footer-group',
+    'table-header-group',
+    'table-row',
+    'table-row-group',
+  ]);
 
   const tagName = element.tagName.toLowerCase();
   const isTextElement = TEXT_TAGS.has(tagName);
@@ -315,17 +341,38 @@ function buildElementContext(element: HTMLElement): ElementContext {
     // Ignore errors from getComputedStyle (e.g., in jsdom with isolated contexts)
   }
 
+  let computedDisplay = 'block';
   // Detect parent display for context-aware child property visibility
   let parentDisplay = 'block';
   try {
-    if (typeof window !== 'undefined' && element.parentElement) {
-      parentDisplay = window.getComputedStyle(element.parentElement).display || 'block';
+    if (typeof window !== 'undefined') {
+      computedDisplay = window.getComputedStyle(element).display || 'block';
+
+      if (element.parentElement) {
+        parentDisplay = window.getComputedStyle(element.parentElement).display || 'block';
+      }
     }
   } catch {
     // Ignore errors
   }
 
-  return { tagName, isTextElement, hasDirectText, hasNonDefaultTypography, isReplaced, parentDisplay };
+  const supportsExplicitSizing =
+    isReplaced || !NON_SIZABLE_DISPLAYS.has(computedDisplay);
+
+  return {
+    tagName,
+    isTextElement,
+    hasDirectText,
+    hasNonDefaultTypography,
+    isReplaced,
+    computedDisplay,
+    supportsExplicitSizing,
+    parentDisplay,
+  };
+}
+
+function shouldPreserveNonNumericBaseline(propertyId: EditablePropertyId) {
+  return SIZE_KEYWORD_PROPERTY_IDS.has(propertyId);
 }
 
 export function createSelectionDraft(
@@ -336,13 +383,15 @@ export function createSelectionDraft(
   const properties = {} as SelectionDraft['properties'];
 
   for (const definition of editablePropertyDefinitions) {
-    const rawBaseline =
-      computedStyle.getPropertyValue(definition.cssProperty).trim() ||
-      element.style.getPropertyValue(definition.cssProperty).trim();
     const inlineValue = element.style.getPropertyValue(definition.cssProperty).trim();
+    const computedValue = computedStyle.getPropertyValue(definition.cssProperty).trim();
+    const rawBaseline = AUTHORED_SIZE_PROPERTY_IDS.has(definition.id)
+      ? inlineValue || computedValue
+      : computedValue || inlineValue;
     const baseline =
       definition.control === 'number' &&
       !['gridColumns', 'gridRows'].includes(definition.id) &&
+      !shouldPreserveNonNumericBaseline(definition.id) &&
       rawBaseline &&
       isNaN(parseFloat(rawBaseline))
         ? ''
@@ -478,7 +527,16 @@ export function applyDraftInputValue(
 ): ApplyInputResult {
   const definition = editablePropertyDefinitionMap[propertyId];
   const isOpacityControl = definition.id === 'opacity';
-  let candidate = isOpacityControl ? clampOpacity(rawValue.trim()) : rawValue.trim();
+  const trimmedRawValue = rawValue.trim();
+  let candidate = isOpacityControl ? clampOpacity(trimmedRawValue) : trimmedRawValue;
+
+  if (propertyId === 'display') {
+    if (trimmedRawValue === 'block') {
+      candidate = snapshot.baseline && snapshot.baseline !== 'none' ? snapshot.baseline : 'block';
+    } else if (trimmedRawValue === 'none') {
+      candidate = 'none';
+    }
+  }
 
   // Handle CSS value transforms (e.g., numeric input → repeat(), or spans)
   // Only transform plain numerals; already-valid CSS like "auto" or

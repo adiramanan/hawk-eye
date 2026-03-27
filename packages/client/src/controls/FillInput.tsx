@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { EditablePropertyDefinition, PropertySnapshot } from '../types';
 import { ColorInput } from './ColorInput';
 import { GradientEditor } from './GradientEditor';
@@ -38,6 +38,8 @@ const DEFAULT_GRADIENT = 'linear-gradient(90deg, #ff0000 0%, #0000ff 100%)';
  * Convert between fill modes when switching tabs
  */
 function convertFillMode(currentValue: string, fromMode: FillMode, toMode: FillMode): string {
+  void fromMode;
+
   if (toMode === 'none') {
     return 'none';
   }
@@ -53,8 +55,7 @@ function convertFillMode(currentValue: string, fromMode: FillMode, toMode: FillM
   }
 
   if (toMode === 'image') {
-    // Default image fill
-    return "url('https://example.com/image.jpg') cover center no-repeat";
+    return "url('./assets/image.png') center / cover no-repeat";
   }
 
   return currentValue;
@@ -82,6 +83,10 @@ export function FillInput({ snapshot, onChange }: FillInputProps) {
   const currentValue = snapshot.inputValue || snapshot.baseline || '';
   const detectedMode = detectFillMode(currentValue);
   const [activeMode, setActiveMode] = useState<FillMode>(detectedMode);
+
+  useEffect(() => {
+    setActiveMode(detectedMode);
+  }, [detectedMode]);
 
   function switchMode(newMode: FillMode) {
     if (newMode === activeMode) return;

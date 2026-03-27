@@ -1,4 +1,8 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import applyButtonIconSrc from './icons/Icon=roller-brush, Style=active.svg';
+import hideButtonIconSrc from './icons/Icon=Hide button icon, Style=inactive.svg';
+import refreshButtonIconSrc from './icons/Icon=Refresh button icon, Style=inactive.svg';
+import { FooterActionButton } from './components/FooterActionButton';
 import { LayersPanel, makeDisplayLabel } from './LayersPanel';
 import { PropertiesPanel } from './PropertiesPanel';
 import type {
@@ -147,43 +151,46 @@ function RefreshIcon() {
   );
 }
 
-function EyeIcon() {
-  return (
-    <svg fill="none" height="16" viewBox="0 0 20 20" width="16" xmlns="http://www.w3.org/2000/svg">
-      <path
-        d="M2.01677 10.5942C1.90328 10.2153 1.90328 9.78473 2.01677 9.40582C3.0945 5.91689 6.25376 3.33333 10 3.33333C13.7462 3.33333 16.9055 5.91689 17.9832 9.40582C18.0967 9.78473 18.0967 10.2153 17.9832 10.5942C16.9055 14.0831 13.7462 16.6667 10 16.6667C6.25376 16.6667 3.0945 14.0831 2.01677 10.5942Z"
-        stroke="currentColor" strokeWidth="1.25"
-      />
-      <path
-        d="M12.5 10C12.5 11.3807 11.3807 12.5 10 12.5C8.61929 12.5 7.5 11.3807 7.5 10C7.5 8.61929 8.61929 7.5 10 7.5C11.3807 7.5 12.5 8.61929 12.5 10Z"
-        stroke="currentColor" strokeWidth="1.25"
-      />
-    </svg>
-  );
+interface FooterButtonProps {
+  active?: boolean;
+  ariaLabel: string;
+  disabled?: boolean;
+  iconSrc: string;
+  label: string;
+  onClick(): void;
+  title: string;
+  ui: string;
+  visibleLabel?: boolean;
 }
 
-function EyeOffIcon() {
+function FooterButton({
+  active,
+  ariaLabel,
+  disabled,
+  iconSrc,
+  label,
+  onClick,
+  title,
+  ui,
+  visibleLabel = false,
+}: FooterButtonProps) {
   return (
-    <svg fill="none" height="16" viewBox="0 0 20 20" width="16" xmlns="http://www.w3.org/2000/svg">
-      <path
-        d="M2.5 2.5L17.5 17.5M8.81946 8.81946C8.3123 9.32662 8 10.0266 8 10.8C8 12.3464 9.34315 13.6 11 13.6C11.7734 13.6 12.4734 13.2877 12.9806 12.7806M6.02137 5.02137C4.23462 6.05984 2.81004 7.69303 2.01677 9.65247C1.90328 9.94386 1.90328 10.2728 2.01677 10.5642C3.0945 13.5832 6.25376 15.8333 10 15.8333C11.5842 15.8333 13.065 15.3956 14.3188 14.6372M9.11096 5.02637C9.40256 4.98726 9.699 4.96667 10 4.96667C13.7462 4.96667 16.9055 7.2168 17.9832 10.2357C18.0967 10.5271 18.0967 10.8561 17.9832 11.1475C17.5501 12.3085 16.8396 13.3401 15.9188 14.1667"
-        stroke="currentColor" strokeLinecap="round" strokeWidth="1.25"
-      />
-    </svg>
-  );
-}
-
-function BrushIcon() {
-  return (
-    <svg fill="none" height="16" viewBox="0 0 20 20" width="16" xmlns="http://www.w3.org/2000/svg">
-      <path
-        d="M15.8333 3.74984C15.8333 4.13705 15.8333 4.33066 15.8013 4.49165C15.6698 5.15281 15.153 5.66964 14.4918 5.80115C14.3308 5.83317 14.1372 5.83317 13.75 5.83317H4.58333C4.19612 5.83317 4.00251 5.83317 3.84152 5.80115C3.18037 5.66964 2.66354 5.15281 2.53202 4.49165C2.5 4.33066 2.5 4.13705 2.5 3.74984C2.5 3.36262 2.5 3.16902 2.53202 3.00802C2.66354 2.34687 3.18037 1.83004 3.84152 1.69853C4.00251 1.6665 4.19612 1.6665 4.58333 1.6665H13.75C14.1372 1.6665 14.3308 1.6665 14.4918 1.69853C15.153 1.83004 15.6698 2.34687 15.8013 3.00802C15.8333 3.16902 15.8333 3.36262 15.8333 3.74984ZM15.8333 3.74984C16.6099 3.74984 16.9982 3.74984 17.3045 3.8767C17.7129 4.04586 18.0373 4.37032 18.2065 4.7787C18.3333 5.08498 18.3333 5.47327 18.3333 6.24984V6.49984C18.3333 7.43326 18.3333 7.89997 18.1517 8.25649C17.9919 8.57009 17.7369 8.82506 17.4233 8.98485C17.0668 9.1665 16.6001 9.1665 15.6667 9.1665H12.6667C11.7332 9.1665 11.2665 9.1665 10.91 9.34816C10.5964 9.50795 10.3414 9.76292 10.1817 10.0765C10 10.433 10 10.8998 10 11.8332V12.4998M9.66667 18.3332H10.3333C10.8 18.3332 11.0334 18.3332 11.2117 18.2423C11.3685 18.1624 11.4959 18.035 11.5758 17.8782C11.6667 17.6999 11.6667 17.4665 11.6667 16.9998V13.8332C11.6667 13.3665 11.6667 13.1331 11.5758 12.9548C11.4959 12.798 11.3685 12.6706 11.2117 12.5907C11.0334 12.4998 10.8 12.4998 10.3333 12.4998H9.66667C9.19996 12.4998 8.9666 12.4998 8.78834 12.5907C8.63154 12.6706 8.50406 12.798 8.42416 12.9548C8.33333 13.1331 8.33333 13.3665 8.33333 13.8332V16.9998C8.33333 17.4665 8.33333 17.6999 8.42416 17.8782C8.50406 18.035 8.63154 18.1624 8.78834 18.2423C8.9666 18.3332 9.19996 18.3332 9.66667 18.3332Z"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.25"
-      />
-    </svg>
+    <button
+      aria-label={ariaLabel}
+      data-active={active ? 'true' : undefined}
+      data-hawk-eye-ui={ui}
+      disabled={disabled}
+      onClick={onClick}
+      title={title}
+      type="button"
+    >
+      <img alt="" aria-hidden="true" data-hawk-eye-ui="footer-button-icon" draggable={false} src={iconSrc} />
+      {visibleLabel ? (
+        <span data-hawk-eye-ui="footer-button-label">{label}</span>
+      ) : (
+        <span data-hawk-eye-ui="sr-only">{label}</span>
+      )}
+    </button>
   );
 }
 
@@ -193,10 +200,6 @@ function getDefaultPanelPos() {
     x: Math.max(PANEL_VIEWPORT_GUTTER, window.innerWidth - PANEL_WIDTH - PANEL_VIEWPORT_GUTTER),
     y: 16,
   };
-}
-
-function formatMeasurement(value: number) {
-  return Math.max(0, Math.round(value));
 }
 
 function toOutlineStyle(measured: MeasuredElement): CSSProperties {
@@ -328,18 +331,6 @@ function getDraftLabel(draft: SelectionDraft) {
   return `${basename}:${draft.line}`;
 }
 
-function canDetachDraft(draft: SelectionDraft | null) {
-  if (!draft || draft.detached) {
-    return false;
-  }
-
-  return draft.styleMode === 'tailwind' || draft.styleMode === 'mixed';
-}
-
-function getSelectedTagLabel(draft: SelectionDraft | null) {
-  return draft?.tagName.toLowerCase() ?? null;
-}
-
 const PRIMARY_PANEL_TABS: Array<{
   id: Extract<InspectorView, 'properties' | 'layers'>;
   label: string;
@@ -371,7 +362,7 @@ export function Inspector({
   onChange,
   onChangeSizeMode,
   onChangeSizeValue,
-  onDetach,
+  onDetach: _onDetach,
   onResetAll,
   onResetProperty,
   onSave,
@@ -408,9 +399,7 @@ export function Inspector({
   const dragStateRef = useRef<DragState | null>(null);
   const statusTimerRef = useRef<number | null>(null);
   const viewTimerRef = useRef<number | null>(null);
-  const activeMeasurement = selected ?? hovered;
   const totalChanges = pendingDrafts.reduce((sum, d) => sum + getDirtyProperties(d).length, 0);
-  const showDetach = canDetachDraft(selectedDraft);
   const liveStatusEntry = getFooterStatusEntry({
     saveBlockedReason,
     saveBlockedState,
@@ -425,17 +414,13 @@ export function Inspector({
   const showTrigger = shellState !== 'open';
   const triggerState =
     shellState === 'opening' ? 'exiting' : shellState === 'closing' ? 'entering' : 'closed';
-  const selectedTagLabel = getSelectedTagLabel(selectedDraft);
-  const pendingEditsLabel = totalChanges === 1 ? '1 edit ready' : `${totalChanges} edits ready`;
   const panelEyebrow =
-    view === 'changes'
-      ? 'Review edits'
-      : view === 'layers'
-        ? 'Live document tree'
-        : selectedDraft
-          ? 'Active selection'
-          : 'Inspector ready';
-  const panelTitle = view === 'changes' ? 'Pending Changes' : 'Hawk-Eye';
+    view === 'layers'
+      ? 'Live document tree'
+      : selectedDraft
+        ? 'Active selection'
+        : 'Inspector ready';
+  const panelTitle = view === 'changes' ? 'Changes Done' : 'Hawk-Eye';
 
   useEffect(() => {
     if (totalChanges === 0 && !previewEditsVisible) {
@@ -795,7 +780,7 @@ export function Inspector({
         ) : null}
         {enabled && selected ? (
           <>
-            <div data-hawk-eye-ui="outline" style={{ ...toOutlineStyle(selected), background: 'transparent' }} />
+            <div data-hawk-eye-ui="outline" style={toOutlineStyle(selected)} />
             <div data-hawk-eye-ui="measure" style={toMeasureStyle(selected)}>
               {makeDisplayLabel(selected.element, selected.source)}
             </div>
@@ -803,7 +788,7 @@ export function Inspector({
         ) : null}
 
         {showPanel ? (
-          <aside data-hawk-eye-ui="panel" data-state={shellState} style={panelStyle}>
+          <aside data-hawk-eye-ui="panel" data-state={shellState} data-view={view} style={panelStyle}>
             <div
               data-hawk-eye-ui="panel-drag-header"
               onPointerDown={(e) => {
@@ -832,7 +817,6 @@ export function Inspector({
                     <ChevronLeftIcon />
                   </button>
                   <div data-hawk-eye-ui="panel-header-copy">
-                    <p data-hawk-eye-ui="panel-eyebrow">{panelEyebrow}</p>
                     <span data-hawk-eye-ui="panel-title">{panelTitle}</span>
                   </div>
                 </div>
@@ -880,9 +864,6 @@ export function Inspector({
                       type="button"
                     >
                       {tab.label}
-                      {tab.id === 'layers' && layerCount > 0 ? (
-                        <span data-hawk-eye-ui="panel-tab-count">{layerCount}</span>
-                      ) : null}
                     </button>
                   );
                 })}
@@ -897,37 +878,12 @@ export function Inspector({
               </div>
             </div>
 
-            {view === 'changes' ? (
-              <div data-hawk-eye-ui="panel-footer" data-view="changes">
-                <button
-                  data-hawk-eye-ui="footer-apply-btn"
-                  disabled={savePending || Boolean(saveBlockedReason) || totalChanges === 0}
-                  onClick={onSave}
-                  type="button"
-                >
-                  {savePending ? 'Updating…' : 'Apply'}
-                </button>
-                <button
-                  data-hawk-eye-ui="footer-hide-btn"
-                  onClick={() => onToggle('pointer')}
-                  type="button"
-                >
-                  Hide
-                </button>
-                <button
-                  data-hawk-eye-ui="footer-revert-btn"
-                  disabled={savePending || totalChanges === 0}
-                  onClick={handleResetAll}
-                  type="button"
-                >
-                  Reset
-                </button>
-              </div>
-            ) : view === 'properties' && selectedDraft && totalChanges > 0 ? (
+            {view === 'properties' && selectedDraft && totalChanges > 0 ? (
               <div data-hawk-eye-ui="panel-footer" data-view="properties">
                 <button
                   data-hawk-eye-ui="footer-changes-btn"
                   onClick={() => transitionToView('changes')}
+                  title={`${totalChanges} edits`}
                   type="button"
                 >
                   <span data-hawk-eye-ui="footer-changes-label">{totalChanges} Edits</span>
@@ -935,49 +891,79 @@ export function Inspector({
                     <ChevronRightIcon />
                   </span>
                 </button>
-                <button
-                  aria-label={savePending ? 'Updating design' : 'Update design'}
-                  data-hawk-eye-ui="footer-apply-btn"
+                <FooterButton
+                  ariaLabel={savePending ? 'Updating design' : 'Update design'}
                   disabled={savePending || Boolean(saveBlockedReason) || totalChanges === 0}
+                  iconSrc={applyButtonIconSrc}
+                  label={savePending ? 'Updating…' : 'Update Design'}
                   onClick={onSave}
-                  type="button"
-                >
-                  <BrushIcon />
-                  <span data-hawk-eye-ui="sr-only">
-                    {savePending ? 'Updating…' : 'Update Design'}
-                  </span>
-                </button>
-                <button
-                  aria-label={previewEditsVisible ? 'Hide edits preview' : 'Show edits preview'}
-                  aria-pressed={!previewEditsVisible}
-                  data-active={!previewEditsVisible ? 'true' : 'false'}
-                  data-hawk-eye-ui="footer-preview-toggle-btn"
+                  title={savePending ? 'Updating design' : 'Update design'}
+                  ui="footer-apply-btn"
+                />
+                <FooterButton
+                  active={!previewEditsVisible}
+                  ariaLabel={previewEditsVisible ? 'Hide edits preview' : 'Show edits preview'}
+                  iconSrc={hideButtonIconSrc}
+                  label={previewEditsVisible ? 'Hide' : 'Show'}
                   onClick={() => {
                     const next = !previewEditsVisible;
                     setPreviewEditsVisible(next);
                     onTogglePreviewEdits(next);
                   }}
-                  type="button"
-                >
-                  {previewEditsVisible ? <EyeOffIcon /> : <EyeIcon />}
-                  <span data-hawk-eye-ui="sr-only">
-                    {previewEditsVisible ? 'Hide edits' : 'Show edits'}
-                  </span>
-                </button>
-                <button
-                  aria-label="Revert unsaved changes"
-                  data-hawk-eye-ui="footer-revert-btn"
+                  title={previewEditsVisible ? 'Hide edits preview' : 'Show edits preview'}
+                  ui="footer-preview-toggle-btn"
+                />
+                <FooterButton
+                  ariaLabel="Revert unsaved changes"
                   disabled={savePending || totalChanges === 0}
+                  iconSrc={refreshButtonIconSrc}
+                  label="Revert"
                   onClick={handleResetAll}
-                  type="button"
-                >
-                  <RefreshIcon />
-                  <span data-hawk-eye-ui="sr-only">Revert</span>
-                </button>
+                  title="Revert unsaved changes"
+                  ui="footer-revert-btn"
+                />
               </div>
             ) : null}
 
-            {displayedStatus || exitingStatus ? (
+            {view === 'changes' && selectedDraft && totalChanges > 0 ? (
+              <div data-hawk-eye-ui="panel-footer" data-view="changes">
+                <FooterActionButton
+                  ariaLabel={savePending ? 'Updating design' : 'Apply changes'}
+                  disabled={savePending || Boolean(saveBlockedReason) || totalChanges === 0}
+                  iconSrc={applyButtonIconSrc}
+                  label={savePending ? 'Updating…' : 'Apply'}
+                  onClick={onSave}
+                  tone="primary"
+                  title={savePending ? 'Updating design' : 'Apply changes'}
+                  ui="footer-apply-btn"
+                />
+                <FooterActionButton
+                  ariaLabel={previewEditsVisible ? 'Hide edits preview' : 'Show edits preview'}
+                  iconSrc={hideButtonIconSrc}
+                  label={previewEditsVisible ? 'Hide' : 'Show'}
+                  onClick={() => {
+                    const next = !previewEditsVisible;
+                    setPreviewEditsVisible(next);
+                    onTogglePreviewEdits(next);
+                  }}
+                  tone="secondary"
+                  title={previewEditsVisible ? 'Hide edits preview' : 'Show edits preview'}
+                  ui="footer-hide-btn"
+                />
+                <FooterActionButton
+                  ariaLabel="Revert unsaved changes"
+                  disabled={savePending || totalChanges === 0}
+                  iconSrc={refreshButtonIconSrc}
+                  label="Reset"
+                  onClick={handleResetAll}
+                  tone="secondary"
+                  title="Reset unsaved changes"
+                  ui="footer-revert-btn"
+                />
+              </div>
+            ) : null}
+
+            {view !== 'changes' && (displayedStatus || exitingStatus) ? (
               <div data-hawk-eye-ui="panel-footer-status" data-state={statusTransitionState}>
                 {exitingStatus ? (
                   <p

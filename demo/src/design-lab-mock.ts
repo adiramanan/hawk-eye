@@ -79,7 +79,9 @@ const mockContext: ElementContext = {
   hasDirectText: false,
   hasNonDefaultTypography: false,
   isReplaced: false,
+  computedDisplay: 'block',
   parentDisplay: 'flex',
+  supportsExplicitSizing: true,
 };
 
 export function mockSelectionDraft(): SelectionDraft {

@@ -230,7 +230,7 @@ function getStyleObjectProperty(objectLiteral: ObjectLiteralExpression, property
 
 function renderStyleDeclarations(mutations: PropertyMutation[]) {
   return mutations.map((mutation) => {
-    const propertyName = toReactStylePropertyName(mutation.cssProperty);
+    const propertyName = toReactStylePropertyName(getInlineCssProperty(mutation));
     return `${toObjectLiteralPropertyName(propertyName)}: ${JSON.stringify(mutation.newValue)}`;
   });
 }
@@ -316,7 +316,7 @@ function upsertInlineStyles(
   }
 
   for (const propertyMutation of inlineMutations) {
-    const propertyName = toReactStylePropertyName(propertyMutation.cssProperty);
+    const propertyName = toReactStylePropertyName(getInlineCssProperty(propertyMutation));
     const existingProperty = getStyleObjectProperty(objectLiteral, propertyName);
 
     if (existingProperty && Node.isPropertyAssignment(existingProperty)) {
@@ -473,9 +473,41 @@ function getSizeModeInlineMutations(mutation: ElementMutation): PropertyMutation
   return nextMutations;
 }
 
+function isComplexFillValue(value: string) {
+  const trimmed = value.trim().toLowerCase();
+  return trimmed.includes('gradient(') || trimmed.includes('url(');
+}
+
+function getInlineCssProperty(mutation: PropertyMutation) {
+  if (mutation.propertyId === 'backgroundColor' && isComplexFillValue(mutation.newValue)) {
+    return 'background';
+  }
+
+  return mutation.cssProperty;
+}
+
 function getCompanionInlineMutations(mutation: ElementMutation): PropertyMutation[] {
-  // No companion mutations needed - background shorthand property handles all fill types
-  return [];
+  const nextMutations: PropertyMutation[] = [];
+
+  for (const propertyMutation of mutation.properties) {
+    if (propertyMutation.propertyId !== 'backgroundColor') {
+      continue;
+    }
+
+    if (
+      !isComplexFillValue(propertyMutation.newValue) &&
+      (!mutation.detached || isComplexFillValue(propertyMutation.oldValue))
+    ) {
+      nextMutations.push({
+        propertyId: 'backgroundImage',
+        cssProperty: 'background-image',
+        oldValue: '',
+        newValue: 'none',
+      });
+    }
+  }
+
+  return nextMutations;
 }
 
 function applyElementMutation(

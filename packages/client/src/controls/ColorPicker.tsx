@@ -2,10 +2,15 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerE
 import {
   type HsvColor,
   parseColor,
-  rgbaToHsv,
-  hsvToRgba,
   rgbaToHex,
+  rgbaToHsla,
+  rgbaToHsv,
+  rgbaToOklchString,
+  rgbaToRgbString,
+  hsvToRgba,
 } from '../utils/color';
+
+type ColorFormat = 'hex' | 'rgb' | 'hsl' | 'oklch';
 
 interface ColorPickerProps {
   id: string;
@@ -21,36 +26,53 @@ function clamp(v: number, min: number, max: number) {
   return Math.min(max, Math.max(min, v));
 }
 
-function hsvToHex(hsv: HsvColor): string {
+function hsvToHex(hsv: HsvColor) {
   return rgbaToHex(hsvToRgba(hsv));
 }
 
-function toOpaqueHex(hsv: HsvColor): string {
+function toOpaqueHex(hsv: HsvColor) {
   return rgbaToHex({ ...hsvToRgba(hsv), a: 1 }).slice(1, 7).toUpperCase();
 }
 
+function formatColorValue(format: ColorFormat, hsv: HsvColor) {
+  const rgba = hsvToRgba(hsv);
+  switch (format) {
+    case 'rgb':
+      return rgbaToRgbString(rgba);
+    case 'hsl': {
+      const hsla = rgbaToHsla(rgba);
+      if (hsla.a < 1) {
+        return `hsla(${hsla.h}, ${hsla.s}%, ${hsla.l}%, ${Number(hsla.a.toFixed(2))})`;
+      }
+      return `hsl(${hsla.h}, ${hsla.s}%, ${hsla.l}%)`;
+    }
+    case 'oklch':
+      return rgbaToOklchString(rgba);
+    case 'hex':
+    default:
+      return rgbaToHex(rgba).toUpperCase();
+  }
+}
+
 export function ColorPicker({ id, label, value, onChange, onClose, anchorRect, triggerRef }: ColorPickerProps) {
+  const initialRgba = useMemo(() => parseColor(value), [value]);
   const initialHsv = useMemo<HsvColor>(() => {
-    const rgba = parseColor(value);
-    return rgba ? rgbaToHsv(rgba) : { h: 0, s: 1, v: 1, a: 1 };
-  }, []); // intentionally only on mount
+    return initialRgba ? rgbaToHsv(initialRgba) : { h: 0, s: 1, v: 1, a: 1 };
+  }, [initialRgba]);
 
   const [hsv, setHsv] = useState<HsvColor>(initialHsv);
-  const [hexInput, setHexInput] = useState(() => toOpaqueHex(initialHsv));
+  const [format, setFormat] = useState<ColorFormat>('hex');
+  const [rawValue, setRawValue] = useState(() => formatColorValue('hex', initialHsv));
   const [alphaInput, setAlphaInput] = useState(() => String(Math.round(initialHsv.a * 100)));
   const popoverRef = useRef<HTMLDivElement>(null);
   const isDraggingGradient = useRef(false);
 
-  // Keep text inputs in sync when hsv changes via drag/slider
   useEffect(() => {
-    setHexInput(toOpaqueHex(hsv));
+    setRawValue(formatColorValue(format, hsv));
     setAlphaInput(String(Math.round(hsv.a * 100)));
-  }, [hsv]);
+  }, [format, hsv]);
 
   useEffect(() => {
-    // The picker is portaled into the shadow root. From `document`, composedPath()
-    // cannot see shadow-DOM internals, so clicks inside the picker would always
-    // appear "outside" and close it immediately. Listen on the shadow root instead.
     const root = popoverRef.current?.getRootNode();
     const pointerTarget = (root instanceof ShadowRoot ? root : document) as EventTarget;
 
@@ -62,9 +84,11 @@ export function ColorPicker({ id, label, value, onChange, onClose, anchorRect, t
         onClose();
       }
     }
+
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') onClose();
     }
+
     pointerTarget.addEventListener('pointerdown', handlePointerDown, true);
     document.addEventListener('keydown', handleKeyDown, true);
     return () => {
@@ -75,15 +99,20 @@ export function ColorPicker({ id, label, value, onChange, onClose, anchorRect, t
 
   function commitHsv(next: HsvColor) {
     setHsv(next);
-    onChange(hsvToHex(next));
+    onChange(formatColorValue(format, next));
   }
 
-  function commitHex(hex: string) {
-    const rgba = parseColor(`#${hex}`);
-    if (rgba) {
-      const nextHsv = rgbaToHsv(rgba);
-      commitHsv({ ...nextHsv, a: hsv.a });
+  function commitRawValue(nextValue: string) {
+    setRawValue(nextValue);
+    const parsed = parseColor(nextValue);
+    if (!parsed) {
+      return;
     }
+
+    const nextHsv = rgbaToHsv(parsed);
+    nextHsv.a = parsed.a;
+    setHsv(nextHsv);
+    onChange(formatColorValue(format, nextHsv));
   }
 
   function commitAlpha(alphaStr: string) {
@@ -98,14 +127,12 @@ export function ColorPicker({ id, label, value, onChange, onClose, anchorRect, t
     commitHsv({ ...hsv, s, v });
   }
 
-  // Derive display values
   const pureHue = `hsl(${hsv.h}, 100%, 50%)`;
   const opaqueColor = `#${toOpaqueHex(hsv)}`;
   const currentColor = hsvToHex(hsv);
 
-  // Position popover near the anchor
-  const POPOVER_WIDTH = 232;
-  const POPOVER_HEIGHT = 280;
+  const POPOVER_WIDTH = 256;
+  const POPOVER_HEIGHT = 332;
   const GAP = 8;
   let top = anchorRect.bottom + GAP;
   let left = anchorRect.left;
@@ -129,7 +156,21 @@ export function ColorPicker({ id, label, value, onChange, onClose, anchorRect, t
       role="dialog"
       style={{ left, position: 'fixed', top }}
     >
-      {/* Saturation–Value gradient square */}
+      <div data-hawk-eye-ui="color-field-wrap" style={{ marginBottom: 8 }}>
+        <select
+          aria-label="Color format"
+          data-hawk-eye-control="color-format"
+          data-hawk-eye-ui="select-input"
+          onChange={(event) => setFormat(event.currentTarget.value as ColorFormat)}
+          value={format}
+        >
+          <option value="hex">Hex</option>
+          <option value="rgb">RGB</option>
+          <option value="hsl">HSL</option>
+          <option value="oklch">OKLCH</option>
+        </select>
+      </div>
+
       <div
         data-hawk-eye-ui="color-canvas-wrap"
         style={{ backgroundColor: pureHue }}
@@ -152,7 +193,6 @@ export function ColorPicker({ id, label, value, onChange, onClose, anchorRect, t
         />
       </div>
 
-      {/* Swatch + hue/alpha sliders */}
       <div data-hawk-eye-ui="color-sliders">
         <div
           data-hawk-eye-ui="color-swatch-preview"
@@ -182,22 +222,19 @@ export function ColorPicker({ id, label, value, onChange, onClose, anchorRect, t
         </div>
       </div>
 
-      {/* Hex + alpha text inputs */}
       <div data-hawk-eye-ui="color-fallback-fields">
         <div data-hawk-eye-ui="color-field-wrap" style={{ flex: 3 }}>
-          <span data-hawk-eye-ui="color-field-label">#</span>
           <input
-            aria-label="Hex color"
+            aria-label="Color value"
             data-hawk-eye-ui="text-input"
-            maxLength={6}
-            onBlur={(e) => commitHex(e.currentTarget.value)}
-            onChange={(e) => setHexInput(e.currentTarget.value)}
+            onBlur={(e) => commitRawValue(e.currentTarget.value)}
+            onChange={(e) => setRawValue(e.currentTarget.value)}
             onFocus={(e) => e.currentTarget.select()}
-            onKeyDown={(e) => { if (e.key === 'Enter') commitHex(hexInput); }}
+            onKeyDown={(e) => { if (e.key === 'Enter') commitRawValue(rawValue); }}
             type="text"
-            value={hexInput}
+            value={rawValue}
           />
-          <span data-hawk-eye-ui="color-field-unit">Hex</span>
+          <span data-hawk-eye-ui="color-field-unit">{format.toUpperCase()}</span>
         </div>
         <div data-hawk-eye-ui="color-field-wrap" style={{ flex: 1 }}>
           <input

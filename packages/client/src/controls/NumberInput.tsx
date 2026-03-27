@@ -1,6 +1,6 @@
 import type React from 'react';
 import { useScrub } from '../hooks';
-import { formatCssValue, parseCssValue } from '../utils/css-value';
+import { extractLooseNumber, formatCssValue, parseCssValue } from '../utils/css-value';
 import type { EditablePropertyDefinition, PropertySnapshot } from '../types';
 
 interface NumberInputProps {
@@ -59,11 +59,20 @@ function getNumericDisplayValue(definition: EditablePropertyDefinition, value: s
     }
   }
 
-  if (/^-?(?:\d+|\d*\.\d+)$/.test(transformed)) {
-    return Number(transformed);
-  }
+  return extractLooseNumber(transformed);
+}
 
-  return null;
+function getKeyboardStepBase(
+  definition: EditablePropertyDefinition,
+  displayedValue: string,
+  snapshot: PropertySnapshot
+) {
+  return (
+    getNumericDisplayValue(definition, displayedValue) ??
+    getNumericDisplayValue(definition, snapshot.inputValue) ??
+    getNumericDisplayValue(definition, snapshot.value) ??
+    0
+  );
 }
 
 function isKeywordUnit(unit: string) {
@@ -238,9 +247,7 @@ function ScrubNumberInput({
     if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
       e.preventDefault();
       const step = e.shiftKey ? (definition.step ?? 1) * 10 : (definition.step ?? 1);
-      const base = parseCssValue(snapshot.inputValue.trim())?.number
-        ?? parseCssValue(snapshot.value.trim())?.number
-        ?? 0;
+      const base = getKeyboardStepBase(definition, e.currentTarget.value, snapshot);
       let next = e.key === 'ArrowUp' ? base + step : base - step;
       if (definition.min !== undefined) next = Math.max(definition.min, next);
       if (definition.max !== undefined) next = Math.min(definition.max, next);
@@ -334,10 +341,7 @@ export function NumberInput({ definition, snapshot, onChange, scrubLabel }: Numb
           if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
             e.preventDefault();
             const step = e.shiftKey ? (definition.step ?? 1) * 10 : (definition.step ?? 1);
-            const base =
-              getNumericDisplayValue(definition, snapshot.inputValue) ??
-              getNumericDisplayValue(definition, snapshot.value) ??
-              0;
+            const base = getKeyboardStepBase(definition, e.currentTarget.value, snapshot);
             let next = e.key === 'ArrowUp' ? base + step : base - step;
             if (definition.min !== undefined) next = Math.max(definition.min, next);
             if (definition.max !== undefined) next = Math.min(definition.max, next);
@@ -443,9 +447,7 @@ export function NumberInput({ definition, snapshot, onChange, scrubLabel }: Numb
     if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
       e.preventDefault();
       const step = e.shiftKey ? (definition.step ?? 1) * 10 : (definition.step ?? 1);
-      const base = getNumericDisplayValue(definition, snapshot.inputValue)
-        ?? getNumericDisplayValue(definition, snapshot.value)
-        ?? 0;
+      const base = getKeyboardStepBase(definition, e.currentTarget.value, snapshot);
       let next = e.key === 'ArrowUp' ? base + step : base - step;
       if (definition.min !== undefined) next = Math.max(definition.min, next);
       if (definition.max !== undefined) next = Math.min(definition.max, next);

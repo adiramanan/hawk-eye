@@ -45,7 +45,7 @@ export const editablePropertyCssMap = {
   mixBlendMode: 'mix-blend-mode',
   overflow: 'overflow',
   visibility: 'visibility',
-  backgroundColor: 'background',
+  backgroundColor: 'background-color',
   backgroundImage: 'background-image',
   color: 'color',
   borderColor: 'border-color',

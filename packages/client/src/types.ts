@@ -237,6 +237,8 @@ export interface ElementContext {
   hasDirectText: boolean;           // non-whitespace direct text-node child
   hasNonDefaultTypography: boolean; // computed font/text CSS differs from body defaults
   isReplaced: boolean;              // img, video, canvas, iframe, input, select, textarea
+  computedDisplay: string;          // element's computed display value
+  supportsExplicitSizing: boolean;  // width/height meaningfully apply in current layout mode
   parentDisplay: string;            // parent element's computed display value (e.g. 'flex', 'grid', 'block')
 }
 
@@ -253,20 +255,21 @@ export interface SelectionDraft extends SelectionDetails {
  * Used to filter properties in PropertiesPanel and documentation
  */
 export const V1_PROPERTIES: EditablePropertyId[] = [
-  // Group 1: Size & Spacing (10)
-  'width', 'height',
+  // Group 1: Size & Spacing
   'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
   'marginTop', 'marginRight', 'marginBottom', 'marginLeft',
-  // Group 2: Appearance (9)
+  // Group 2: Appearance
+  'display',
   'opacity', 'mixBlendMode',
   'borderRadius', 'borderTopLeftRadius', 'borderTopRightRadius',
   'borderBottomRightRadius', 'borderBottomLeftRadius',
   'backgroundColor',
-  // Group 3: Type (9)
+  // Group 3: Type
   'fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'letterSpacing',
   'textAlign', 'textDecoration', 'textTransform',
   'color',
-  // Group 4: Stroke (6)
+  // Group 4: Stroke
   'borderColor', 'borderStyle',
   'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
+  'strokeDasharray',
 ];

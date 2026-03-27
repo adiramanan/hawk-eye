@@ -4,25 +4,119 @@
 - Codex
 
 ## Last Session
-- 2026-03-24T08:51:46.000Z (20260324T084409000Z--codex)
+- 2026-03-27T21:01:28.000Z (20260327T210128000Z--codex)
 
 ## Current Status
-- The latest session implemented the inspector visual redesign plan in the client package without changing the public `DesignTool` API.
-- The redesign introduced a tighter dark token palette, stronger panel hierarchy, more explicit status and action affordances, and richer layer-row metadata so the inspector reads like a precision tool instead of generic utility chrome.
-- Targeted verification passed: `pnpm vitest --run tests/design-tool.test.ts`, `pnpm -F @hawk-eye/client type-check`, and `pnpm -C demo type-check`.
+- The changes-panel footer now uses a dedicated `FooterActionButton` component in `packages/client/src/components/FooterActionButton.tsx`, with an explicit icon shell, tooltip, and tone flag for the Figma-matched labeled buttons.
+- The changes footer styling now uses literal 10px/12px padding, 4px icon-label gap, 8px radius, and blue/gray fills to match the `Apply` button pattern from Figma node `139:3074`.
+- The changes footer regression now checks the new icon shell and label data attrs instead of the old generic footer marker.
+- The changes-panel footer is back on the labeled `Edit Page` Figma variant at node `142:6480`, with Apply/Hide/Reset text labels and the active/inactive icon assets aligned to the reference.
+- The footer icon variants now match the Figma node more closely: Apply uses the active roller-brush asset, while Hide and Reset use the inactive assets from the referenced footer component.
+- The changes-view footer now matches Figma node `145:6830` again, with icon+label Apply/Hide/Reset buttons, hover tooltips on the footer controls, and the dedicated changes footer restored in the inspector.
+- `PerCornerControl` now applies the visible grouped value immediately when switching back into linked mode, so the standalone corner control path matches the fixed all-sides normalization behavior.
+- Grouped stroke-width edits now normalize `borderColor` to the currently visible border side when expanding a one-sided border to all sides, so bottom-only strokes no longer require a manual color change to make all four sides match.
+- Per-side link toggles now commit the currently displayed grouped value immediately when switching from each-side editing into grouped mode, so margin/padding/stroke grouped controls no longer wait for a second manual input before applying the change.
+- The shared color parser now understands `oklch(...)` values directly, so initialized color fields such as border/stroke color normalize to hex immediately instead of showing raw OKLCH until the picker is used.
+- The client websocket bridge now uses direct `import.meta.hot` access again, so style-analysis and save events can reach the inspector instead of silently falling back to local-only selection parsing.
+- The stuck `Finishing style analysis before Update Design can apply the latest source changes.` footer state was traced to the broken hot-client lookup rather than the style analyzer itself.
+- The properties panel now renders its segmented-control icons from `packages/client/src/icons` instead of inline SVG markup, using the checked-in `normal` and `active` asset variants.
+- Typography alignment buttons now use the icon-folder SVG exports for left, center, right, and justify states.
+- Layout-section segmented options are also wired to icon-folder assets in source, but the section still returns early in v1 so those icons remain dormant at runtime.
+- The changes view now matches the latest Figma panel direction more closely: it uses a `Changes Done` header with a back affordance, a divider under the header, tighter dark edit cards, and the softer two-button reset overlay from the design.
+- The dedicated changes footer and footer-status strip are now removed so the changes screen reads as a review surface; apply/revert actions remain in the properties footer.
+- The v1 inspector no longer exposes width, height, or aspect-ratio controls; the underlying size-mode implementation remains in place for a later v2 return.
+- The empty inspector state is now centered, with icon, title, and body copy aligned to the middle of the panel.
+- Width and height mode changes now immediately reapply the full draft to the selected element, so live size-mode metadata stays synced and fill, relative, and hug do not fall back to fixed behavior during editing.
+- Width and height draft creation now preserves keyword baselines such as `auto` and `fit-content`, so fill and hug sizing survive draft creation, reset, and re-selection instead of being blanked out.
+- Width and height draft creation now preserves authored inline size values before falling back to computed styles, so relative sizes like `75%` no longer collapse to measured pixels on selection.
+- The latest session fixed numeric arrow-key stepping so shared number inputs step from the visible value instead of snapping to fallback values like `1` when the current text is only partially numeric.
+- The same session kept the padding editor on the new opposite-sides grouped mode; that change remains scoped to padding only.
+- The Appearance section now hides the fill color control whenever the selected element explicitly uses a gradient or image fill.
+- The Appearance fill control now stays available for all elements except paragraphs, so spans such as `span.he-chip` can surface background fill.
+- The selection overlay now uses border-only highlighting without the translucent fill or full-page wash, so the selected element’s colors remain visible.
+- The split border dash/gap controls now sanitize visible values to numerics, preventing invalid text like `1,` from remaining in the field.
+- The split border dash/gap parser now also handles comma-separated `stroke-dasharray` serialization, fixing the `1,` display that could appear after arrow-key updates.
+- The focused inspector no longer offers dashed borders or dash-array controls; border styles are now limited to `none` and `solid`.
+- The Appearance fill control is now hidden again for plain text elements such as headings unless they already have a visible background, while chip-like text elements can still surface it.
+- Transparent computed `background` shorthand on plain text elements is now treated as no visible background, preventing false-positive fill controls on headings.
+- Focused verification passed for `pnpm vitest --run tests/design-tool.test.ts`.
 
 ## Next Steps
-- Run a broader live visual pass in the Design Lab and demo to tune any remaining spacing or contrast outliers now that the new system is in place.
-- If needed, extend the same visual language into secondary editors like color, gradient, and image-fill popovers to complete the inspector family.
-- Keep the earlier security hardening follow-up active: trusted-user gating for writes, session-bound save capabilities, and tooling dependency upgrades remain outstanding.
+- Run a quick browser pass on the restored changes footer to confirm the spacing, icon sizing, and visible labels match the Figma reference in the live panel.
+- Run a quick manual pass across padding, margin, corner radius, and stroke weight toggles in the live panel to confirm all grouped controls now commit immediately and keep their visible value/color consistent.
+- Run a quick manual pass on one-sided border cases in the live panel, especially bottom-only and left-only strokes with explicit colors, to confirm grouped width edits preserve the visible stroke color.
+- Run a quick manual pass on margin, padding, and stroke grouped toggles in the live panel to confirm the value propagates immediately when linking controls back together.
+- Run a quick manual pass on the border/stroke color field in the live panel to confirm initialized OKLCH values now render as hex and stay consistent after picker edits.
+- Refresh the running dev session and verify that selecting an element now clears the pending style-analysis footer message and re-enables Update Design once analysis arrives.
+- Run a quick manual pass on the typography alignment controls to confirm the imported SVG variants render crisply in the live panel and match the intended selected state.
+- Decide whether to add dedicated asset exports for block-layout, align-middle, and align-bottom so the dormant layout mappings stop reusing the nearest available SVGs.
+- Run a manual browser pass on the changes view to confirm the live panel matches the Figma screenshot, especially overlay blur, card spacing, and the absence of the old footer.
+- Reintroduce width and height editing in v2 with a clearer applicability model so inline text and layout-constrained elements do not surface misleading size modes.
+- Run a quick manual UI pass on the empty state in the live panel to confirm the centered stack still looks balanced at different panel heights.
+- Run a manual inspector pass that switches width and height between fixed, fill, relative, and hug on real demo specimens to confirm the live UI now tracks the selected mode correctly.
+- Run a manual inspector pass on fill and hug sizing in the live demo, especially for flex children and mixed authored/computed width states, to confirm the browser behavior matches the new draft-state handling.
+- Run a manual inspector pass on inline-authored and class-authored relative width/height cases to confirm the live UI now preserves the authored sizing model after selection.
+- Run a manual inspector pass to confirm the numeric arrow-key fix behaves consistently across unit-aware, size, padding, and corner inputs.
+- Run a manual inspector pass over gradient and image-filled elements to confirm the Appearance section omits the fill color control consistently in the live UI.
+- Run a manual pass on chip and badge elements to decide whether corner-radius visibility should follow the same relaxed rule as fill.
+- Run a manual pass on dense/dark surfaces to confirm the border-only outline remains legible without the old overlay wash.
+- Decide later whether dashed/vector stroke editing should return as a dedicated SVG-only feature rather than part of the generic border inspector.
+- Run a manual pass on headings, links, and chips to confirm the new text-fill visibility rule matches expectations in the live UI.
+- Confirm in the live demo that the `h1.text-[clamp(3rem,6vw,5.2rem)]` heading no longer shows the fill control after refresh.
+- Continue broader inspector parity cleanup where remaining controls still diverge from the latest Figma nodes.
+- Triage broader lint/build/test debt outside the focused design-tool suite before final release.
 
 ## Touched Areas
-- packages/client/src/Inspector.tsx
-- packages/client/src/LayersPanel.tsx
-- packages/client/src/styles.ts
-- packages/client/src/tokens.css
+- packages/client/src/controls/PerCornerControl.tsx
+- .memory/sessions/20260327T203845000Z--codex.md
+- packages/client/src/DesignTool.tsx
 - tests/design-tool.test.ts
-- demo
-- .memory/sessions/20260324T084409000Z--codex.md
+- .memory/sessions/20260327T203630000Z--codex.md
+- packages/client/src/controls/PerSideControl.tsx
+- .memory/sessions/20260327T202857000Z--codex.md
+- packages/client/src/utils/color.ts
+- tests/client-ui-controls.test.ts
+- .memory/sessions/20260327T202234000Z--codex.md
+- packages/client/src/ws-client.ts
+- packages/client/src/assets.d.ts
+- .memory/sessions/20260327T201844000Z--codex.md
+- packages/client/src/PropertiesPanel.tsx
+- packages/client/src/styles.ts
+- .memory/sessions/20260327T200717000Z--codex.md
+- packages/client/src/Inspector.tsx
+- packages/client/src/styles.ts
+- tests/design-tool.test.ts
+- .memory/sessions/20260327T200140000Z--codex.md
+- packages/client/src/PropertiesPanel.tsx
+- packages/client/src/types.ts
+- packages/client/src/styles.ts
+- tests/design-tool.test.ts
+- .memory/sessions/20260327T190846000Z--codex.md
+- packages/client/src/DesignTool.tsx
+- packages/client/src/drafts.ts
+- packages/client/src/controls/PerSideControl.tsx
+- packages/client/src/controls/NumberInput.tsx
+- packages/client/src/controls/SizeInput.tsx
+- packages/client/src/controls/PerCornerControl.tsx
+- packages/client/src/PropertiesPanel.tsx
+- packages/client/src/styles.ts
+- packages/client/src/utils/css-value.ts
+- tests/drafts.test.ts
+- tests/design-tool.test.ts
+- .memory/sessions/20260327T184212000Z--codex.md
+- .memory/sessions/20260328T000000000Z--codex.md
+- .memory/sessions/20260327T183041000Z--codex.md
+- .memory/sessions/20260327T182453000Z--codex.md
+- .memory/sessions/20260327T180155000Z--codex.md
+- .memory/sessions/20260327T175602000Z--codex.md
+- .memory/sessions/20260327T174753000Z--codex.md
+- .memory/sessions/20260327T174452000Z--codex.md
+- .memory/sessions/20260327T173244000Z--codex.md
+- .memory/sessions/20260327T173121000Z--codex.md
+- .memory/sessions/20260327T172835000Z--codex.md
+- .memory/sessions/20260327T171937000Z--codex.md
+- .memory/sessions/20260327T164651000Z--codex.md
+- .memory/sessions/20260327T163829000Z--codex.md
+- .memory/sessions/20260327T162732000Z--codex.md
 - .memory/CURRENT_CONTEXT.md
 - .memory/receipts.jsonl

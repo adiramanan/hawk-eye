@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { PropertySnapshot } from '../types';
+import type { EditablePropertyDefinition, PropertySnapshot } from '../types';
 import {
   parseGradient,
   composeGradient,
@@ -10,6 +10,7 @@ import {
   type GradientType,
 } from '../utils/gradient-parser';
 import { parseColor, rgbaToHex } from '../utils/color';
+import { ColorInput } from './ColorInput';
 
 interface GradientEditorProps {
   snapshot: PropertySnapshot;
@@ -20,9 +21,6 @@ const GRADIENT_TYPES: Array<{ label: string; value: GradientType }> = [
   { label: 'Linear', value: 'linear' },
   { label: 'Radial', value: 'radial' },
   { label: 'Conic', value: 'conic' },
-  { label: 'Repeating Linear', value: 'repeating-linear' },
-  { label: 'Repeating Radial', value: 'repeating-radial' },
-  { label: 'Repeating Conic', value: 'repeating-conic' },
 ];
 
 const DEFAULT_GRADIENT_STOP_1 = '#ff0000';
@@ -60,8 +58,6 @@ function normalizeColorDisplay(value: string): string {
 }
 
 export function GradientEditor({ snapshot, onChange }: GradientEditorProps) {
-  const [editingStopIndex, setEditingStopIndex] = useState<number | null>(null);
-
   const parsed = parseGradient(snapshot.inputValue || snapshot.baseline || '') || createDefaultGradient();
   const [config, setConfig] = useState<GradientConfig>(parsed);
 
@@ -285,33 +281,27 @@ export function GradientEditor({ snapshot, onChange }: GradientEditorProps) {
         <label data-hawk-eye-ui="field-label">Color Stops</label>
         {config.stops.map((stop, index) => (
           <div key={index} data-hawk-eye-ui="color-stop" style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center', marginBottom: 'var(--spacing-base)' }}>
-            {/* Color Swatch */}
-            <button
-              onClick={() => setEditingStopIndex(editingStopIndex === index ? null : index)}
-              style={{
-                width: '32px',
-                height: '32px',
-                backgroundColor: stop.color,
-                border: '1px solid var(--color-border)',
-                borderRadius: 'var(--radius-sm)',
-                cursor: 'pointer',
-                padding: 0,
-              }}
-              title="Click to edit color"
-            />
-
-            {/* Color Editor Popup */}
-            {editingStopIndex === index && (
-              <div style={{ position: 'absolute', zIndex: 1000 }}>
-                <input
-                  type="text"
-                  value={normalizeColorDisplay(stop.color)}
-                  onChange={(e) => updateStopColor(index, e.currentTarget.value)}
-                  data-hawk-eye-ui="text-input"
-                  style={{ width: '80px' }}
-                />
-              </div>
-            )}
+            <div style={{ minWidth: 120 }}>
+              <ColorInput
+                definition={{
+                  id: 'color',
+                  label: `Stop ${index + 1}`,
+                  shortLabel: `Stop ${index + 1}`,
+                  cssProperty: 'color',
+                  group: 'fill',
+                  control: 'color',
+                  placeholder: '#000000',
+                } satisfies EditablePropertyDefinition}
+                onChange={(value) => updateStopColor(index, value)}
+                snapshot={{
+                  baseline: normalizeColorDisplay(stop.color),
+                  inlineValue: normalizeColorDisplay(stop.color),
+                  inputValue: normalizeColorDisplay(stop.color),
+                  invalid: false,
+                  value: normalizeColorDisplay(stop.color),
+                }}
+              />
+            </div>
 
             {/* Position Input */}
             <input

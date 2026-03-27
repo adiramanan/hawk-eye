@@ -36,3 +36,14 @@ export function extractNumber(raw: string): number | null {
   const parsed = parseCssValue(raw);
   return parsed ? parsed.number : null;
 }
+
+export function extractLooseNumber(raw: string): number | null {
+  const trimmed = raw.trim();
+
+  if (!trimmed || !/^-?(?:\d+\.?\d*|\.\d+)$/.test(trimmed)) {
+    return null;
+  }
+
+  const parsed = Number.parseFloat(trimmed);
+  return Number.isFinite(parsed) ? parsed : null;
+}

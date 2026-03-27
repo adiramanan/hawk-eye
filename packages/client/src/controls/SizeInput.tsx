@@ -8,7 +8,7 @@ import {
 } from 'react';
 import { getSizeUnitsForMode, isNumericSizeMode } from '../size-state';
 import type { EditablePropertyDefinition, PropertySnapshot, SizeMode } from '../types';
-import { parseCssValue } from '../utils/css-value';
+import { extractLooseNumber, parseCssValue } from '../utils/css-value';
 
 interface SizeInputProps {
   definition: EditablePropertyDefinition;
@@ -104,7 +104,11 @@ function getDisplayedValue(value: string, selectedUnit: string) {
     return /^-?(?:\d+|\d*\.\d+)$/.test(trimmed) ? trimmed : '';
   }
 
-  return String(parsed.number);
+  if (parsed.unit === 'px') {
+    return String(Math.round(parsed.number));
+  }
+
+  return String(Math.round(parsed.number * 100) / 100);
 }
 
 export function SizeInput({
@@ -193,6 +197,7 @@ export function SizeInput({
       event.preventDefault();
       const step = event.shiftKey ? (definition.step ?? 1) * 10 : definition.step ?? 1;
       const base =
+        extractLooseNumber(event.currentTarget.value) ??
         parseCssValue(snapshot.inputValue.trim())?.number ??
         parseCssValue(snapshot.value.trim())?.number ??
         0;

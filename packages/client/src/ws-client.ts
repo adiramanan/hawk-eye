@@ -32,8 +32,12 @@ declare global {
   var __HAWK_EYE_CLIENT_ID__: string | undefined;
 }
 
+function getImportMetaHot() {
+  return import.meta.hot;
+}
+
 function getHotClient() {
-  return globalThis.__HAWK_EYE_HOT__ ?? (import.meta as ImportMeta & { hot?: HotClient }).hot;
+  return globalThis.__HAWK_EYE_HOT__ ?? getImportMetaHot();
 }
 
 function createClientId() {

@@ -1,6 +1,6 @@
 # hawk-eye
 
-Public runtime and Vite plugin entrypoints for Hawk-Eye.
+Public runtime, Vite plugin, and CLI entrypoints for Hawk-Eye.
 
 ## Install
 
@@ -10,8 +10,8 @@ pnpm add -D hawk-eye
 
 ## Zero-Step Setup
 
-```ts
-pnpm hawk-eye init
+```bash
+pnpm exec hawk-eye init
 ```
 
 The installer patches a supported React + Vite app by:
@@ -31,11 +31,28 @@ import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  plugins: [hawkeyePlugin(), react()],
+  plugins: [hawkeyePlugin({ enableSave: true }), react()],
 });
 ```
 
-Manual integration still works if you prefer explicit control over the mount point.
+```tsx
+import { DesignTool } from 'hawk-eye';
+
+export function AppShell() {
+  return (
+    <>
+      {import.meta.env.DEV ? <DesignTool /> : null}
+      {/* app content */}
+    </>
+  );
+}
+```
+
+`hawkeyePlugin()` must run before `react()` so Hawk-Eye can preserve source coordinates correctly.
+
+## Scope
+
+The visual inspector and source write-back flow currently target React + Vite projects. The package also ships `hawk-eye/vue` and `hawk-eye/svelte` store adapters, but those are not a full inspector integration.
 
 ## Validation
 

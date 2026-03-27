@@ -45,6 +45,7 @@ import type {
   SizeMode,
   StyleAnalysisPayload,
 } from './types';
+import { parseColor, rgbaToHex } from './utils/color';
 import { parseCssValue } from './utils/css-value';
 import {
   requestSave,
@@ -65,6 +66,22 @@ const SHELL_HANDOFF_DURATION_MS = 220;
 const VIEW_TRANSITION_DURATION_MS = 180;
 const STATUS_TRANSITION_DURATION_MS = 160;
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
+const BORDER_WIDTH_PROPERTY_IDS = new Set<EditablePropertyId>([
+  'borderTopWidth',
+  'borderRightWidth',
+  'borderBottomWidth',
+  'borderLeftWidth',
+]);
+
+function isTestRuntime() {
+  const runtimeProcess = (globalThis as { process?: { env?: Record<string, string | undefined> } })
+    .process;
+
+  return (
+    runtimeProcess?.env?.NODE_ENV === 'test' ||
+    runtimeProcess?.env?.VITEST === 'true'
+  );
+}
 
 function buildSavePayload(drafts: SelectionDraft[]): PendingSavePayload {
   const capability = drafts.find((draft) => draft.saveCapability)?.saveCapability;
@@ -309,6 +326,57 @@ function sameMeasuredElement(current: MeasuredElement | null, next: MeasuredElem
 
 function getAxisPropertyId(axis: SizeAxis): EditablePropertyId {
   return axis;
+}
+
+function isBorderWidthPropertyId(propertyId: EditablePropertyId) {
+  return BORDER_WIDTH_PROPERTY_IDS.has(propertyId);
+}
+
+function getSnapshotDisplayValue(
+  snapshot: SelectionDraft['properties'][EditablePropertyId]
+) {
+  return snapshot.inputValue || snapshot.value || snapshot.baseline;
+}
+
+function getVisibleBorderColor(element: HTMLElement) {
+  const computedStyle = window.getComputedStyle(element);
+  const borderSides = [
+    ['borderTopWidth', 'borderTopColor', 'border-top-width', 'border-top-color'],
+    ['borderRightWidth', 'borderRightColor', 'border-right-width', 'border-right-color'],
+    ['borderBottomWidth', 'borderBottomColor', 'border-bottom-width', 'border-bottom-color'],
+    ['borderLeftWidth', 'borderLeftColor', 'border-left-width', 'border-left-color'],
+  ] as const;
+
+  for (const [widthKey, colorKey, widthProperty, colorProperty] of borderSides) {
+    const width =
+      parseCssValue(element.style[widthKey].trim()) ??
+      parseCssValue(element.style.getPropertyValue(widthProperty).trim()) ??
+      parseCssValue(computedStyle.getPropertyValue(widthProperty).trim());
+
+    if (width && width.number > 0) {
+      const inlineColor =
+        element.style[colorKey].trim() || element.style.getPropertyValue(colorProperty).trim();
+      const computedColor = computedStyle.getPropertyValue(colorProperty).trim();
+      const color = parseColor(inlineColor) ? inlineColor : computedColor;
+
+      if (parseColor(color)) {
+        return color;
+      }
+    }
+  }
+
+  return null;
+}
+
+function areColorsEquivalent(left: string, right: string) {
+  const parsedLeft = parseColor(left);
+  const parsedRight = parseColor(right);
+
+  if (!parsedLeft || !parsedRight) {
+    return false;
+  }
+
+  return rgbaToHex(parsedLeft) === rgbaToHex(parsedRight);
 }
 
 function getOppositeAxis(axis: SizeAxis): SizeAxis {
@@ -822,12 +890,35 @@ function DesignToolRuntime() {
         inputValue
       );
 
+      let nextProperties: SelectionDraft['properties'] = {
+        ...currentDraft.properties,
+        [propertyId]: nextSnapshot,
+      };
+
+      if (isBorderWidthPropertyId(propertyId)) {
+        const borderColorValue = getSnapshotDisplayValue(currentDraft.properties.borderColor);
+        const visibleBorderColor = getVisibleBorderColor(element);
+
+        if (
+          visibleBorderColor &&
+          (!parseColor(borderColorValue) ||
+            !areColorsEquivalent(borderColorValue, visibleBorderColor))
+        ) {
+          nextProperties = {
+            ...nextProperties,
+            borderColor: applyDraftInputValue(
+              element,
+              'borderColor',
+              currentDraft.properties.borderColor,
+              visibleBorderColor
+            ),
+          };
+        }
+      }
+
       const updatedDraft = {
         ...currentDraft,
-        properties: {
-          ...currentDraft.properties,
-          [propertyId]: nextSnapshot,
-        },
+        properties: nextProperties,
       };
       nextDraft = updatedDraft;
 
@@ -966,6 +1057,7 @@ function DesignToolRuntime() {
         properties: nextProperties,
         sizeControl: nextSizeControl,
       };
+      applyDraftToElement(element, updatedDraft);
       nextDraft = updatedDraft;
 
       return {
@@ -1131,6 +1223,7 @@ function DesignToolRuntime() {
         properties: nextProperties,
         sizeControl: nextSizeControl,
       };
+      applyDraftToElement(element, updatedDraft);
       nextDraft = updatedDraft;
 
       return {
@@ -1520,7 +1613,7 @@ function DesignToolRuntime() {
     };
 
     const handleClick = (event: MouseEvent) => {
-      if (import.meta.env.MODE !== 'test' && !event.isTrusted) return;
+      if (!isTestRuntime() && !event.isTrusted) return;
 
       if (
         event

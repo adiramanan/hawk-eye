@@ -9,4 +9,9 @@ interface ImportMetaEnv {
 
 interface ImportMeta {
   readonly env: ImportMetaEnv;
+  readonly hot?: {
+    on<T>(event: string, cb: (payload: T) => void): void;
+    off?<T>(event: string, cb: (payload: T) => void): void;
+    send?<T>(event: string, payload?: T): void;
+  };
 }

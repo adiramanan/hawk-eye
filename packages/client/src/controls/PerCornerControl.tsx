@@ -1,7 +1,7 @@
 import type React from 'react';
 import { useState } from 'react';
 import type { EditablePropertyId, PropertySnapshot } from '../types';
-import { formatCssValue, parseCssValue } from '../utils/css-value';
+import { extractLooseNumber, formatCssValue, parseCssValue } from '../utils/css-value';
 
 interface PerCornerEntry {
   id: EditablePropertyId;
@@ -23,6 +23,22 @@ interface PerCornerProps {
 function areLinked(entries: PerCornerEntry[]) {
   if (entries.length === 0) return true;
   return entries.every((entry) => entry.snapshot.value === entries[0].snapshot.value);
+}
+
+function getStepParsedValue(snapshot: PropertySnapshot, rawValue: string) {
+  const nextNumber = extractLooseNumber(rawValue);
+
+  if (nextNumber !== null) {
+    return {
+      number: nextNumber,
+      unit:
+        parseCssValue(snapshot.inputValue.trim())?.unit ??
+        parseCssValue(snapshot.value.trim())?.unit ??
+        'px',
+    };
+  }
+
+  return parseCssValue(snapshot.inputValue.trim()) ?? parseCssValue(snapshot.value.trim());
 }
 
 export function PerCornerControl({ label, corners, onChange, onReset }: PerCornerProps) {
@@ -54,7 +70,7 @@ export function PerCornerControl({ label, corners, onChange, onReset }: PerCorne
     if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
       e.preventDefault();
       const step = e.shiftKey ? 10 : 1;
-      const parsed = parseCssValue(allSnapshot.inputValue.trim()) ?? parseCssValue(allSnapshot.value.trim());
+      const parsed = getStepParsedValue(allSnapshot, e.currentTarget.value);
       if (parsed) {
         const next = e.key === 'ArrowUp' ? parsed.number + step : parsed.number - step;
         handleAllChange(formatCssValue(Math.max(0, next), parsed.unit || 'px'));
@@ -66,6 +82,16 @@ export function PerCornerControl({ label, corners, onChange, onReset }: PerCorne
     }
   }
 
+  function handleToggleLinked() {
+    const nextLinked = !linked;
+
+    if (nextLinked) {
+      handleAllChange(allSnapshot.inputValue || allSnapshot.value);
+    }
+
+    setLinked(nextLinked);
+  }
+
   return (
     <div data-hawk-eye-ui="per-side-control">
       <div data-hawk-eye-ui="per-side-header">
@@ -74,7 +100,7 @@ export function PerCornerControl({ label, corners, onChange, onReset }: PerCorne
           aria-label={linked ? 'Edit corners independently' : 'Link corners together'}
           data-active={linked ? 'true' : 'false'}
           data-hawk-eye-ui="per-side-link"
-          onClick={() => setLinked(!linked)}
+          onClick={handleToggleLinked}
           type="button"
         >
           {linked ? 'All' : 'Each'}
@@ -117,7 +143,7 @@ export function PerCornerControl({ label, corners, onChange, onReset }: PerCorne
                     } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
                       e.preventDefault();
                       const step = e.shiftKey ? 10 : 1;
-                      const parsed = parseCssValue(entry.snapshot.inputValue.trim()) ?? parseCssValue(entry.snapshot.value.trim());
+                      const parsed = getStepParsedValue(entry.snapshot, e.currentTarget.value);
                       if (parsed) {
                         const next = e.key === 'ArrowUp' ? parsed.number + step : parsed.number - step;
                         onChange(entry.id, formatCssValue(Math.max(0, next), parsed.unit || 'px'));

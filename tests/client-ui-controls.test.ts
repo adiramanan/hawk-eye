@@ -7,12 +7,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { HAWK_EYE_SOURCE_ATTRIBUTE } from '../shared/protocol';
 import { editablePropertyDefinitionMap, editablePropertyDefinitions } from '../packages/client/src/editable-properties';
 import { ColorInput } from '../packages/client/src/controls/ColorInput';
+import { PerCornerControl } from '../packages/client/src/controls/PerCornerControl';
 import { GridTrackEditor } from '../packages/client/src/controls/GridTrackEditor';
 import { NumberInput } from '../packages/client/src/controls/NumberInput';
+import { PerSideControl } from '../packages/client/src/controls/PerSideControl';
 import { SizeInput } from '../packages/client/src/controls/SizeInput';
 import { applyDraftInputValue, createInspectableElementKey } from '../packages/client/src/drafts';
 import { LayersPanel } from '../packages/client/src/LayersPanel';
 import type { PropertySnapshot } from '../packages/client/src/types';
+import { rgbaToOklchString } from '../packages/client/src/utils/color';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -317,6 +320,108 @@ describe('client UI controls', () => {
     keyDown(hexInput, 'Enter');
 
     expect(onChange).toHaveBeenCalledWith('#ff6600');
+  });
+
+  it('normalizes initialized oklch colors to hex in the text field', () => {
+    const oklchValue = rgbaToOklchString({ r: 68, g: 85, b: 102, a: 1 });
+    const snapshot: PropertySnapshot = {
+      baseline: oklchValue,
+      inlineValue: oklchValue,
+      inputValue: oklchValue,
+      invalid: false,
+      value: oklchValue,
+    };
+    const onChange = vi.fn();
+    const view = renderComponent(
+      React.createElement(ColorInput, {
+        definition: editablePropertyDefinitionMap.borderColor,
+        onChange,
+        snapshot,
+      })
+    );
+
+    const input = view.container.querySelector('[data-hawk-eye-control="borderColor"]');
+
+    if (!(input instanceof window.HTMLInputElement)) {
+      throw new Error('Missing border color input');
+    }
+
+    expect(input.value).toBe('#445566');
+  });
+
+  it('applies the visible top value to every side immediately when linking all sides', () => {
+    const onChange = vi.fn();
+    const makeSnapshot = (value: string): PropertySnapshot => ({
+      baseline: value,
+      inlineValue: value,
+      inputValue: value,
+      invalid: false,
+      value,
+    });
+
+    const view = renderComponent(
+      React.createElement(PerSideControl, {
+        grouping: 'all-each',
+        label: 'Margin',
+        onChange,
+        sides: {
+          top: { id: 'marginTop', snapshot: makeSnapshot('24px') },
+          right: { id: 'marginRight', snapshot: makeSnapshot('8px') },
+          bottom: { id: 'marginBottom', snapshot: makeSnapshot('12px') },
+          left: { id: 'marginLeft', snapshot: makeSnapshot('16px') },
+        },
+      })
+    );
+
+    const toggle = view.container.querySelector('[data-hawk-eye-ui="link-toggle-btn"]');
+
+    if (!(toggle instanceof window.HTMLButtonElement)) {
+      throw new Error('Missing side link toggle');
+    }
+
+    click(toggle);
+
+    expect(onChange).toHaveBeenCalledWith('marginTop', '24px');
+    expect(onChange).toHaveBeenCalledWith('marginRight', '24px');
+    expect(onChange).toHaveBeenCalledWith('marginBottom', '24px');
+    expect(onChange).toHaveBeenCalledWith('marginLeft', '24px');
+  });
+
+  it('applies the visible top-left value to every corner immediately when linking corners', () => {
+    const onChange = vi.fn();
+    const makeSnapshot = (value: string): PropertySnapshot => ({
+      baseline: value,
+      inlineValue: value,
+      inputValue: value,
+      invalid: false,
+      value,
+    });
+
+    const view = renderComponent(
+      React.createElement(PerCornerControl, {
+        label: 'Corner Radius',
+        onChange,
+        corners: {
+          topLeft: { id: 'borderTopLeftRadius', snapshot: makeSnapshot('24px') },
+          topRight: { id: 'borderTopRightRadius', snapshot: makeSnapshot('8px') },
+          bottomRight: { id: 'borderBottomRightRadius', snapshot: makeSnapshot('12px') },
+          bottomLeft: { id: 'borderBottomLeftRadius', snapshot: makeSnapshot('16px') },
+        },
+      })
+    );
+
+    const toggle = view.container.querySelector('[data-hawk-eye-ui="per-side-link"]');
+
+    if (!(toggle instanceof window.HTMLButtonElement)) {
+      throw new Error('Missing corner link toggle');
+    }
+
+    click(toggle);
+
+    expect(onChange).toHaveBeenCalledWith('borderTopLeftRadius', '24px');
+    expect(onChange).toHaveBeenCalledWith('borderTopRightRadius', '24px');
+    expect(onChange).toHaveBeenCalledWith('borderBottomRightRadius', '24px');
+    expect(onChange).toHaveBeenCalledWith('borderBottomLeftRadius', '24px');
   });
 
   it('renders unit-bearing number inputs inside a single shared shell', () => {

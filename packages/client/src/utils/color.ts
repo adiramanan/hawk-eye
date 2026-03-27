@@ -19,6 +19,13 @@ export interface HsvColor {
   a: number; // 0–1
 }
 
+export interface OklchColor {
+  l: number;
+  c: number;
+  h: number;
+  a: number;
+}
+
 const NAMED_COLORS: Record<string, string> = {
   transparent: 'rgba(0, 0, 0, 0)',
   black: '#000000',
@@ -103,6 +110,94 @@ function parseHsl(value: string): RgbaColor | null {
   return hslaToRgba(hsla);
 }
 
+function oklchToRgba(color: OklchColor): RgbaColor {
+  const hueRadians = (color.h * Math.PI) / 180;
+  const okA = color.c * Math.cos(hueRadians);
+  const okB = color.c * Math.sin(hueRadians);
+
+  const l = color.l + 0.3963377774 * okA + 0.2158037573 * okB;
+  const m = color.l - 0.1055613458 * okA - 0.0638541728 * okB;
+  const s = color.l - 0.0894841775 * okA - 1.291485548 * okB;
+
+  const l3 = l ** 3;
+  const m3 = m ** 3;
+  const s3 = s ** 3;
+
+  const linearR = 4.0767416621 * l3 - 3.3077115913 * m3 + 0.2309699292 * s3;
+  const linearG = -1.2684380046 * l3 + 2.6097574011 * m3 - 0.3413193965 * s3;
+  const linearB = -0.0041960863 * l3 - 0.7034186147 * m3 + 1.707614701 * s3;
+
+  const linearToSrgb = (channel: number) => {
+    const clamped = clamp(channel, 0, 1);
+    if (clamped <= 0.0031308) {
+      return clamped * 12.92;
+    }
+    return 1.055 * clamped ** (1 / 2.4) - 0.055;
+  };
+
+  return {
+    r: Math.round(clamp(linearToSrgb(linearR), 0, 1) * 255),
+    g: Math.round(clamp(linearToSrgb(linearG), 0, 1) * 255),
+    b: Math.round(clamp(linearToSrgb(linearB), 0, 1) * 255),
+    a: color.a,
+  };
+}
+
+function parseOklch(value: string): RgbaColor | null {
+  const match = value.match(
+    /oklch\(\s*([+-]?\d+(?:\.\d+)?%?)\s+([+-]?\d+(?:\.\d+)?)\s+([+-]?\d+(?:\.\d+)?)(?:deg)?(?:\s*\/\s*([+-]?\d+(?:\.\d+)?%?))?\s*\)/
+  );
+
+  if (!match) {
+    return null;
+  }
+
+  const lightnessToken = match[1];
+  const alphaToken = match[4];
+  const lightness = lightnessToken.endsWith('%')
+    ? clamp(parseFloat(lightnessToken) / 100, 0, 1)
+    : clamp(parseFloat(lightnessToken), 0, 1);
+  const chroma = Math.max(0, parseFloat(match[2]));
+  const hue = ((parseFloat(match[3]) % 360) + 360) % 360;
+  const alpha = alphaToken
+    ? alphaToken.endsWith('%')
+      ? clamp(parseFloat(alphaToken) / 100, 0, 1)
+      : clamp(parseFloat(alphaToken), 0, 1)
+    : 1;
+
+  if (
+    [lightness, chroma, hue, alpha].some((component) => Number.isNaN(component))
+  ) {
+    return null;
+  }
+
+  return oklchToRgba({
+    l: lightness,
+    c: chroma,
+    h: hue,
+    a: alpha,
+  });
+}
+
+function parseWithBrowser(cssValue: string): RgbaColor | null {
+  if (typeof document === 'undefined' || !document.body || typeof window === 'undefined') {
+    return null;
+  }
+
+  const probe = document.createElement('div');
+  probe.style.color = '';
+  probe.style.color = cssValue;
+
+  if (!probe.style.color) {
+    return null;
+  }
+
+  document.body.appendChild(probe);
+  const resolved = window.getComputedStyle(probe).color;
+  probe.remove();
+  return parseRgb(resolved);
+}
+
 export function parseColor(cssValue: string): RgbaColor | null {
   const trimmed = cssValue.trim().toLowerCase();
 
@@ -122,7 +217,11 @@ export function parseColor(cssValue: string): RgbaColor | null {
     return parseHsl(trimmed);
   }
 
-  return null;
+  if (trimmed.startsWith('oklch')) {
+    return parseOklch(trimmed);
+  }
+
+  return parseWithBrowser(trimmed);
 }
 
 export function rgbaToHex(color: RgbaColor): string {
@@ -143,6 +242,14 @@ export function rgbaToHex(color: RgbaColor): string {
 export function rgbaToString(color: RgbaColor): string {
   if (color.a < 1) {
     return `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a})`;
+  }
+
+  return `rgb(${color.r}, ${color.g}, ${color.b})`;
+}
+
+export function rgbaToRgbString(color: RgbaColor): string {
+  if (color.a < 1) {
+    return `rgba(${color.r}, ${color.g}, ${color.b}, ${Number(color.a.toFixed(2))})`;
   }
 
   return `rgb(${color.r}, ${color.g}, ${color.b})`;
@@ -212,6 +319,53 @@ export function rgbaToHsv(color: RgbaColor): HsvColor {
   }
 
   return { h: Math.round(h * 360), s, v, a: color.a };
+}
+
+function srgbToLinear(channel: number) {
+  const normalized = channel / 255;
+  if (normalized <= 0.04045) {
+    return normalized / 12.92;
+  }
+  return ((normalized + 0.055) / 1.055) ** 2.4;
+}
+
+export function rgbaToOklch(color: RgbaColor): OklchColor {
+  const r = srgbToLinear(color.r);
+  const g = srgbToLinear(color.g);
+  const b = srgbToLinear(color.b);
+
+  const l = 0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b;
+  const m = 0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b;
+  const s = 0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b;
+
+  const lRoot = Math.cbrt(l);
+  const mRoot = Math.cbrt(m);
+  const sRoot = Math.cbrt(s);
+
+  const okL = 0.2104542553 * lRoot + 0.793617785 * mRoot - 0.0040720468 * sRoot;
+  const okA = 1.9779984951 * lRoot - 2.428592205 * mRoot + 0.4505937099 * sRoot;
+  const okB = 0.0259040371 * lRoot + 0.7827717662 * mRoot - 0.808675766 * sRoot;
+
+  const c = Math.sqrt(okA * okA + okB * okB);
+  let h = Math.atan2(okB, okA) * (180 / Math.PI);
+  if (h < 0) {
+    h += 360;
+  }
+
+  return {
+    l: Number(okL.toFixed(4)),
+    c: Number(c.toFixed(4)),
+    h: Number(h.toFixed(2)),
+    a: color.a,
+  };
+}
+
+export function rgbaToOklchString(color: RgbaColor): string {
+  const oklch = rgbaToOklch(color);
+  if (oklch.a < 1) {
+    return `oklch(${oklch.l} ${oklch.c} ${oklch.h} / ${Number(oklch.a.toFixed(2))})`;
+  }
+  return `oklch(${oklch.l} ${oklch.c} ${oklch.h})`;
 }
 
 export function hsvToRgba(color: HsvColor): RgbaColor {
