@@ -49,8 +49,12 @@ describe('workspace smoke tests', () => {
   it('does not register save handling unless enableSave is set', () => {
     const plugin = hawkeyePlugin();
     const on = vi.fn();
+    const watch = vi.fn();
 
     plugin.configureServer?.({
+      watcher: {
+        on: watch,
+      },
       ws: {
         on,
       },
@@ -60,13 +64,18 @@ describe('workspace smoke tests', () => {
       'hawk-eye:inspect',
       'hawk-eye:analyze-style',
     ]);
+    expect(watch.mock.calls.map(([event]) => event)).toEqual(['add', 'change', 'unlink']);
   });
 
   it('registers save handling when explicitly enabled', () => {
     const plugin = hawkeyePlugin({ enableSave: true });
     const on = vi.fn();
+    const watch = vi.fn();
 
     plugin.configureServer?.({
+      watcher: {
+        on: watch,
+      },
       ws: {
         on,
       },
@@ -77,6 +86,7 @@ describe('workspace smoke tests', () => {
       'hawk-eye:analyze-style',
       'hawk-eye:save',
     ]);
+    expect(watch.mock.calls.map(([event]) => event)).toEqual(['add', 'change', 'unlink']);
   });
 
   it('declares a public CLI bin for installer usage', () => {

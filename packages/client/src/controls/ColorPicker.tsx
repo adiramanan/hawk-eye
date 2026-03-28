@@ -230,7 +230,11 @@ export function ColorPicker({ id, label, value, onChange, onClose, anchorRect, t
             onBlur={(e) => commitRawValue(e.currentTarget.value)}
             onChange={(e) => setRawValue(e.currentTarget.value)}
             onFocus={(e) => e.currentTarget.select()}
-            onKeyDown={(e) => { if (e.key === 'Enter') commitRawValue(rawValue); }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                commitRawValue(e.currentTarget.value);
+              }
+            }}
             type="text"
             value={rawValue}
           />

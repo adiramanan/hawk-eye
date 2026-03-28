@@ -28,6 +28,8 @@ export interface AuthoredClassTarget {
   column: number;
   selector: string;
   fingerprint: string;
+  declaredPropertyIds: string[];
+  declaredCssValues: Record<string, string>;
 }
 
 export interface InspectRequest {

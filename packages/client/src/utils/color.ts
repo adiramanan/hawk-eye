@@ -200,28 +200,31 @@ function parseWithBrowser(cssValue: string): RgbaColor | null {
 
 export function parseColor(cssValue: string): RgbaColor | null {
   const trimmed = cssValue.trim().toLowerCase();
+  const normalizedHex = /^[0-9a-f]{3,4}$|^[0-9a-f]{6}$|^[0-9a-f]{8}$/.test(trimmed)
+    ? `#${trimmed}`
+    : trimmed;
 
-  if (trimmed in NAMED_COLORS) {
-    return parseHex(NAMED_COLORS[trimmed]);
+  if (normalizedHex in NAMED_COLORS) {
+    return parseHex(NAMED_COLORS[normalizedHex]);
   }
 
-  if (trimmed.startsWith('#')) {
-    return parseHex(trimmed);
+  if (normalizedHex.startsWith('#')) {
+    return parseHex(normalizedHex);
   }
 
-  if (trimmed.startsWith('rgb')) {
-    return parseRgb(trimmed);
+  if (normalizedHex.startsWith('rgb')) {
+    return parseRgb(normalizedHex);
   }
 
-  if (trimmed.startsWith('hsl')) {
-    return parseHsl(trimmed);
+  if (normalizedHex.startsWith('hsl')) {
+    return parseHsl(normalizedHex);
   }
 
-  if (trimmed.startsWith('oklch')) {
-    return parseOklch(trimmed);
+  if (normalizedHex.startsWith('oklch')) {
+    return parseOklch(normalizedHex);
   }
 
-  return parseWithBrowser(trimmed);
+  return parseWithBrowser(normalizedHex);
 }
 
 export function rgbaToHex(color: RgbaColor): string {

@@ -86,6 +86,8 @@ function createClassTarget(
 ) {
   return {
     ...overrides,
+    declaredCssValues: overrides.declaredCssValues ?? {},
+    declaredPropertyIds: overrides.declaredPropertyIds ?? [],
     label: overrides.label ?? `.${overrides.className}`,
   };
 }
@@ -854,6 +856,193 @@ describe('DesignTool', () => {
     style.remove();
   });
 
+  it('rebases untouched class-backed panel values when style analysis refreshes a dirty draft', () => {
+    const hot = createHotStub();
+    globalThis.__HAWK_EYE_HOT__ = hot;
+
+    const target = document.createElement('div');
+    target.className = 'dense';
+    applyBaselineStyles(target, 'demo/src/App.tsx:44:7');
+    mockRect(target, { height: 64, left: 36, top: 72, width: 168 });
+    document.body.append(target);
+    setElementFromPoint(target);
+
+    const { cleanup, shadowRoot } = renderDesignTool();
+    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+
+    click(trigger);
+    click(document);
+
+    act(() => {
+      hot.emit('hawk-eye:selection', {
+        source: 'demo/src/App.tsx:44:7',
+        file: 'demo/src/App.tsx',
+        line: 44,
+        column: 7,
+        saveCapability: SAVE_CAPABILITY,
+        saveEnabled: true,
+      });
+      hot.emit(
+        'hawk-eye:style-analysis',
+        createStyleAnalysisPayload({
+          source: 'demo/src/App.tsx:44:7',
+          mode: 'unknown',
+          classNames: ['dense'],
+          classTargets: [
+            createClassTarget({
+              id: 'src/styles.css::dense',
+              className: 'dense',
+              file: 'src/styles.css',
+              line: 1,
+              column: 1,
+              selector: '.dense',
+              fingerprint: 'dense-fp-1',
+              declaredPropertyIds: ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft'],
+              declaredCssValues: {
+                padding: '12px',
+              },
+            }),
+          ],
+          fingerprint: 'fp-44-7-a',
+        })
+      );
+    });
+
+    expect((getControl(shadowRoot, 'paddingTop') as InstanceType<typeof window.HTMLInputElement>).value).toBe(
+      '12'
+    );
+
+    updateInput(
+      getControl(shadowRoot, 'backgroundColor') as InstanceType<typeof window.HTMLInputElement>,
+      '#ff0000'
+    );
+
+    act(() => {
+      hot.emit(
+        'hawk-eye:style-analysis',
+        createStyleAnalysisPayload({
+          source: 'demo/src/App.tsx:44:7',
+          mode: 'unknown',
+          classNames: ['dense'],
+          classTargets: [
+            createClassTarget({
+              id: 'src/styles.css::dense',
+              className: 'dense',
+              file: 'src/styles.css',
+              line: 1,
+              column: 1,
+              selector: '.dense',
+              fingerprint: 'dense-fp-2',
+              declaredPropertyIds: ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft'],
+              declaredCssValues: {
+                padding: '20px',
+              },
+            }),
+          ],
+          fingerprint: 'fp-44-7-b',
+        })
+      );
+    });
+
+    expect((getControl(shadowRoot, 'paddingTop') as InstanceType<typeof window.HTMLInputElement>).value).toBe(
+      '20'
+    );
+    expect(
+      (getControl(shadowRoot, 'backgroundColor') as InstanceType<typeof window.HTMLInputElement>).value
+    ).toBe('#ff0000');
+
+    cleanup();
+  });
+
+  it('keeps the selected class-target initialization while reselection waits for fresh analysis', () => {
+    const hot = createHotStub();
+    globalThis.__HAWK_EYE_HOT__ = hot;
+
+    const target = document.createElement('div');
+    target.className = 'filled framed';
+    applyBaselineStyles(target, 'demo/src/App.tsx:45:7');
+    mockRect(target, { height: 64, left: 36, top: 72, width: 168 });
+    document.body.append(target);
+    setElementFromPoint(target);
+
+    const { cleanup, shadowRoot } = renderDesignTool();
+    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+
+    click(trigger);
+    click(document);
+
+    act(() => {
+      hot.emit('hawk-eye:selection', {
+        source: 'demo/src/App.tsx:45:7',
+        file: 'demo/src/App.tsx',
+        line: 45,
+        column: 7,
+        saveCapability: SAVE_CAPABILITY,
+        saveEnabled: true,
+      });
+      hot.emit(
+        'hawk-eye:style-analysis',
+        createStyleAnalysisPayload({
+          source: 'demo/src/App.tsx:45:7',
+          mode: 'unknown',
+          classNames: ['filled', 'framed'],
+          classTargets: [
+            createClassTarget({
+              id: 'src/styles.css::filled',
+              className: 'filled',
+              file: 'src/styles.css',
+              line: 1,
+              column: 1,
+              selector: '.filled',
+              fingerprint: 'filled-fp',
+              declaredPropertyIds: ['backgroundColor'],
+              declaredCssValues: {
+                'background-color': 'rgb(17, 24, 39)',
+              },
+            }),
+            createClassTarget({
+              id: 'src/styles.css::framed',
+              className: 'framed',
+              file: 'src/styles.css',
+              line: 2,
+              column: 1,
+              selector: '.framed',
+              fingerprint: 'framed-fp',
+              declaredPropertyIds: ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft'],
+              declaredCssValues: {
+                padding: '12px',
+              },
+            }),
+          ],
+          fingerprint: 'fp-45-7-a',
+        })
+      );
+    });
+
+    updateSelect(
+      getInputByLabel(shadowRoot, 'Class target') as InstanceType<typeof window.HTMLSelectElement>,
+      'src/styles.css::framed'
+    );
+    expect((getControl(shadowRoot, 'paddingTop') as InstanceType<typeof window.HTMLInputElement>).value).toBe(
+      '12'
+    );
+
+    setElementFromPoint(target);
+    click(document);
+
+    const classTargetSelect = shadowRoot.querySelector(
+      '[aria-label="Class target"]'
+    ) as InstanceType<typeof window.HTMLSelectElement> | null;
+
+    expect(classTargetSelect).not.toBeNull();
+    expect(classTargetSelect?.value).toBe('src/styles.css::framed');
+    expect((getControl(shadowRoot, 'paddingTop') as InstanceType<typeof window.HTMLInputElement>).value).toBe(
+      '12'
+    );
+
+    cleanup();
+  });
+
   it('keeps authored class-target preview when switching selection without re-analyzing peers', async () => {
     const hot = createHotStub();
     globalThis.__HAWK_EYE_HOT__ = hot;
@@ -951,6 +1140,230 @@ describe('DesignTool', () => {
     style.remove();
   });
 
+  it('rebases dirty class-target edits instead of carrying them to a newly selected class target', () => {
+    const hot = createHotStub();
+    globalThis.__HAWK_EYE_HOT__ = hot;
+
+    const style = document.createElement('style');
+    style.textContent = `
+      .dense { padding-top: 16px; }
+      .roomy { padding-top: 40px; }
+    `;
+    document.head.append(style);
+
+    const target = document.createElement('button');
+    target.className = 'dense roomy';
+    applyBaselineStyles(target, 'demo/src/App.tsx:48:7');
+    target.style.paddingTop = '';
+    mockRect(target, { height: 44, left: 36, top: 72, width: 148 });
+
+    const peer = document.createElement('button');
+    peer.className = 'roomy';
+    applyBaselineStyles(peer, 'demo/src/App.tsx:49:7');
+    peer.style.paddingTop = '';
+    mockRect(peer, { height: 44, left: 196, top: 72, width: 148 });
+
+    document.body.append(target, peer);
+    setElementFromPoint(target);
+
+    const { cleanup, shadowRoot } = renderDesignTool();
+    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+
+    click(trigger);
+    click(document);
+
+    act(() => {
+      hot.emit('hawk-eye:selection', {
+        source: 'demo/src/App.tsx:48:7',
+        file: 'demo/src/App.tsx',
+        line: 48,
+        column: 7,
+        saveCapability: SAVE_CAPABILITY,
+        saveEnabled: true,
+      });
+      hot.emit(
+        'hawk-eye:style-analysis',
+        createStyleAnalysisPayload({
+          source: 'demo/src/App.tsx:48:7',
+          mode: 'unknown',
+          classNames: ['dense', 'roomy'],
+          classTargets: [
+            createClassTarget({
+              id: 'src/styles.css::dense',
+              className: 'dense',
+              file: 'src/styles.css',
+              line: 1,
+              column: 1,
+              selector: '.dense',
+              fingerprint: 'dense-fp',
+            }),
+            createClassTarget({
+              id: 'src/styles.css::roomy',
+              className: 'roomy',
+              file: 'src/styles.css',
+              line: 2,
+              column: 1,
+              selector: '.roomy',
+              fingerprint: 'roomy-fp',
+            }),
+          ],
+          fingerprint: 'fp-48-7',
+        })
+      );
+    });
+
+    updateInput(
+      getControl(shadowRoot, 'paddingTop') as InstanceType<typeof window.HTMLInputElement>,
+      '24px'
+    );
+
+    expect(
+      document.head.querySelector('[data-hawk-eye-ui="class-target-preview-style"]')?.textContent
+    ).toContain('.dense');
+    expect(peer.style.paddingTop).toBe('');
+    expect(window.getComputedStyle(peer).paddingTop).toBe('40px');
+
+    const classTargetSelect = shadowRoot.querySelector(
+      '[aria-label="Class target"]'
+    ) as InstanceType<typeof window.HTMLSelectElement> | null;
+
+    if (!classTargetSelect) {
+      throw new Error('Missing class target select');
+    }
+
+    act(() => {
+      classTargetSelect.value = 'src/styles.css::roomy';
+      classTargetSelect.dispatchEvent(new window.Event('change', { bubbles: true }));
+    });
+
+    const previewCss =
+      document.head.querySelector('[data-hawk-eye-ui="class-target-preview-style"]')?.textContent ?? '';
+    expect(previewCss).not.toContain('.roomy');
+    expect(previewCss).not.toContain('padding-top: 24px !important;');
+    expect(target.style.paddingTop).toBe('');
+    expect(peer.style.paddingTop).toBe('');
+    expect(window.getComputedStyle(peer).paddingTop).toBe('40px');
+
+    cleanup();
+    style.remove();
+  });
+
+  it('keeps all groups visible while only initializing the selected class target properties, then restores full values when detached', () => {
+    const hot = createHotStub();
+    globalThis.__HAWK_EYE_HOT__ = hot;
+
+    const target = document.createElement('div');
+    target.className = 'filled framed';
+    applyBaselineStyles(target, 'demo/src/App.tsx:50:7');
+    mockRect(target, { height: 64, left: 36, top: 72, width: 168 });
+    document.body.append(target);
+    setElementFromPoint(target);
+
+    const { cleanup, shadowRoot } = renderDesignTool();
+    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+
+    click(trigger);
+    click(document);
+
+    act(() => {
+      hot.emit('hawk-eye:selection', {
+        source: 'demo/src/App.tsx:50:7',
+        file: 'demo/src/App.tsx',
+        line: 50,
+        column: 7,
+        saveCapability: SAVE_CAPABILITY,
+        saveEnabled: true,
+      });
+      hot.emit(
+        'hawk-eye:style-analysis',
+        createStyleAnalysisPayload({
+          source: 'demo/src/App.tsx:50:7',
+          mode: 'unknown',
+          classNames: ['filled', 'framed'],
+          classTargets: [
+            createClassTarget({
+              id: 'src/styles.css::filled',
+              className: 'filled',
+              file: 'src/styles.css',
+              line: 1,
+              column: 1,
+              selector: '.filled',
+              fingerprint: 'filled-fp',
+              declaredPropertyIds: ['backgroundColor'],
+              declaredCssValues: {
+                'background-color': 'rgb(17, 24, 39)',
+              },
+            }),
+            createClassTarget({
+              id: 'src/styles.css::framed',
+              className: 'framed',
+              file: 'src/styles.css',
+              line: 2,
+              column: 1,
+              selector: '.framed',
+              fingerprint: 'framed-fp',
+              declaredPropertyIds: [
+                'paddingTop',
+                'paddingRight',
+                'paddingBottom',
+                'paddingLeft',
+                'borderStyle',
+                'borderColor',
+                'borderTopWidth',
+                'borderRightWidth',
+                'borderBottomWidth',
+                'borderLeftWidth',
+              ],
+              declaredCssValues: {
+                padding: '12px',
+                border: '2px solid #d1d5db',
+              },
+            }),
+          ],
+          fingerprint: 'fp-50-7',
+        })
+      );
+    });
+
+    expect(shadowRoot.querySelector('[data-property-id="backgroundColor"]')).not.toBeNull();
+    expect(shadowRoot.querySelector('[data-property-id="padding"]')).not.toBeNull();
+    expect(shadowRoot.querySelector('[data-property-id="borderStyle"]')).not.toBeNull();
+    expect((getControl(shadowRoot, 'backgroundColor') as InstanceType<typeof window.HTMLInputElement>).value).toBe('#111827');
+    expect((getControl(shadowRoot, 'paddingTop') as InstanceType<typeof window.HTMLInputElement>).value).toBe('');
+    expect((getControl(shadowRoot, 'borderStyle') as InstanceType<typeof window.HTMLSelectElement>).value).toBe('');
+
+    updateSelect(
+      getInputByLabel(shadowRoot, 'Class target') as InstanceType<typeof window.HTMLSelectElement>,
+      'src/styles.css::framed'
+    );
+
+    expect(shadowRoot.querySelector('[data-property-id="backgroundColor"]')).not.toBeNull();
+    expect(shadowRoot.querySelector('[data-property-id="padding"]')).not.toBeNull();
+    expect(shadowRoot.querySelector('[data-property-id="borderStyle"]')).not.toBeNull();
+    expect(shadowRoot.querySelector('[data-property-id="borderWidth"]')).not.toBeNull();
+    expect((getControl(shadowRoot, 'backgroundColor') as InstanceType<typeof window.HTMLInputElement>).value).toBe('');
+    expect((getControl(shadowRoot, 'paddingTop') as InstanceType<typeof window.HTMLInputElement>).value).toBe('12');
+    expect((getControl(shadowRoot, 'borderStyle') as InstanceType<typeof window.HTMLSelectElement>).value).toBe('solid');
+
+    const detachButton = shadowRoot.querySelector(
+      '[data-hawk-eye-ui="class-target-detach-button"]'
+    );
+
+    if (!(detachButton instanceof window.HTMLButtonElement)) {
+      throw new Error('Missing detach button');
+    }
+
+    click(detachButton);
+
+    expect(shadowRoot.querySelector('[data-property-id="backgroundColor"]')).not.toBeNull();
+    expect(shadowRoot.querySelector('[data-property-id="padding"]')).not.toBeNull();
+    expect(shadowRoot.querySelector('[data-property-id="borderStyle"]')).not.toBeNull();
+    expect((getControl(shadowRoot, 'backgroundColor') as InstanceType<typeof window.HTMLInputElement>).value).toBe('');
+    expect((getControl(shadowRoot, 'paddingTop') as InstanceType<typeof window.HTMLInputElement>).value).toBe('16');
+
+    cleanup();
+  });
+
   it('detaches from a semantic class target and keeps later edits local to the selected element', () => {
     const hot = createHotStub();
     globalThis.__HAWK_EYE_HOT__ = hot;
@@ -1009,9 +1422,7 @@ describe('DesignTool', () => {
       );
     });
 
-    const detachButton = shadowRoot.querySelector(
-      '[data-hawk-eye-ui="class-target-bar"] [data-hawk-eye-ui="pill-button"]'
-    );
+    const detachButton = shadowRoot.querySelector('[data-hawk-eye-ui="class-target-detach-button"]');
 
     if (!(detachButton instanceof window.HTMLButtonElement)) {
       throw new Error('Missing detach button');
@@ -1019,7 +1430,7 @@ describe('DesignTool', () => {
 
     click(detachButton);
 
-    expect(shadowRoot.textContent).toContain('Detached from');
+    expect(shadowRoot.querySelector('[data-hawk-eye-ui="class-target-bar"]')).toBeNull();
     expect(shadowRoot.querySelector('[aria-label="Class target"]')).toBeNull();
     expect(
       document.head.querySelector('[data-hawk-eye-ui="class-target-preview-style"]')?.textContent

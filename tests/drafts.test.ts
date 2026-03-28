@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createSelectionDraft } from '../packages/client/src/drafts';
+import { createSelectionDraft, rebaseSelectionDraft } from '../packages/client/src/drafts';
 import type { SelectionDetails } from '../packages/client/src/types';
 
 function createSelectionDetails(overrides: Partial<SelectionDetails> = {}): SelectionDetails {
@@ -140,5 +140,129 @@ describe('draft creation', () => {
     expect(draft.sizeControl.heightMode.baseline).toBe('hug');
 
     parent.remove();
+  });
+
+  it('rebases authored class baselines while preserving dirty property overrides', () => {
+    const target = document.createElement('div');
+    document.body.append(target);
+
+    const initialDraft = createSelectionDraft(
+      createSelectionDetails({
+        activeClassTargetId: 'src/styles.css::dense',
+        classNames: ['dense'],
+        classTargets: [
+          {
+            id: 'src/styles.css::dense',
+            className: 'dense',
+            selector: '.dense',
+            file: 'src/styles.css',
+            line: 1,
+            column: 1,
+            fingerprint: 'dense-fp-1',
+            declaredPropertyIds: ['paddingTop'],
+            declaredCssValues: {
+              padding: '12px',
+            },
+          },
+        ],
+        styleAnalysisResolved: true,
+      }),
+      target
+    );
+
+    const dirtyDraft = {
+      ...initialDraft,
+      properties: {
+        ...initialDraft.properties,
+        paddingTop: {
+          ...initialDraft.properties.paddingTop,
+          inputValue: '24px',
+          value: '24px',
+        },
+      },
+    };
+
+    const rebasedDraft = rebaseSelectionDraft(
+      dirtyDraft,
+      createSelectionDetails({
+        activeClassTargetId: 'src/styles.css::dense',
+        analysisFingerprint: 'fp-2',
+        classNames: ['dense'],
+        classTargets: [
+          {
+            id: 'src/styles.css::dense',
+            className: 'dense',
+            selector: '.dense',
+            file: 'src/styles.css',
+            line: 1,
+            column: 1,
+            fingerprint: 'dense-fp-2',
+            declaredPropertyIds: ['paddingTop', 'backgroundColor'],
+            declaredCssValues: {
+              padding: '20px',
+              'background-color': 'rgb(17, 24, 39)',
+            },
+          },
+        ],
+        styleAnalysisResolved: true,
+      }),
+      target
+    );
+
+    expect(rebasedDraft.properties.paddingTop.baseline).toBe('20px');
+    expect(rebasedDraft.properties.paddingTop.inputValue).toBe('24px');
+    expect(rebasedDraft.properties.paddingTop.value).toBe('24px');
+    expect(rebasedDraft.properties.backgroundColor.baseline).toBe('rgb(17, 24, 39)');
+    expect(rebasedDraft.analysisFingerprint).toBe('fp-2');
+
+    target.remove();
+  });
+
+  it('preserves the last resolved class context while a fresh analysis is pending', () => {
+    const target = document.createElement('div');
+    document.body.append(target);
+
+    const resolvedDraft = createSelectionDraft(
+      createSelectionDetails({
+        activeClassTargetId: 'src/styles.css::dense',
+        classNames: ['dense'],
+        classTargets: [
+          {
+            id: 'src/styles.css::dense',
+            className: 'dense',
+            selector: '.dense',
+            file: 'src/styles.css',
+            line: 1,
+            column: 1,
+            fingerprint: 'dense-fp-1',
+            declaredPropertyIds: ['paddingTop'],
+            declaredCssValues: {
+              padding: '12px',
+            },
+          },
+        ],
+        styleAnalysisResolved: true,
+      }),
+      target
+    );
+
+    const pendingDraft = rebaseSelectionDraft(
+      resolvedDraft,
+      createSelectionDetails({
+        activeClassTargetId: null,
+        analysisFingerprint: '',
+        classNames: [],
+        classTargets: [],
+        styleAnalysisResolved: false,
+      }),
+      target
+    );
+
+    expect(pendingDraft.styleAnalysisResolved).toBe(false);
+    expect(pendingDraft.classTargets).toHaveLength(1);
+    expect(pendingDraft.activeClassTargetId).toBe('src/styles.css::dense');
+    expect(pendingDraft.properties.paddingTop.baseline).toBe('12px');
+
+    target.remove();
   });
 });

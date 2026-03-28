@@ -10,6 +10,7 @@ import {
 } from './size-state';
 import { HAWK_EYE_SOURCE_ATTRIBUTE } from '../../../shared/protocol';
 import type {
+  AuthoredClassTarget,
   EditablePropertyId,
   ElementContext,
   PropertySnapshot,
@@ -54,6 +55,17 @@ const elementInstanceKeyCache = new WeakMap<
   }
 >();
 const previewStyleOverrideCache = new WeakMap<HTMLElement, Map<string, string | null>>();
+
+function getActiveClassTarget(
+  classTargets: AuthoredClassTarget[],
+  activeClassTargetId: string | null
+) {
+  return (
+    classTargets.find((target) => target.id === activeClassTargetId) ??
+    classTargets[0] ??
+    null
+  );
+}
 
 function escapeAttributeValue(value: string) {
   return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
@@ -375,20 +387,70 @@ function shouldPreserveNonNumericBaseline(propertyId: EditablePropertyId) {
   return SIZE_KEYWORD_PROPERTY_IDS.has(propertyId);
 }
 
+function buildAuthoredClassStyle(target: AuthoredClassTarget | null) {
+  if (!target || Object.keys(target.declaredCssValues).length === 0) {
+    return null;
+  }
+
+  const scratchElement = document.createElement('div');
+
+  for (const [propertyName, value] of Object.entries(target.declaredCssValues)) {
+    scratchElement.style.setProperty(propertyName, value);
+  }
+
+  return scratchElement.style;
+}
+
+function getAuthoredClassPropertyValue(
+  propertyId: EditablePropertyId,
+  cssProperty: string,
+  authoredClassStyle: CSSStyleDeclaration | null
+) {
+  if (!authoredClassStyle) {
+    return '';
+  }
+
+  if (propertyId === 'backgroundColor') {
+    return (
+      authoredClassStyle.getPropertyValue('background-color').trim() ||
+      authoredClassStyle.getPropertyValue('background').trim()
+    );
+  }
+
+  return authoredClassStyle.getPropertyValue(cssProperty).trim();
+}
+
 export function createSelectionDraft(
   details: SelectionDetails,
   element: HTMLElement
 ): SelectionDraft {
   const computedStyle = window.getComputedStyle(element);
   const classTargets = details.classTargets ?? [];
+  const activeClassTargetId =
+    details.activeClassTargetId &&
+    classTargets.some((target) => target.id === details.activeClassTargetId)
+      ? details.activeClassTargetId
+      : classTargets[0]?.id ?? null;
+  const activeClassTarget = details.styleAnalysisResolved
+    ? getActiveClassTarget(classTargets, activeClassTargetId)
+    : null;
+  const authoredClassStyle = buildAuthoredClassStyle(activeClassTarget);
   const properties = {} as SelectionDraft['properties'];
 
   for (const definition of editablePropertyDefinitions) {
     const inlineValue = element.style.getPropertyValue(definition.cssProperty).trim();
     const computedValue = computedStyle.getPropertyValue(definition.cssProperty).trim();
-    const rawBaseline = AUTHORED_SIZE_PROPERTY_IDS.has(definition.id)
-      ? inlineValue || computedValue
-      : computedValue || inlineValue;
+    const authoredValue = getAuthoredClassPropertyValue(
+      definition.id,
+      definition.cssProperty,
+      authoredClassStyle
+    );
+    const rawBaseline =
+      authoredClassStyle
+        ? authoredValue
+        : AUTHORED_SIZE_PROPERTY_IDS.has(definition.id)
+          ? inlineValue || computedValue
+          : computedValue || inlineValue;
     const baseline =
       definition.control === 'number' &&
       !['gridColumns', 'gridRows'].includes(definition.id) &&
@@ -408,11 +470,6 @@ export function createSelectionDraft(
   }
 
   const context = buildElementContext(element);
-  const activeClassTargetId =
-    details.activeClassTargetId &&
-    classTargets.some((target) => target.id === details.activeClassTargetId)
-      ? details.activeClassTargetId
-      : classTargets[0]?.id ?? null;
 
   return {
     ...details,
@@ -459,6 +516,83 @@ export function mergeSelectionDraft(
     saveCapability: details.saveCapability,
     saveEnabled: details.saveEnabled,
     styleAnalysisResolved: details.styleAnalysisResolved,
+  };
+}
+
+export function rebaseSelectionDraft(
+  draft: SelectionDraft,
+  details: SelectionDetails,
+  element: HTMLElement
+): SelectionDraft {
+  const shouldPreserveResolvedClassContext =
+    !details.styleAnalysisResolved &&
+    details.classTargets.length === 0 &&
+    draft.styleAnalysisResolved &&
+    draft.classTargets.length > 0;
+  const rebaseDetails = shouldPreserveResolvedClassContext
+    ? {
+        ...details,
+        styleMode: draft.styleMode,
+        styleAnalysisResolved: true,
+        classNames: draft.classNames,
+        classAttributeState: draft.classAttributeState,
+        classTargets: draft.classTargets,
+        activeClassTargetId:
+          draft.activeClassTargetId &&
+          draft.classTargets.some((target) => target.id === draft.activeClassTargetId)
+            ? draft.activeClassTargetId
+            : draft.classTargets[0]?.id ?? null,
+        inlineStyles: draft.inlineStyles,
+        styleAttributeState: draft.styleAttributeState,
+      }
+    : details;
+  const rebasedDraft = createSelectionDraft(rebaseDetails, element);
+  const properties = { ...rebasedDraft.properties };
+
+  for (const definition of editablePropertyDefinitions) {
+    const currentSnapshot = draft.properties[definition.id];
+
+    if (currentSnapshot.value === currentSnapshot.baseline) {
+      continue;
+    }
+
+    properties[definition.id] = {
+      ...properties[definition.id],
+      inputValue: currentSnapshot.inputValue,
+      invalid: currentSnapshot.invalid,
+      value: currentSnapshot.value,
+    };
+  }
+
+  const widthModeDirty = draft.sizeControl.widthMode.value !== draft.sizeControl.widthMode.baseline;
+  const heightModeDirty = draft.sizeControl.heightMode.value !== draft.sizeControl.heightMode.baseline;
+
+  return {
+    ...rebasedDraft,
+    analysisFingerprint: details.analysisFingerprint,
+    properties,
+    saveCapability: details.saveCapability,
+    saveEnabled: details.saveEnabled,
+    styleAnalysisResolved: details.styleAnalysisResolved,
+    sizeControl: {
+      ...rebasedDraft.sizeControl,
+      aspectRatio: draft.sizeControl.aspectRatio,
+      aspectRatioLocked: draft.sizeControl.aspectRatioLocked,
+      widthMemory: draft.sizeControl.widthMemory,
+      heightMemory: draft.sizeControl.heightMemory,
+      widthMode: widthModeDirty
+        ? {
+            ...rebasedDraft.sizeControl.widthMode,
+            value: draft.sizeControl.widthMode.value,
+          }
+        : rebasedDraft.sizeControl.widthMode,
+      heightMode: heightModeDirty
+        ? {
+            ...rebasedDraft.sizeControl.heightMode,
+            value: draft.sizeControl.heightMode.value,
+          }
+        : rebasedDraft.sizeControl.heightMode,
+    },
   };
 }
 

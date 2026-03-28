@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { editablePropertyDefinitions } from '../../client/src/editable-properties';
+import type { EditablePropertyId } from '../../client/src/types';
 import type { AuthoredClassTarget } from '../../../shared/protocol';
 
 export interface AuthoredClassTargetRecord extends AuthoredClassTarget {
@@ -16,6 +18,29 @@ interface CachedClassTargetIndex {
 const STYLE_FILE_EXTENSIONS = new Set(['.css', '.scss', '.sass', '.less']);
 const IGNORED_DIRECTORIES = new Set(['node_modules', '.git', 'dist', 'build', '.turbo', '.cache']);
 const INDEX_CACHE = new Map<string, CachedClassTargetIndex>();
+const DIRECT_CSS_PROPERTY_TO_EDITABLE_IDS = new Map<string, EditablePropertyId[]>();
+const SHORTHAND_CSS_PROPERTY_TO_EDITABLE_IDS = new Map<string, EditablePropertyId[]>([
+  ['padding', ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft']],
+  ['margin', ['marginTop', 'marginRight', 'marginBottom', 'marginLeft']],
+  ['background', ['backgroundColor', 'backgroundImage']],
+  ['border-color', ['borderColor']],
+  ['border-style', ['borderStyle']],
+  ['border-width', ['borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth']],
+  ['border', ['borderColor', 'borderStyle', 'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth']],
+  ['border-top', ['borderColor', 'borderStyle', 'borderTopWidth']],
+  ['border-right', ['borderColor', 'borderStyle', 'borderRightWidth']],
+  ['border-bottom', ['borderColor', 'borderStyle', 'borderBottomWidth']],
+  ['border-left', ['borderColor', 'borderStyle', 'borderLeftWidth']],
+  ['border-radius', ['borderRadius', 'borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomRightRadius', 'borderBottomLeftRadius']],
+  ['font', ['fontFamily', 'fontSize', 'fontWeight', 'lineHeight']],
+  ['text-decoration', ['textDecoration']],
+]);
+
+for (const definition of editablePropertyDefinitions) {
+  const existing = DIRECT_CSS_PROPERTY_TO_EDITABLE_IDS.get(definition.cssProperty) ?? [];
+  existing.push(definition.id);
+  DIRECT_CSS_PROPERTY_TO_EDITABLE_IDS.set(definition.cssProperty, existing);
+}
 
 function normalizePath(value: string) {
   return value.replace(/\\/g, '/');
@@ -71,6 +96,46 @@ function extractSimpleClassNames(selectorText: string) {
   }
 
   return classNames;
+}
+
+function collectDeclaredPropertyIds(bodyText: string) {
+  const propertyIds = new Set<EditablePropertyId>();
+
+  for (const declaration of splitTopLevelDeclarations(bodyText)) {
+    const match = /^\s*([-\w]+)\s*:\s*([\s\S]*?)\s*;?\s*$/.exec(declaration.text);
+
+    if (!match?.[1]) {
+      continue;
+    }
+
+    const propertyName = match[1].trim().toLowerCase();
+
+    for (const propertyId of DIRECT_CSS_PROPERTY_TO_EDITABLE_IDS.get(propertyName) ?? []) {
+      propertyIds.add(propertyId);
+    }
+
+    for (const propertyId of SHORTHAND_CSS_PROPERTY_TO_EDITABLE_IDS.get(propertyName) ?? []) {
+      propertyIds.add(propertyId);
+    }
+  }
+
+  return Array.from(propertyIds);
+}
+
+function collectDeclaredCssValues(bodyText: string) {
+  const cssValues: Record<string, string> = {};
+
+  for (const declaration of splitTopLevelDeclarations(bodyText)) {
+    const match = /^\s*([-\w]+)\s*:\s*([\s\S]*?)\s*;?\s*$/.exec(declaration.text);
+
+    if (!match?.[1] || !match[2]) {
+      continue;
+    }
+
+    cssValues[match[1].trim().toLowerCase()] = match[2].trim();
+  }
+
+  return cssValues;
 }
 
 function findMatchingBrace(text: string, openIndex: number) {
@@ -430,10 +495,14 @@ function createTargetRecord(
 ): AuthoredClassTargetRecord {
   const location = getLineAndColumn(readFileSync(absoluteFile, 'utf8'), selectorStart);
   const fingerprint = createFingerprint(absoluteFile, selector, bodyText);
+  const declaredPropertyIds = collectDeclaredPropertyIds(bodyText);
+  const declaredCssValues = collectDeclaredCssValues(bodyText);
 
   return {
     absoluteFile,
     className,
+    declaredCssValues,
+    declaredPropertyIds,
     file: normalizePath(relativeFile),
     fingerprint,
     id: `${normalizePath(relativeFile)}::${className}`,
@@ -550,6 +619,8 @@ export function getAuthoredClassTargets(root: string) {
   return getCachedIndex(root).targets.map((target) => ({
     className: target.className,
     column: target.column,
+    declaredCssValues: target.declaredCssValues,
+    declaredPropertyIds: target.declaredPropertyIds,
     file: target.file,
     fingerprint: target.fingerprint,
     id: target.id,
@@ -569,6 +640,8 @@ export function resolveAuthoredClassTargetById(root: string, id: string) {
   return {
     className: target.className,
     column: target.column,
+    declaredCssValues: target.declaredCssValues,
+    declaredPropertyIds: target.declaredPropertyIds,
     file: target.file,
     fingerprint: target.fingerprint,
     id: target.id,
@@ -595,6 +668,8 @@ export function getAuthoredClassTargetsForClassNames(root: string, classNames: s
       targets.push({
         className: target.className,
         column: target.column,
+        declaredCssValues: target.declaredCssValues,
+        declaredPropertyIds: target.declaredPropertyIds,
         file: target.file,
         fingerprint: target.fingerprint,
         id: target.id,

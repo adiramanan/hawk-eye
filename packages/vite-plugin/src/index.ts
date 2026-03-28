@@ -1,6 +1,7 @@
 import type { Plugin, ResolvedConfig } from 'vite';
 import { createHawkEyeServerState, type HawkEyePluginOptions, updateHawkEyeServerRoot } from './plugin-state';
 import { registerSaveHandler } from './save-handler';
+import { registerStyleFileInvalidation } from './style-cache-invalidation';
 import { injectSourceMetadata } from './source-injector';
 import { registerInspectHandler } from './ws-server';
 
@@ -42,6 +43,7 @@ export default function hawkeyePlugin(options: HawkEyePluginOptions = {}): Plugi
       return injectSourceMetadata(code, id, state.root, state);
     },
     configureServer(server) {
+      registerStyleFileInvalidation(server, state);
       registerInspectHandler(server, state);
 
       if (state.saveEnabled) {

@@ -132,7 +132,7 @@ describe('client UI controls', () => {
     );
 
     expect(definition?.options).toEqual([
-      { label: 'Row', value: 'row' },
+      { label: 'Row', value: 'row', hiddenInV1: true },
       { label: 'Col', value: 'column' },
       { label: 'Row-R', value: 'row-reverse' },
       { label: 'Col-R', value: 'column-reverse' },
@@ -319,7 +319,7 @@ describe('client UI controls', () => {
     updateInput(hexInput, 'ff6600');
     keyDown(hexInput, 'Enter');
 
-    expect(onChange).toHaveBeenCalledWith('#ff6600');
+    expect(onChange).toHaveBeenCalledWith('#FF6600');
   });
 
   it('normalizes initialized oklch colors to hex in the text field', () => {

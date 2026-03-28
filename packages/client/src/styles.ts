@@ -1778,31 +1778,100 @@ export const hawkEyeStyles = `
   [data-hawk-eye-ui="class-target-bar"] {
     display: flex;
     align-items: center;
-    gap: var(--spacing-xs);
-    margin-bottom: var(--spacing-md);
+    gap: var(--spacing-10px);
+    width: 100%;
+    padding: var(--spacing-lg) 0;
+    border-bottom: var(--spacing-1px) solid var(--he-divider);
     min-width: 0;
   }
 
-  [data-hawk-eye-ui="class-target-label"] {
-    color: var(--he-label);
-    flex-shrink: 0;
+  [data-hawk-eye-ui="class-target-field"] {
+    display: flex;
+    align-items: center;
+    height: var(--spacing-2xl);
+    min-width: 0;
+    padding: 0 var(--spacing-10px);
+    border-radius: var(--radius-md);
+    background: #3b3b3b;
+    flex: 1 1 auto;
+    overflow: hidden;
+  }
+
+  [data-hawk-eye-ui="class-target-copy"] {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    flex: 1 1 auto;
+    min-width: 0;
     font-family: var(--he-font-ui);
-    font-size: 11px;
-    letter-spacing: -0.2px;
-    line-height: 1;
+    font-size: 13.5px;
+    font-weight: 400;
+    letter-spacing: var(--letter-spacing-tight);
+    line-height: normal;
+  }
+
+  [data-hawk-eye-ui="class-target-label"] {
+    color: #bcbcbc;
+    flex-shrink: 0;
+    font: inherit;
   }
 
   [data-hawk-eye-ui="class-target-value"] {
     color: var(--he-fg);
     font-family: var(--he-font-ui);
-    font-size: 11px;
-    letter-spacing: -0.2px;
-    line-height: 1;
+    font-size: var(--font-size-sm);
+    letter-spacing: var(--letter-spacing-tight);
+    line-height: normal;
   }
 
-  [data-hawk-eye-ui="class-target-bar"] [data-hawk-eye-ui="select-input"] {
+  /* When the native select is used inside the class-target composite field,
+     we remove the default select chrome so the field controls match Figma. */
+  [data-hawk-eye-ui="class-target-field"] [data-hawk-eye-ui="select-input"] {
     flex: 1 1 auto;
+    width: auto;
     min-width: 0;
+    height: var(--spacing-2xl);
+    padding: 0 var(--spacing-28px) 0 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: #ffffff;
+    box-shadow: none;
+    background-position: right var(--spacing-10px) center;
+    font: inherit;
+    font-weight: 400;
+  }
+
+  [data-hawk-eye-ui="class-target-field"] [data-hawk-eye-ui="select-input"]:hover {
+    background-color: transparent;
+  }
+
+  [data-hawk-eye-ui="class-target-field"] [data-hawk-eye-ui="select-input"]:focus-visible {
+    border-color: transparent;
+    background-color: transparent;
+    box-shadow: 0 0 0 var(--spacing-xs) color-mix(in srgb, var(--he-ring) 18%, transparent);
+  }
+
+  [data-hawk-eye-ui="class-target-detach-button"] {
+    border: 0;
+    min-height: var(--spacing-2xl);
+    padding: var(--spacing-base) var(--spacing-md);
+    border-radius: var(--radius-md);
+    background: #e1f1ff;
+    color: #007ef4;
+    font-family: var(--he-font-ui);
+    font-size: 13.5px;
+    letter-spacing: var(--letter-spacing-tight);
+    line-height: normal;
+    font-weight: 400;
+    cursor: pointer;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  [data-hawk-eye-ui="class-target-detach-button"]:hover {
+    background: #e1f1ff;
+    color: #007ef4;
   }
 
   /* ── Segmented control ───────────────────────────────────────── */

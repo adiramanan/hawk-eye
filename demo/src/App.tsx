@@ -160,7 +160,7 @@ export default function App() {
                   {runtimeFacts.map((fact) => (
                     <div className="he-fact-row" key={fact.label}>
                       <span className="text-sm text-slate-300">{fact.label}</span>
-                      <span className="he-status-chip" data-tone={fact.tone} style={{ color: "rgb(116, 174, 255)" }}>
+                      <span className="he-status-chip" data-tone={fact.tone}>
                         {fact.value}
                       </span>
                     </div>

@@ -15,6 +15,7 @@ import {
   getInspectableElementByKey,
   hasDraftChanges,
   mergeSelectionDraft,
+  rebaseSelectionDraft,
   resetDraftProperty,
   resetDraftSizeMode,
 } from './drafts';
@@ -965,7 +966,9 @@ function DesignToolRuntime() {
 
     const currentDraft = draftsRef.current[measured.instanceKey];
     const nextDraft = currentDraft
-      ? mergeSelectionDraft(currentDraft, details)
+      ? currentDraft.detached
+        ? mergeSelectionDraft(currentDraft, details)
+        : rebaseSelectionDraft(currentDraft, details, measured.element)
       : createSelectionDraft(details, measured.element);
 
     syncSelectedDraftPreview(nextDraft);
@@ -1495,10 +1498,49 @@ function DesignToolRuntime() {
         return current;
       }
 
-      const updatedDraft = {
-        ...currentDraft,
-        activeClassTargetId: targetId,
-      };
+      if (currentDraft.activeClassTargetId === targetId) {
+        return current;
+      }
+
+      const element = getInspectableElementByKey(instanceKey);
+
+      if (!element) {
+        const updatedDraft = {
+          ...currentDraft,
+          activeClassTargetId: targetId,
+        };
+        nextDraft = updatedDraft;
+
+        return {
+          ...current,
+          [instanceKey]: updatedDraft,
+        };
+      }
+
+      clearDraftOverrides(currentDraft);
+
+      const updatedDraft = createSelectionDraft(
+        {
+          source: currentDraft.source,
+          file: currentDraft.file,
+          line: currentDraft.line,
+          column: currentDraft.column,
+          instanceKey: currentDraft.instanceKey,
+          analysisFingerprint: currentDraft.analysisFingerprint,
+          saveCapability: currentDraft.saveCapability,
+          saveEnabled: currentDraft.saveEnabled,
+          styleMode: currentDraft.styleMode,
+          styleAnalysisResolved: currentDraft.styleAnalysisResolved,
+          tagName: currentDraft.tagName,
+          classNames: currentDraft.classNames,
+          classAttributeState: currentDraft.classAttributeState,
+          classTargets: currentDraft.classTargets,
+          activeClassTargetId: targetId,
+          inlineStyles: currentDraft.inlineStyles,
+          styleAttributeState: currentDraft.styleAttributeState,
+        },
+        element
+      );
       nextDraft = updatedDraft;
 
       return {
@@ -1632,34 +1674,51 @@ function DesignToolRuntime() {
               return [instanceKey, draft] as const;
             }
 
-            if (draft.detached) {
-              return [instanceKey, draft] as const;
-            }
+            const nextActiveClassTargetId =
+              draft.activeClassTargetId &&
+              payload.classTargets.some((target) => target.id === draft.activeClassTargetId)
+                ? draft.activeClassTargetId
+                : payload.classTargets[0]?.id ?? null;
+            const element = getInspectableElementByKey(instanceKey);
+            const nextDetails = {
+              source: draft.source,
+              file: draft.file,
+              line: draft.line,
+              column: draft.column,
+              instanceKey: draft.instanceKey,
+              analysisFingerprint: payload.fingerprint,
+              saveCapability: payload.saveCapability,
+              saveEnabled: payload.saveEnabled,
+              styleMode: payload.mode,
+              styleAnalysisResolved: true,
+              tagName: draft.tagName,
+              classNames: payload.classNames,
+              classAttributeState: payload.classAttributeState,
+              classTargets: payload.classTargets,
+              activeClassTargetId: nextActiveClassTargetId,
+              inlineStyles: payload.inlineStyles,
+              styleAttributeState: payload.styleAttributeState,
+            } satisfies SelectionDetails;
 
             changed = true;
 
+            if (draft.detached) {
+              return [
+                instanceKey,
+                mergeSelectionDraft(draft, nextDetails),
+              ] as const;
+            }
+
+            if (!element) {
+              return [
+                instanceKey,
+                mergeSelectionDraft(draft, nextDetails),
+              ] as const;
+            }
+
             return [
               instanceKey,
-              {
-                ...draft,
-                analysisFingerprint: payload.fingerprint,
-                detached: draft.detached,
-                styleMode: payload.mode,
-                styleAnalysisResolved: true,
-                classNames: payload.classNames,
-                classAttributeState: payload.classAttributeState,
-                classTargets: draft.detached ? draft.classTargets : payload.classTargets,
-                activeClassTargetId: draft.detached
-                  ? draft.activeClassTargetId
-                  : draft.activeClassTargetId &&
-                      payload.classTargets.some((target) => target.id === draft.activeClassTargetId)
-                    ? draft.activeClassTargetId
-                    : payload.classTargets[0]?.id ?? null,
-                inlineStyles: payload.inlineStyles,
-                saveCapability: payload.saveCapability,
-                saveEnabled: payload.saveEnabled,
-                styleAttributeState: payload.styleAttributeState,
-              },
+              rebaseSelectionDraft(draft, nextDetails, element),
             ] as const;
           });
 

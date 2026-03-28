@@ -275,8 +275,6 @@
 }
 
 .he-kicker,
-.he-chip,
-.he-status-chip,
 .he-note-tag {
   display: inline-flex;
   align-items: center;
@@ -313,6 +311,11 @@
 }
 
 .he-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  white-space: nowrap;
   padding: 0.55rem 0.9rem;
   border: var(--spacing-1px) solid rgba(15, 23, 42, 0.08);
   background: rgba(255, 255, 255, 0.7);
@@ -413,6 +416,11 @@
 }
 
 .he-status-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  white-space: nowrap;
   padding: 0.35rem 0.7rem;
   font-size: 0.74rem;
   font-weight: var(--font-weight-strong);

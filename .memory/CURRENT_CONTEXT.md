@@ -4,9 +4,28 @@
 - Codex
 
 ## Last Session
-- 2026-03-27T21:28:50.000Z (20260327T211404000Z--codex)
+- 2026-03-28T11:49:52.000Z (20260328T114952000Z--codex)
 
 ## Current Status
+- The remaining class-panel initialization gap is fixed: pre-analysis reselection no longer clears `classTargets`/`activeClassTargetId`, so the panel keeps the correct class-backed initialization while fresh analysis is pending.
+- Focused regressions now cover both dirty-style-analysis rebasing and the reselection-before-analysis window, and `pnpm vitest --run tests/drafts.test.ts tests/design-tool.test.ts` passed after the follow-up fix.
+- Class-backed panel initialization now rebases from fresh selection/style-analysis data instead of reusing stale `selectedDraft.properties`, so the selected class's authored values populate correctly when the panel hydrates.
+- Dirty draft preservation is now narrower: untouched fields reinitialize from live DOM/class analysis, while edited fields keep their current `value` and `inputValue`.
+- Focused verification passed for `pnpm vitest --run tests/drafts.test.ts tests/design-tool.test.ts`, and no new lints were introduced in the edited files.
+- The focused `client-ui-controls` regressions are fixed: the `flexDirection` options test now matches the current schema, and the color picker accepts bare 3/4/6/8-digit hex input on Enter by normalizing it before parsing.
+- Focused verification passed for `pnpm vitest --run tests/client-ui-controls.test.ts`, and no new lints were introduced in the edited files.
+- Authored class targets now include both `declaredPropertyIds` and raw `declaredCssValues`, derived from their stylesheet rule bodies in the Vite plugin with direct-property mapping plus practical shorthand expansion for `padding`, `margin`, `background`, `border`, `border-radius`, and `font`.
+- The inspector no longer hides unrelated groups in class-target mode; instead, selecting a class target keeps the existing groups visible while initializing only that class target’s authored values, leaving other properties available but uninitialized.
+- The style-analysis merge path now rebuilds a clean draft from the selected class target as soon as authored class-target metadata arrives, so the first selected class initializes correctly without needing a manual dropdown switch.
+- Detached mode remains the full element-level view because detaching falls back to the existing combined element snapshots instead of the class-authored initialization path.
+- New regressions cover class-target declared-property payloads, class-specific initialization with all groups still visible, detached restore behavior, and the earlier class-target switch safety.
+- Switching the authored class-target dropdown now rebases the selected draft instead of just swapping `activeClassTargetId`, so pending edits no longer jump from the first selected class target onto the second selected class target and its peer elements.
+- A regression test now covers the class-target switch bug directly: edit `.dense`, switch the dropdown to `.roomy`, and confirm the preview rule does not migrate to `.roomy` or affect a `.roomy` peer.
+- Hawk-Eye now invalidates its authored class-target index and cached style-analysis payloads when watched stylesheet files change inside the workspace, so external CSS edits no longer leave stale selector bindings active until a dev-server restart.
+- The new watcher invalidation is wired through the Vite plugin `configureServer()` path and covers `.css`, `.scss`, `.sass`, and `.less` files inside the resolved project root.
+- A regression test now proves the stale-selector scenario directly: after an external stylesheet edit, the cached analysis still reports the old grouped selector until invalidation runs, then refreshes to the new dedicated selector.
+- The demo styles for `.he-chip` and `.he-status-chip` are now decoupled: each rule owns its own inline-flex pill layout declarations instead of sharing a grouped selector in `demo/src/index.css`.
+- The runtime status chip markup in `demo/src/App.tsx` no longer forces an inline text color, so the tone-specific `.he-status-chip[data-tone=...]` selectors control the final appearance again.
 - Semantic class editing is now wired through the inspector: the panel can show a class-target dropdown, preview edits through an injected class rule style block, and detach a selected element so later edits stay local.
 - The save path now distinguishes element source coordinates from authored class targets, so semantic class edits write to stylesheet sources instead of JSX className strings.
 - The client, plugin, demo mock, and tests were updated together, and the focused design-tool/save-handler/source-writer/drafts checks passed after the type-check cleanup.
@@ -79,6 +98,50 @@
 - Triage broader lint/build/test debt outside the focused design-tool suite before final release.
 
 ## Touched Areas
+- packages/client/src/drafts.ts
+- tests/drafts.test.ts
+- tests/design-tool.test.ts
+- .memory/sessions/20260328T114952000Z--codex.md
+- .memory/CURRENT_CONTEXT.md
+- .memory/receipts.jsonl
+- packages/client/src/drafts.ts
+- packages/client/src/DesignTool.tsx
+- tests/drafts.test.ts
+- tests/design-tool.test.ts
+- .memory/sessions/20260328T114302000Z--codex.md
+- .memory/CURRENT_CONTEXT.md
+- .memory/receipts.jsonl
+- tests/client-ui-controls.test.ts
+- packages/client/src/controls/ColorPicker.tsx
+- packages/client/src/utils/color.ts
+- .memory/sessions/20260328T112505000Z--codex.md
+- .memory/CURRENT_CONTEXT.md
+- .memory/receipts.jsonl
+- shared/protocol.ts
+- packages/vite-plugin/src/stylesheet-index.ts
+- packages/client/src/PropertiesPanel.tsx
+- tests/ws-server.test.ts
+- tests/design-tool.test.ts
+- .memory/sessions/20260328T103700000Z--codex.md
+- .memory/CURRENT_CONTEXT.md
+- .memory/receipts.jsonl
+- packages/client/src/DesignTool.tsx
+- tests/design-tool.test.ts
+- .memory/sessions/20260328T100000000Z--codex.md
+- .memory/CURRENT_CONTEXT.md
+- .memory/receipts.jsonl
+- packages/vite-plugin/src/index.ts
+- packages/vite-plugin/src/style-cache-invalidation.ts
+- tests/smoke.test.ts
+- tests/ws-server.test.ts
+- .memory/sessions/20260328T091200000Z--codex.md
+- .memory/CURRENT_CONTEXT.md
+- .memory/receipts.jsonl
+- demo/src/index.css
+- demo/src/App.tsx
+- .memory/sessions/20260328T085736000Z--codex.md
+- .memory/CURRENT_CONTEXT.md
+- .memory/receipts.jsonl
 - packages/client/src/DesignTool.tsx
 - packages/client/src/Inspector.tsx
 - packages/client/src/PropertiesPanel.tsx

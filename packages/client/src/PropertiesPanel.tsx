@@ -45,12 +45,22 @@ import { V1_PROPERTIES } from './types';
 
 // ── V1 Scoping ──────────────────────────────────────────────────────────────
 
-/**
- * Check if a property should be rendered in the UI.
- * In v1, only properties in V1_PROPERTIES are shown.
- */
-function shouldShowProperty(propertyId: EditablePropertyId): boolean {
-  return V1_PROPERTIES.includes(propertyId);
+function getVisibleClassScopedPropertyIds(selectedDraft: SelectionDraft) {
+  return null;
+}
+
+function shouldShowProperty(
+  propertyId: EditablePropertyId,
+  visiblePropertyIds: ReadonlySet<EditablePropertyId> | null
+): boolean {
+  return V1_PROPERTIES.includes(propertyId) && (!visiblePropertyIds || visiblePropertyIds.has(propertyId));
+}
+
+function shouldShowAnyProperty(
+  propertyIds: readonly EditablePropertyId[],
+  visiblePropertyIds: ReadonlySet<EditablePropertyId> | null
+) {
+  return propertyIds.some((propertyId) => shouldShowProperty(propertyId, visiblePropertyIds));
 }
 
 // CollapsibleSection replaced by a static section — no collapse toggle
@@ -254,6 +264,8 @@ function PerSideCard({
 
 interface SectionProps {
   selectedDraft: SelectionDraft;
+  isPropertyVisible(propertyId: EditablePropertyId): boolean;
+  areAnyPropertiesVisible(propertyIds: readonly EditablePropertyId[]): boolean;
   onChange(propertyId: EditablePropertyId, value: string): void;
   onChangeSizeMode(axis: SizeAxis, mode: SizeMode): void;
   onChangeSizeValue(axis: SizeAxis, value: string): void;
@@ -353,6 +365,25 @@ const BORDER_WIDTH_PROPERTY_IDS = [
   'borderBottomWidth',
   'borderLeftWidth',
 ] as const satisfies readonly EditablePropertyId[];
+const PADDING_PROPERTY_IDS = [
+  'paddingTop',
+  'paddingRight',
+  'paddingBottom',
+  'paddingLeft',
+] as const satisfies readonly EditablePropertyId[];
+const MARGIN_PROPERTY_IDS = [
+  'marginTop',
+  'marginRight',
+  'marginBottom',
+  'marginLeft',
+] as const satisfies readonly EditablePropertyId[];
+const CORNER_RADIUS_PROPERTY_IDS = [
+  'borderRadius',
+  'borderTopLeftRadius',
+  'borderTopRightRadius',
+  'borderBottomRightRadius',
+  'borderBottomLeftRadius',
+] as const satisfies readonly EditablePropertyId[];
 
 function getSnapshotDisplayValue(snapshot: PropertySnapshot) {
   return snapshot.inputValue || snapshot.value || snapshot.baseline;
@@ -416,7 +447,7 @@ function ClassTargetBar({
 }) {
   const classTargets = selectedDraft.classTargets;
 
-  if (classTargets.length === 0) {
+  if (classTargets.length === 0 || selectedDraft.detached) {
     return null;
   }
 
@@ -430,13 +461,9 @@ function ClassTargetBar({
 
   return (
     <div data-hawk-eye-ui="class-target-bar">
-      <span data-hawk-eye-ui="class-target-label">
-        {selectedDraft.detached ? 'Detached from' : 'Editing'}
-      </span>
-      {selectedDraft.detached ? (
-        <span data-hawk-eye-ui="class-target-value">{activeTarget.label}</span>
-      ) : (
-        <>
+      <div data-hawk-eye-ui="class-target-field">
+        <div data-hawk-eye-ui="class-target-copy">
+          <span data-hawk-eye-ui="class-target-label">Editing Class :</span>
           <select
             aria-label="Class target"
             data-hawk-eye-ui="select-input"
@@ -449,15 +476,15 @@ function ClassTargetBar({
               </option>
             ))}
           </select>
-          <button
-            data-hawk-eye-ui="pill-button"
-            onClick={onDetach}
-            type="button"
-          >
-            Detach
-          </button>
-        </>
-      )}
+        </div>
+      </div>
+      <button
+        data-hawk-eye-ui="class-target-detach-button"
+        onClick={onDetach}
+        type="button"
+      >
+        Detach
+      </button>
     </div>
   );
 }
@@ -858,6 +885,13 @@ function LayoutSection(props: SectionProps) {
 // ── Spacing Section ──────────────────────────────────────────────────────
 
 function SizeSpacingSection(props: SectionProps) {
+  const showPadding = props.areAnyPropertiesVisible(PADDING_PROPERTY_IDS);
+  const showMargin = props.areAnyPropertiesVisible(MARGIN_PROPERTY_IDS);
+
+  if (!showPadding && !showMargin) {
+    return null;
+  }
+
   return (
     <CollapsibleSection
       defaultExpanded
@@ -866,25 +900,27 @@ function SizeSpacingSection(props: SectionProps) {
       title="Spacing"
     >
       <div data-hawk-eye-ui="section-stack">
-        {/* Padding PerSideCard */}
-        <PerSideCard
-          cardId="padding"
-          label="Padding"
-          onChange={props.onChange}
-          onResetProperty={props.onResetProperty}
-          propertyIds={{ top: 'paddingTop', right: 'paddingRight', bottom: 'paddingBottom', left: 'paddingLeft' }}
-          selectedDraft={props.selectedDraft}
-        />
+        {showPadding ? (
+          <PerSideCard
+            cardId="padding"
+            label="Padding"
+            onChange={props.onChange}
+            onResetProperty={props.onResetProperty}
+            propertyIds={{ top: 'paddingTop', right: 'paddingRight', bottom: 'paddingBottom', left: 'paddingLeft' }}
+            selectedDraft={props.selectedDraft}
+          />
+        ) : null}
 
-        {/* Margin PerSideCard */}
-        <PerSideCard
-          cardId="margin"
-          label="Margin"
-          onChange={props.onChange}
-          onResetProperty={props.onResetProperty}
-          propertyIds={{ top: 'marginTop', right: 'marginRight', bottom: 'marginBottom', left: 'marginLeft' }}
-          selectedDraft={props.selectedDraft}
-        />
+        {showMargin ? (
+          <PerSideCard
+            cardId="margin"
+            label="Margin"
+            onChange={props.onChange}
+            onResetProperty={props.onResetProperty}
+            propertyIds={{ top: 'marginTop', right: 'marginRight', bottom: 'marginBottom', left: 'marginLeft' }}
+            selectedDraft={props.selectedDraft}
+          />
+        ) : null}
       </div>
     </CollapsibleSection>
   );
@@ -894,6 +930,19 @@ function SizeSpacingSection(props: SectionProps) {
 
 function AppearanceSection(props: SectionProps) {
   const shouldHideFillColor = hasExplicitNonSolidAppearanceFill(props.selectedDraft);
+  const showBackgroundColor =
+    shouldShowAppearanceFill(props.selectedDraft) &&
+    props.isPropertyVisible('backgroundColor') &&
+    !shouldHideFillColor;
+  const showCornerRadius =
+    shouldShowCornerRadius(props.selectedDraft.context) &&
+    props.areAnyPropertiesVisible(CORNER_RADIUS_PROPERTY_IDS);
+  const showOpacity = props.isPropertyVisible('opacity');
+  const showBlendMode = props.isPropertyVisible('mixBlendMode');
+
+  if (!showBackgroundColor && !showCornerRadius && !showOpacity && !showBlendMode) {
+    return null;
+  }
 
   return (
     <CollapsibleSection
@@ -903,15 +952,13 @@ function AppearanceSection(props: SectionProps) {
       title="Appearance"
     >
       <div data-hawk-eye-ui="section-stack">
-        {shouldShowAppearanceFill(props.selectedDraft) &&
-          shouldShowProperty('backgroundColor') &&
-          !shouldHideFillColor && (
-            <div data-hawk-eye-ui="compact-row-full">
-              {card('backgroundColor', props)}
-            </div>
-          )}
+        {showBackgroundColor ? (
+          <div data-hawk-eye-ui="compact-row-full">
+            {card('backgroundColor', props)}
+          </div>
+        ) : null}
 
-        {shouldShowCornerRadius(props.selectedDraft.context) && (
+        {showCornerRadius ? (
           <PerSideCard
             cardId="cornerRadius"
             label="Corner Radius"
@@ -925,19 +972,24 @@ function AppearanceSection(props: SectionProps) {
             }}
             selectedDraft={props.selectedDraft}
           />
-        )}
+        ) : null}
 
-        {/* Opacity + Blending Mode row */}
-        <div data-appearance-row="true" data-hawk-eye-ui="labelled-row">
-          <div data-hawk-eye-ui="labelled-col">
-            <span data-hawk-eye-ui="input-label">Opacity</span>
-            {shouldShowProperty('opacity') ? card('opacity', props) : null}
+        {showOpacity || showBlendMode ? (
+          <div data-appearance-row="true" data-hawk-eye-ui="labelled-row">
+            {showOpacity ? (
+              <div data-hawk-eye-ui="labelled-col">
+                <span data-hawk-eye-ui="input-label">Opacity</span>
+                {card('opacity', props)}
+              </div>
+            ) : null}
+            {showBlendMode ? (
+              <div data-hawk-eye-ui="labelled-col">
+                <span data-hawk-eye-ui="input-label">Blending Mode</span>
+                {card('mixBlendMode', props)}
+              </div>
+            ) : null}
           </div>
-          <div data-hawk-eye-ui="labelled-col">
-            <span data-hawk-eye-ui="input-label">Blending Mode</span>
-            {shouldShowProperty('mixBlendMode') ? card('mixBlendMode', props) : null}
-          </div>
-        </div>
+        ) : null}
 
       </div>
     </CollapsibleSection>
@@ -982,6 +1034,20 @@ function normalizeTextAlign(value: string): string {
 function TypographySection(props: SectionProps) {
   const alignSnapshot = props.selectedDraft.properties.textAlign;
   const effectiveAlign = normalizeTextAlign(alignSnapshot.inputValue || alignSnapshot.baseline);
+  const showFontFamily = props.isPropertyVisible('fontFamily');
+  const showColor = props.isPropertyVisible('color');
+  const showFontWeight = props.isPropertyVisible('fontWeight');
+  const showFontSize = props.isPropertyVisible('fontSize');
+  const showLineHeight = props.isPropertyVisible('lineHeight');
+  const showLetterSpacing = props.isPropertyVisible('letterSpacing');
+  const showTextAlign = props.isPropertyVisible('textAlign');
+  const showTextDecoration = props.isPropertyVisible('textDecoration');
+  const showTextTransform = props.isPropertyVisible('textTransform');
+  const showWhiteSpace = props.isPropertyVisible('whiteSpace');
+  const showTextOverflow = props.isPropertyVisible('textOverflow');
+  const showWordBreak = props.isPropertyVisible('wordBreak');
+  const showOverflowWrap = props.isPropertyVisible('overflowWrap');
+  const showLineClamp = props.isPropertyVisible('lineClamp');
 
   const typographyProps: SectionProps = {
     ...props,
@@ -993,6 +1059,25 @@ function TypographySection(props: SectionProps) {
     },
   };
 
+  if (
+    !showFontFamily &&
+    !showColor &&
+    !showFontWeight &&
+    !showFontSize &&
+    !showLineHeight &&
+    !showLetterSpacing &&
+    !showTextAlign &&
+    !showTextDecoration &&
+    !showTextTransform &&
+    !showWhiteSpace &&
+    !showTextOverflow &&
+    !showWordBreak &&
+    !showOverflowWrap &&
+    !showLineClamp
+  ) {
+    return null;
+  }
+
   return (
     <CollapsibleSection
       defaultExpanded
@@ -1001,44 +1086,43 @@ function TypographySection(props: SectionProps) {
       title={focusedGroupLabels.typography}
     >
       <div data-hawk-eye-ui="section-stack">
-        {/* Font family — full width */}
-        {shouldShowProperty('fontFamily') && (
+        {showFontFamily && (
           <div data-hawk-eye-ui="compact-row-full">
             {card('fontFamily', props)}
           </div>
         )}
 
-        {/* Text fill — full width */}
-        {shouldShowProperty('color') && (
+        {showColor && (
           <div data-hawk-eye-ui="compact-row-full">
             {card('color', props)}
           </div>
         )}
 
-        {/* Weight | Size — equal columns */}
-        <div data-hawk-eye-ui="compact-row">
-          {shouldShowProperty('fontWeight') && card('fontWeight', props)}
-          {shouldShowProperty('fontSize') && card('fontSize', props)}
-        </div>
+        {showFontWeight || showFontSize ? (
+          <div data-hawk-eye-ui="compact-row">
+            {showFontWeight ? card('fontWeight', props) : null}
+            {showFontSize ? card('fontSize', props) : null}
+          </div>
+        ) : null}
 
-        {/* Line height | Letter spacing — labels above each */}
-        <div data-hawk-eye-ui="labelled-row">
-          {shouldShowProperty('lineHeight') && (
-            <div data-hawk-eye-ui="labelled-col">
-              <span data-hawk-eye-ui="input-label">Line height</span>
-              {card('lineHeight', props)}
-            </div>
-          )}
-          {shouldShowProperty('letterSpacing') && (
-            <div data-hawk-eye-ui="labelled-col">
-              <span data-hawk-eye-ui="input-label">Letter Spacing</span>
-              {card('letterSpacing', props)}
-            </div>
-          )}
-        </div>
+        {showLineHeight || showLetterSpacing ? (
+          <div data-hawk-eye-ui="labelled-row">
+            {showLineHeight ? (
+              <div data-hawk-eye-ui="labelled-col">
+                <span data-hawk-eye-ui="input-label">Line height</span>
+                {card('lineHeight', props)}
+              </div>
+            ) : null}
+            {showLetterSpacing ? (
+              <div data-hawk-eye-ui="labelled-col">
+                <span data-hawk-eye-ui="input-label">Letter Spacing</span>
+                {card('letterSpacing', props)}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
-        {/* Alignment — label above icon buttons */}
-        {shouldShowProperty('textAlign') && (
+        {showTextAlign ? (
           <div data-hawk-eye-ui="labelled-single">
             <span data-hawk-eye-ui="input-label">Alignment</span>
             <div data-hawk-eye-ui="icon-segmented">
@@ -1088,69 +1172,65 @@ function TypographySection(props: SectionProps) {
               ))}
             </div>
           </div>
-        )}
+        ) : null}
 
-        {/* Text decoration | Case — labelled row */}
-        {(shouldShowProperty('textDecoration') || shouldShowProperty('textTransform')) && (
+        {(showTextDecoration || showTextTransform) ? (
           <div data-hawk-eye-ui="labelled-row">
-            {shouldShowProperty('textDecoration') && (
+            {showTextDecoration ? (
               <div data-hawk-eye-ui="labelled-col">
                 <span data-hawk-eye-ui="input-label">Decoration</span>
                 {card('textDecoration', props)}
               </div>
-            )}
-            {shouldShowProperty('textTransform') && (
+            ) : null}
+            {showTextTransform ? (
               <div data-hawk-eye-ui="labelled-col">
                 <span data-hawk-eye-ui="input-label">Case</span>
                 {card('textTransform', props)}
               </div>
-            )}
+            ) : null}
           </div>
-        )}
+        ) : null}
 
-        {/* Text overflow row — deferred properties */}
-        {(shouldShowProperty('whiteSpace') || shouldShowProperty('textOverflow')) && (
+        {(showWhiteSpace || showTextOverflow) ? (
           <div data-hawk-eye-ui="labelled-row">
-            {shouldShowProperty('whiteSpace') && (
+            {showWhiteSpace ? (
               <div data-hawk-eye-ui="labelled-col">
                 <span data-hawk-eye-ui="input-label">White space</span>
                 {card('whiteSpace', typographyProps)}
               </div>
-            )}
-            {shouldShowProperty('textOverflow') && (
+            ) : null}
+            {showTextOverflow ? (
               <div data-hawk-eye-ui="labelled-col">
                 <span data-hawk-eye-ui="input-label">Text overflow</span>
                 {card('textOverflow', typographyProps)}
               </div>
-            )}
+            ) : null}
           </div>
-        )}
+        ) : null}
 
-        {/* Word break / overflow wrap row — deferred properties */}
-        {(shouldShowProperty('wordBreak') || shouldShowProperty('overflowWrap')) && (
+        {(showWordBreak || showOverflowWrap) ? (
           <div data-hawk-eye-ui="labelled-row">
-            {shouldShowProperty('wordBreak') && (
+            {showWordBreak ? (
               <div data-hawk-eye-ui="labelled-col">
                 <span data-hawk-eye-ui="input-label">Word break</span>
                 {card('wordBreak', typographyProps)}
               </div>
-            )}
-            {shouldShowProperty('overflowWrap') && (
+            ) : null}
+            {showOverflowWrap ? (
               <div data-hawk-eye-ui="labelled-col">
                 <span data-hawk-eye-ui="input-label">Overflow wrap</span>
                 {card('overflowWrap', typographyProps)}
               </div>
-            )}
+            ) : null}
           </div>
-        )}
+        ) : null}
 
-        {/* Line clamp — deferred property */}
-        {shouldShowProperty('lineClamp') && (
+        {showLineClamp ? (
           <div data-hawk-eye-ui="labelled-single">
             <span data-hawk-eye-ui="input-label">Line clamp</span>
             {card('lineClamp', typographyProps)}
           </div>
-        )}
+        ) : null}
       </div>
     </CollapsibleSection>
   );
@@ -1160,6 +1240,13 @@ function BorderSection(props: SectionProps) {
   const borderStyleSnapshot = props.selectedDraft.properties.borderStyle;
   const borderStyleValue = getSnapshotDisplayValue(borderStyleSnapshot);
   const hasStroke = isVisibleBorderStyle(borderStyleValue);
+  const showBorderStyle = props.isPropertyVisible('borderStyle');
+  const showBorderColor = props.isPropertyVisible('borderColor');
+  const showBorderWidth = props.areAnyPropertiesVisible(BORDER_WIDTH_PROPERTY_IDS);
+
+  if (!showBorderStyle && !showBorderColor && !showBorderWidth) {
+    return null;
+  }
 
   function seedBorderWidths() {
     if (hasAnyBorderWidth(props.selectedDraft)) {
@@ -1219,11 +1306,11 @@ function BorderSection(props: SectionProps) {
       title="Border"
     >
       <div data-hawk-eye-ui="section-stack">
-        {shouldShowProperty('borderStyle') && card('borderStyle', borderProps)}
+        {showBorderStyle ? card('borderStyle', borderProps) : null}
         {hasStroke && (
           <>
-            {shouldShowProperty('borderColor') ? card('borderColor', borderProps) : null}
-            {shouldShowProperty('borderTopWidth') && (
+            {showBorderColor ? card('borderColor', borderProps) : null}
+            {showBorderWidth ? (
               <PerSideCard
                 cardId="borderWidth"
                 label="Stroke Weight"
@@ -1232,7 +1319,7 @@ function BorderSection(props: SectionProps) {
                 propertyIds={{ top: 'borderTopWidth', right: 'borderRightWidth', bottom: 'borderBottomWidth', left: 'borderLeftWidth' }}
                 selectedDraft={borderProps.selectedDraft}
               />
-            )}
+            ) : null}
           </>
         )}
       </div>
@@ -1255,8 +1342,15 @@ export function PropertiesPanel({
   onDetach,
   onToggleAspectRatioLock,
 }: PropertiesPanelProps) {
+  const visiblePropertyIds = getVisibleClassScopedPropertyIds(selectedDraft);
   const sectionProps: SectionProps = {
     selectedDraft,
+    isPropertyVisible(propertyId) {
+      return shouldShowProperty(propertyId, visiblePropertyIds);
+    },
+    areAnyPropertiesVisible(propertyIds) {
+      return shouldShowAnyProperty(propertyIds, visiblePropertyIds);
+    },
     onChange,
     onChangeSizeMode,
     onChangeSizeValue,
