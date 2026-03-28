@@ -444,6 +444,8 @@
     radial-gradient(circle at top right, rgba(15, 109, 241, 0.18), transparent 35%),
     linear-gradient(180deg, #12212d 0%, #101c26 100%);
   box-shadow: 0 18px 42px rgba(7, 11, 17, 0.22);
+
+  text-align: left;
 }
 
 .he-code {

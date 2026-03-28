@@ -431,23 +431,23 @@ export const hawkEyeStyles = `
   [data-hawk-eye-ui="footer-changes-btn"] {
     display: inline-flex;
     align-items: center;
-    justify-content: flex-start;
-    gap: 2px;
+    justify-content: center;
+    gap: 0;
     flex: 1;
     min-width: 0;
     min-height: 40px;
-    padding: 10px 12px;
+    padding: 12px;
     border: 0;
     border-radius: 8px;
     background: #f5f5f5;
     color: #000000;
     font-family: var(--he-font-ui);
-    font-size: 16.5px;
+    font-size: 15.5px;
     font-weight: 400;
     line-height: 1;
     letter-spacing: -0.25px;
     cursor: pointer;
-    text-align: left;
+    text-align: center;
     transition:
       background 120ms var(--he-ease-out),
       box-shadow 120ms var(--he-ease-out),
@@ -459,6 +459,60 @@ export const hawkEyeStyles = `
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  /* ── Custom footer tooltips ──────────────────────────────────── */
+
+  [data-hawk-eye-ui="panel-footer"] [data-hawk-eye-ui="footer-changes-btn"],
+  [data-hawk-eye-ui="panel-footer"] [data-hawk-eye-ui^="footer-back-btn"],
+  [data-hawk-eye-ui="panel-footer"] [data-hawk-eye-ui^="footer-apply-btn"],
+  [data-hawk-eye-ui="panel-footer"] [data-hawk-eye-ui^="footer-preview-toggle-btn"],
+  [data-hawk-eye-ui="panel-footer"] [data-hawk-eye-ui^="footer-hide-btn"],
+  [data-hawk-eye-ui="panel-footer"] [data-hawk-eye-ui^="footer-revert-btn"] {
+    position: relative;
+  }
+
+  [data-hawk-eye-ui="footer-tooltip"] {
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + var(--spacing-sm));
+    transform: translateX(-50%) translateY(6px);
+    z-index: var(--z-tooltip);
+
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: rgba(35, 35, 35, 0.98);
+    color: #ffffff;
+    font-size: 12.5px;
+    line-height: 1;
+    letter-spacing: -0.25px;
+    white-space: nowrap;
+
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+
+    transition:
+      opacity 120ms var(--he-ease-out),
+      transform 120ms var(--he-ease-out),
+      visibility 120ms var(--he-ease-out);
+  }
+
+  [data-hawk-eye-ui="footer-changes-btn"]:hover [data-hawk-eye-ui="footer-tooltip"],
+  [data-hawk-eye-ui="footer-changes-btn"]:focus-visible [data-hawk-eye-ui="footer-tooltip"],
+  [data-hawk-eye-ui="footer-back-btn"]:hover [data-hawk-eye-ui="footer-tooltip"],
+  [data-hawk-eye-ui="footer-back-btn"]:focus-visible [data-hawk-eye-ui="footer-tooltip"],
+  [data-hawk-eye-ui="footer-apply-btn"]:hover [data-hawk-eye-ui="footer-tooltip"],
+  [data-hawk-eye-ui="footer-apply-btn"]:focus-visible [data-hawk-eye-ui="footer-tooltip"],
+  [data-hawk-eye-ui="footer-preview-toggle-btn"]:hover [data-hawk-eye-ui="footer-tooltip"],
+  [data-hawk-eye-ui="footer-preview-toggle-btn"]:focus-visible [data-hawk-eye-ui="footer-tooltip"],
+  [data-hawk-eye-ui="footer-hide-btn"]:hover [data-hawk-eye-ui="footer-tooltip"],
+  [data-hawk-eye-ui="footer-hide-btn"]:focus-visible [data-hawk-eye-ui="footer-tooltip"],
+  [data-hawk-eye-ui="footer-revert-btn"]:hover [data-hawk-eye-ui="footer-tooltip"],
+  [data-hawk-eye-ui="footer-revert-btn"]:focus-visible [data-hawk-eye-ui="footer-tooltip"] {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
   }
 
   [data-hawk-eye-ui="footer-changes-arrow"] {
@@ -520,6 +574,7 @@ export const hawkEyeStyles = `
       transform var(--he-press-duration) var(--he-ease-out);
   }
 
+  [data-hawk-eye-ui="footer-back-btn"],
   [data-hawk-eye-ui="footer-preview-toggle-btn"],
   [data-hawk-eye-ui="footer-hide-btn"],
   [data-hawk-eye-ui="footer-revert-btn"] {
@@ -563,35 +618,47 @@ export const hawkEyeStyles = `
   }
 
   [data-hawk-eye-ui="panel-footer"][data-view="properties"] [data-hawk-eye-ui="footer-preview-toggle-btn"][data-active="true"] {
-    background: #2d6ee8;
-    color: #ffffff;
-  }
-
-  [data-hawk-eye-ui="panel-footer"][data-view="changes"] [data-hawk-eye-ui="footer-apply-btn"],
-  [data-hawk-eye-ui="panel-footer"][data-view="changes"] [data-hawk-eye-ui="footer-hide-btn"],
-  [data-hawk-eye-ui="panel-footer"][data-view="changes"] [data-hawk-eye-ui="footer-revert-btn"] {
-    flex: 0 0 auto;
-    min-height: 40px;
-    padding: 10px 12px;
-    font-size: 16.5px;
-  }
-
-  [data-hawk-eye-ui="panel-footer"][data-view="changes"] [data-hawk-eye-ui="footer-apply-btn"] {
     background: #e1f1ff;
     color: #007ef4;
   }
 
+  [data-hawk-eye-ui="panel-footer"][data-view="changes"] [data-hawk-eye-ui="footer-hide-btn"][data-active="true"] {
+    background: #e1f1ff;
+    color: #007ef4;
+  }
+
+  [data-hawk-eye-ui="panel-footer"][data-view="changes"] [data-hawk-eye-ui="footer-back-btn"],
+  [data-hawk-eye-ui="panel-footer"][data-view="changes"] [data-hawk-eye-ui="footer-apply-btn"],
   [data-hawk-eye-ui="panel-footer"][data-view="changes"] [data-hawk-eye-ui="footer-hide-btn"],
   [data-hawk-eye-ui="panel-footer"][data-view="changes"] [data-hawk-eye-ui="footer-revert-btn"] {
+    min-height: 40px;
+    padding: 12px;
+    font-size: 15.5px;
+  }
+
+  [data-hawk-eye-ui="panel-footer"][data-view="changes"] [data-hawk-eye-ui="footer-apply-btn"] {
+    flex: 1 1 0;
+    min-width: 0;
+    background: #e1f1ff;
+    color: #007ef4;
+  }
+
+  [data-hawk-eye-ui="panel-footer"][data-view="changes"] [data-hawk-eye-ui="footer-back-btn"],
+  [data-hawk-eye-ui="panel-footer"][data-view="changes"] [data-hawk-eye-ui="footer-hide-btn"],
+  [data-hawk-eye-ui="panel-footer"][data-view="changes"] [data-hawk-eye-ui="footer-revert-btn"] {
+    width: 40px;
+    min-width: 40px;
+    flex-shrink: 0;
     background: #3b3b3b;
     color: #ffffff;
   }
 
+  [data-hawk-eye-ui="panel-footer"][data-view="changes"] [data-hawk-eye-ui="footer-back-btn"],
   [data-hawk-eye-ui="panel-footer"][data-view="changes"] [data-hawk-eye-ui="footer-apply-btn"],
   [data-hawk-eye-ui="panel-footer"][data-view="changes"] [data-hawk-eye-ui="footer-hide-btn"],
   [data-hawk-eye-ui="panel-footer"][data-view="changes"] [data-hawk-eye-ui="footer-revert-btn"] {
     align-items: center;
-    justify-content: flex-start;
+    justify-content: center;
     gap: 4px;
     letter-spacing: -0.25px;
     line-height: 1;
@@ -607,6 +674,7 @@ export const hawkEyeStyles = `
       transform var(--he-press-duration) var(--he-ease-out);
   }
 
+  [data-hawk-eye-ui="footer-back-btn"]:disabled,
   [data-hawk-eye-ui="footer-apply-btn"]:disabled,
   [data-hawk-eye-ui="footer-preview-toggle-btn"]:disabled,
   [data-hawk-eye-ui="footer-hide-btn"]:disabled,
@@ -616,6 +684,7 @@ export const hawkEyeStyles = `
     opacity: 0.5;
   }
 
+  [data-hawk-eye-ui="footer-back-btn"] svg,
   [data-hawk-eye-ui="footer-apply-btn"] svg,
   [data-hawk-eye-ui="footer-preview-toggle-btn"] svg,
   [data-hawk-eye-ui="footer-hide-btn"] svg,
@@ -625,10 +694,6 @@ export const hawkEyeStyles = `
     flex-shrink: 0;
   }
 
-  [data-hawk-eye-ui="footer-apply-btn"] img,
-  [data-hawk-eye-ui="footer-preview-toggle-btn"] img,
-  [data-hawk-eye-ui="footer-hide-btn"] img,
-  [data-hawk-eye-ui="footer-revert-btn"] img,
   [data-hawk-eye-ui="sr-only"] {
     position: absolute;
     width: var(--spacing-1px);
@@ -3458,6 +3523,7 @@ export const hawkEyeStyles = `
 
     [data-hawk-eye-ui="panel-footer"][data-view="properties"] [data-hawk-eye-ui="footer-preview-toggle-btn"]:hover,
     [data-hawk-eye-ui="panel-footer"][data-view="properties"] [data-hawk-eye-ui="footer-revert-btn"]:hover,
+    [data-hawk-eye-ui="panel-footer"][data-view="changes"] [data-hawk-eye-ui="footer-back-btn"]:hover,
     [data-hawk-eye-ui="panel-footer"][data-view="changes"] [data-hawk-eye-ui="footer-hide-btn"]:hover,
     [data-hawk-eye-ui="panel-footer"][data-view="changes"] [data-hawk-eye-ui="footer-revert-btn"]:hover {
       background: #474747;
@@ -3465,7 +3531,11 @@ export const hawkEyeStyles = `
     }
 
     [data-hawk-eye-ui="panel-footer"][data-view="properties"] [data-hawk-eye-ui="footer-preview-toggle-btn"][data-active="true"]:hover {
-      background: #2568e4;
+      background: #d5eaff;
+    }
+
+    [data-hawk-eye-ui="panel-footer"][data-view="changes"] [data-hawk-eye-ui="footer-hide-btn"][data-active="true"]:hover {
+      background: #d5eaff;
     }
 
     [data-hawk-eye-ui="footer-reset-btn"]:hover {
@@ -3508,6 +3578,7 @@ export const hawkEyeStyles = `
   [data-hawk-eye-ui="panel-close-btn"]:active,
   [data-hawk-eye-ui="panel-back-btn"]:active,
   [data-hawk-eye-ui="panel-meta-btn"]:active,
+  [data-hawk-eye-ui="footer-back-btn"]:active,
   [data-hawk-eye-ui="footer-changes-btn"]:active,
   [data-hawk-eye-ui="footer-apply-btn"]:active,
   [data-hawk-eye-ui="footer-hide-btn"]:active,
@@ -3537,6 +3608,7 @@ export const hawkEyeStyles = `
     [data-hawk-eye-ui="panel-close-btn"],
     [data-hawk-eye-ui="panel-back-btn"],
     [data-hawk-eye-ui="panel-meta-btn"],
+    [data-hawk-eye-ui="footer-back-btn"],
     [data-hawk-eye-ui="footer-changes-btn"],
     [data-hawk-eye-ui="footer-apply-btn"],
     [data-hawk-eye-ui="footer-hide-btn"],

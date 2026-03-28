@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import applyButtonIconSrc from './icons/Icon=roller-brush, Style=active.svg';
+import hideButtonActiveIconSrc from './icons/Icon=Hide button icon, Style=active.svg';
 import hideButtonIconSrc from './icons/Icon=Hide button icon, Style=inactive.svg';
 import refreshButtonIconSrc from './icons/Icon=Refresh button icon, Style=inactive.svg';
 import { FooterActionButton } from './components/FooterActionButton';
@@ -844,28 +845,18 @@ export function Inspector({
                 <button
                   data-hawk-eye-ui="footer-changes-btn"
                   onClick={() => transitionToView('changes')}
-                  title={`${totalChanges} edits`}
+                  title="View edits"
                   type="button"
                 >
-                  <span data-hawk-eye-ui="footer-changes-label">{totalChanges} Edits</span>
-                  <span aria-hidden="true" data-hawk-eye-ui="footer-changes-arrow">
-                    <ChevronRightIcon />
+                  <span data-hawk-eye-ui="footer-changes-label">View Edits</span>
+                  <span data-hawk-eye-ui="footer-tooltip" role="tooltip" aria-hidden="true">
+                    View edits
                   </span>
                 </button>
                 <FooterActionButton
-                  ariaLabel={savePending ? 'Updating design' : 'Update design'}
-                  disabled={savePending || Boolean(saveBlockedReason) || totalChanges === 0}
-                  iconSrc={applyButtonIconSrc}
-                  label={savePending ? 'Updating…' : 'Update Design'}
-                  onClick={onSave}
-                  title={savePending ? 'Updating design' : 'Update design'}
-                  ui="footer-apply-btn"
-                  variant="compact"
-                />
-                <FooterActionButton
                   active={!previewEditsVisible}
                   ariaLabel={previewEditsVisible ? 'Hide edits preview' : 'Show edits preview'}
-                  iconSrc={hideButtonIconSrc}
+                  iconSrc={!previewEditsVisible ? hideButtonActiveIconSrc : hideButtonIconSrc}
                   label={previewEditsVisible ? 'Hide' : 'Show'}
                   onClick={() => {
                     const next = !previewEditsVisible;
@@ -892,27 +883,37 @@ export function Inspector({
             {view === 'changes' && selectedDraft && totalChanges > 0 ? (
               <div data-hawk-eye-ui="panel-footer" data-view="changes">
                 <FooterActionButton
-                  ariaLabel={savePending ? 'Updating design' : 'Apply changes'}
+                  ariaLabel="Back to properties"
+                  icon={<ChevronLeftIcon />}
+                  label="Back"
+                  onClick={() => transitionToView('properties')}
+                  tone="secondary"
+                  title="Back to properties"
+                  ui="footer-back-btn"
+                  variant="compact"
+                />
+                <FooterActionButton
+                  ariaLabel={savePending ? 'Updating design' : 'Apply edits'}
                   disabled={savePending || Boolean(saveBlockedReason) || totalChanges === 0}
-                  iconSrc={applyButtonIconSrc}
-                  label={savePending ? 'Updating…' : 'Apply'}
+                  label={savePending ? 'Updating…' : 'Apply Edits'}
                   onClick={onSave}
                   tone="primary"
                   variant="labelled"
-                  title={savePending ? 'Updating design' : 'Apply changes'}
+                  title={savePending ? 'Updating design' : 'Apply edits'}
                   ui="footer-apply-btn"
                 />
                 <FooterActionButton
                   ariaLabel={previewEditsVisible ? 'Hide edits preview' : 'Show edits preview'}
-                  iconSrc={hideButtonIconSrc}
-                  label={previewEditsVisible ? 'Hide' : 'Show'}
+                  iconSrc={!previewEditsVisible ? hideButtonActiveIconSrc : hideButtonIconSrc}
+                  active={!previewEditsVisible}
+                  label="Hide"
                   onClick={() => {
                     const next = !previewEditsVisible;
                     setPreviewEditsVisible(next);
                     onTogglePreviewEdits(next);
                   }}
                   tone="secondary"
-                  variant="labelled"
+                  variant="compact"
                   title={previewEditsVisible ? 'Hide edits preview' : 'Show edits preview'}
                   ui="footer-hide-btn"
                 />
@@ -923,14 +924,14 @@ export function Inspector({
                   label="Reset"
                   onClick={handleResetAll}
                   tone="secondary"
-                  variant="labelled"
+                  variant="compact"
                   title="Reset unsaved changes"
                   ui="footer-revert-btn"
                 />
               </div>
             ) : null}
 
-            {view !== 'changes' && (displayedStatus || exitingStatus) ? (
+            {displayedStatus || exitingStatus ? (
               <div data-hawk-eye-ui="panel-footer-status" data-state={statusTransitionState}>
                 {exitingStatus ? (
                   <p

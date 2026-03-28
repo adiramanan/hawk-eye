@@ -854,6 +854,103 @@ describe('DesignTool', () => {
     style.remove();
   });
 
+  it('keeps authored class-target preview when switching selection without re-analyzing peers', async () => {
+    const hot = createHotStub();
+    globalThis.__HAWK_EYE_HOT__ = hot;
+
+    const style = document.createElement('style');
+    style.textContent = '.dense { padding-top: 16px; }';
+    document.head.append(style);
+
+    const target = document.createElement('button');
+    target.className = 'dense';
+    applyBaselineStyles(target, 'demo/src/App.tsx:42:7');
+    mockRect(target, { height: 44, left: 36, top: 72, width: 148 });
+
+    const peer = document.createElement('button');
+    peer.className = 'dense';
+    applyBaselineStyles(peer, 'demo/src/App.tsx:43:7');
+    mockRect(peer, { height: 44, left: 196, top: 72, width: 148 });
+
+    document.body.append(target, peer);
+    setElementFromPoint(target);
+
+    const { cleanup, shadowRoot } = renderDesignTool();
+    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+
+    click(trigger);
+    click(document);
+
+    act(() => {
+      hot.emit('hawk-eye:selection', {
+        source: 'demo/src/App.tsx:42:7',
+        file: 'demo/src/App.tsx',
+        line: 42,
+        column: 7,
+        saveCapability: SAVE_CAPABILITY,
+        saveEnabled: true,
+      });
+      hot.emit(
+        'hawk-eye:style-analysis',
+        createStyleAnalysisPayload({
+          source: 'demo/src/App.tsx:42:7',
+          mode: 'unknown',
+          classNames: ['dense'],
+          classTargets: [
+            createClassTarget({
+              id: 'src/styles.css::dense',
+              className: 'dense',
+              file: 'src/styles.css',
+              line: 1,
+              column: 1,
+              selector: '.dense',
+              fingerprint: 'dense-fp',
+            }),
+          ],
+          fingerprint: 'fp-42-7',
+        })
+      );
+    });
+
+    updateInput(
+      getControl(shadowRoot, 'paddingTop') as InstanceType<typeof window.HTMLInputElement>,
+      '24px'
+    );
+
+    // Peer should have the authored class-target preview rule active.
+    expect(
+      document.head.querySelector('[data-hawk-eye-ui="class-target-preview-style"]')?.textContent
+    ).toContain('padding-top: 24px !important;');
+
+    // Switch selection to "B" but do NOT emit style analysis for B.
+    // The class-target preview should remain derived from A's dirty class-target draft.
+    setElementFromPoint(peer);
+    click(document);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(peer.className).toBe('dense');
+
+    const previewCssAfterSelection =
+      document.head.querySelector('[data-hawk-eye-ui="class-target-preview-style"]')?.textContent ?? '';
+    expect(previewCssAfterSelection).toContain('padding-top: 24px !important;');
+
+    const paddingTopImportantValues = Array.from(
+      previewCssAfterSelection.matchAll(/padding-top:\s*(\d+px)\s*!important;/g)
+    ).map((m) => m[1]);
+    expect(paddingTopImportantValues.length).toBeGreaterThan(0);
+    expect(paddingTopImportantValues[paddingTopImportantValues.length - 1]).toBe('24px');
+
+    expect(
+      document.head.querySelector('[data-hawk-eye-ui="class-target-preview-style"]')?.textContent
+    ).toContain('padding-top: 24px !important;');
+
+    cleanup();
+    style.remove();
+  });
+
   it('detaches from a semantic class target and keeps later edits local to the selected element', () => {
     const hot = createHotStub();
     globalThis.__HAWK_EYE_HOT__ = hot;
@@ -981,7 +1078,7 @@ describe('DesignTool', () => {
     cleanup();
   });
 
-  it('applies dirty drafts to source only after clicking Update Design and keeps the selection active after a successful write', () => {
+  it('applies dirty drafts to source only after clicking Apply Edits and keeps the selection active after a successful write', () => {
     vi.useFakeTimers();
     const hot = createHotStub();
     globalThis.__HAWK_EYE_HOT__ = hot;
@@ -1026,8 +1123,9 @@ describe('DesignTool', () => {
     expect(target.style.paddingTop).toBe('24px');
     expect(hot.send.mock.calls.filter(([event]) => event === HAWK_EYE_SAVE_EVENT)).toHaveLength(0);
 
+    click(getFooterButton(shadowRoot, 'footer-changes-btn'));
     const applyButton = getFooterApplyButton(shadowRoot);
-    expect(applyButton.textContent).toContain('Update Design');
+    expect(applyButton.textContent).toContain('Apply Edits');
 
     setElementFromPoint(host);
     click(applyButton);
@@ -1142,6 +1240,7 @@ describe('DesignTool', () => {
     );
 
     setElementFromPoint(host);
+    click(getFooterButton(shadowRoot, 'footer-changes-btn'));
     click(getFooterApplyButton(shadowRoot));
 
     expect(hot.send.mock.calls.filter(([event]) => event === HAWK_EYE_SAVE_EVENT)).toHaveLength(1);
@@ -1251,6 +1350,7 @@ describe('DesignTool', () => {
     );
 
     setElementFromPoint(host);
+    click(getFooterButton(shadowRoot, 'footer-changes-btn'));
     click(getFooterApplyButton(shadowRoot));
 
     act(() => {
@@ -1300,6 +1400,7 @@ describe('DesignTool', () => {
     );
 
     setElementFromPoint(host);
+    click(getFooterButton(shadowRoot, 'footer-changes-btn'));
     click(getFooterApplyButton(shadowRoot));
 
     expectHotSendWithPayload(hot, HAWK_EYE_SAVE_EVENT, {
@@ -1375,6 +1476,7 @@ describe('DesignTool', () => {
     expect(shadowRoot.textContent).toContain(
       'Dynamic className: edits will be written to inline styles.'
     );
+    click(getFooterButton(shadowRoot, 'footer-changes-btn'));
     expect(getFooterApplyButton(shadowRoot).disabled).toBe(false);
     cleanup();
   });
@@ -1421,11 +1523,12 @@ describe('DesignTool', () => {
       '24px'
     );
 
-    const applyButton = getFooterApplyButton(shadowRoot);
-    expect(applyButton.disabled).toBe(false);
     expect(shadowRoot.textContent).toContain(
       'Dynamic className + dynamic style: edits will be persisted by wrapping the style prop.'
     );
+    click(getFooterButton(shadowRoot, 'footer-changes-btn'));
+    const applyButton = getFooterApplyButton(shadowRoot);
+    expect(applyButton.disabled).toBe(false);
 
     setElementFromPoint(host);
     click(applyButton);
@@ -1822,7 +1925,7 @@ describe('DesignTool', () => {
     const changesButton = shadowRoot.querySelector(
       '[data-hawk-eye-ui="footer-changes-btn"]'
     ) as InstanceType<typeof window.HTMLButtonElement> | null;
-    expect(changesButton?.textContent).toContain('2 Edits');
+    expect(changesButton?.textContent).toContain('View Edits');
 
     click(changesButton as Element);
     expect(
@@ -2000,17 +2103,11 @@ describe('DesignTool', () => {
     expect(
       shadowRoot.querySelector('[data-hawk-eye-ui="panel-footer"]')?.getAttribute('data-view')
     ).toBe('properties');
-    expect(getFooterButton(shadowRoot, 'footer-preview-toggle-btn').getAttribute('title')).toBe(
-      'Hide edits preview'
-    );
-    expect(getFooterButton(shadowRoot, 'footer-apply-btn').getAttribute('title')).toBe(
-      'Update design'
-    );
+    expect(
+      shadowRoot.querySelector('[data-hawk-eye-ui="footer-preview-toggle-btn"]')?.getAttribute('title')
+    ).toBe('Hide edits preview');
     expect(getFooterButton(shadowRoot, 'footer-revert-btn').getAttribute('title')).toBe(
       'Revert unsaved changes'
-    );
-    expect(getFooterButton(shadowRoot, 'footer-apply-btn').getAttribute('data-variant')).toBe(
-      'compact'
     );
     expect(
       getFooterButton(shadowRoot, 'footer-preview-toggle-btn').getAttribute('data-variant')
@@ -2018,21 +2115,7 @@ describe('DesignTool', () => {
     expect(getFooterButton(shadowRoot, 'footer-revert-btn').getAttribute('data-variant')).toBe(
       'compact'
     );
-    expect(
-      getFooterButton(shadowRoot, 'footer-apply-btn').querySelector(
-        '[data-hawk-eye-ui="footer-action-icon-shell"]'
-      )
-    ).not.toBeNull();
-    expect(
-      getFooterButton(shadowRoot, 'footer-apply-btn').querySelector(
-        '[data-hawk-eye-ui="footer-action-label"]'
-      )
-    ).toBeNull();
-    expect(
-      getFooterButton(shadowRoot, 'footer-apply-btn').querySelector(
-        '[data-hawk-eye-ui="sr-only"]'
-      )?.textContent
-    ).toBe('Update Design');
+    expect(shadowRoot.querySelector('[data-hawk-eye-ui="footer-apply-btn"]')).toBeNull();
 
     const changesButton = shadowRoot.querySelector(
       '[data-hawk-eye-ui="footer-changes-btn"]'
@@ -2042,6 +2125,8 @@ describe('DesignTool', () => {
       throw new Error('Missing changes footer button');
     }
 
+    expect(changesButton.textContent).toContain('View Edits');
+
     click(changesButton);
     advanceMotion(VIEW_TRANSITION_DURATION_MS);
 
@@ -2050,44 +2135,50 @@ describe('DesignTool', () => {
       shadowRoot.querySelector('[data-hawk-eye-ui="panel-footer"]')?.getAttribute('data-view')
     ).toBe('changes');
 
+    const backButton = getFooterButton(shadowRoot, 'footer-back-btn');
     const applyButton = getFooterButton(shadowRoot, 'footer-apply-btn');
     const hideButton = getFooterButton(shadowRoot, 'footer-hide-btn');
     const resetButton = getFooterButton(shadowRoot, 'footer-revert-btn');
 
-    expect(applyButton.getAttribute('title')).toBe('Apply changes');
+    expect(backButton.getAttribute('title')).toBe('Back to properties');
+    expect(applyButton.getAttribute('title')).toBe('Apply edits');
     expect(hideButton.getAttribute('title')).toBe('Hide edits preview');
     expect(resetButton.getAttribute('title')).toBe('Reset unsaved changes');
+    expect(backButton.getAttribute('data-tone')).toBe('secondary');
     expect(applyButton.getAttribute('data-tone')).toBe('primary');
     expect(hideButton.getAttribute('data-tone')).toBe('secondary');
     expect(resetButton.getAttribute('data-tone')).toBe('secondary');
+    expect(backButton.getAttribute('data-variant')).toBe('compact');
     expect(applyButton.getAttribute('data-variant')).toBe('labelled');
-    expect(hideButton.getAttribute('data-variant')).toBe('labelled');
-    expect(resetButton.getAttribute('data-variant')).toBe('labelled');
-    expect(applyButton.querySelector('[data-hawk-eye-ui="footer-action-icon-shell"]')).not.toBeNull();
+    expect(hideButton.getAttribute('data-variant')).toBe('compact');
+    expect(resetButton.getAttribute('data-variant')).toBe('compact');
+    expect(backButton.querySelector('[data-hawk-eye-ui="footer-action-icon-shell"]')).not.toBeNull();
+    expect(applyButton.querySelector('[data-hawk-eye-ui="footer-action-icon-shell"]')).toBeNull();
     expect(hideButton.querySelector('[data-hawk-eye-ui="footer-action-icon-shell"]')).not.toBeNull();
     expect(resetButton.querySelector('[data-hawk-eye-ui="footer-action-icon-shell"]')).not.toBeNull();
-    expect(applyButton.querySelector('[data-hawk-eye-ui="footer-action-icon"]')).not.toBeNull();
+    expect(backButton.querySelector('[data-hawk-eye-ui="footer-action-icon"] svg')).not.toBeNull();
+    expect(applyButton.querySelector('[data-hawk-eye-ui="footer-action-icon"]')).toBeNull();
     expect(hideButton.querySelector('[data-hawk-eye-ui="footer-action-icon"]')).not.toBeNull();
     expect(resetButton.querySelector('[data-hawk-eye-ui="footer-action-icon"]')).not.toBeNull();
-    expect((applyButton.querySelector('img') as HTMLImageElement | null)?.src).toContain(
-      'roller-brush'
-    );
-    expect((applyButton.querySelector('img') as HTMLImageElement | null)?.src).toContain('active');
-    expect((hideButton.querySelector('img') as HTMLImageElement | null)?.src).toContain(
-      'Style=inactive'
-    );
+    expect((hideButton.querySelector('img') as HTMLImageElement | null)?.src).toContain('Style=');
     expect((resetButton.querySelector('img') as HTMLImageElement | null)?.src).toContain(
       'Style=inactive'
     );
+    expect(backButton.querySelector('[data-hawk-eye-ui="footer-action-label"]')).toBeNull();
     expect(applyButton.querySelector('[data-hawk-eye-ui="footer-action-label"]')?.textContent).toBe(
-      'Apply'
+      'Apply Edits'
     );
-    expect(hideButton.querySelector('[data-hawk-eye-ui="footer-action-label"]')?.textContent).toBe(
-      'Hide'
-    );
-    expect(resetButton.querySelector('[data-hawk-eye-ui="footer-action-label"]')?.textContent).toBe(
-      'Reset'
-    );
+    expect(hideButton.querySelector('[data-hawk-eye-ui="footer-action-label"]')).toBeNull();
+    expect(resetButton.querySelector('[data-hawk-eye-ui="footer-action-label"]')).toBeNull();
+    expect(backButton.querySelector('[data-hawk-eye-ui="sr-only"]')?.textContent).toBe('Back');
+    expect(hideButton.querySelector('[data-hawk-eye-ui="sr-only"]')?.textContent).toBe('Hide');
+    expect(resetButton.querySelector('[data-hawk-eye-ui="sr-only"]')?.textContent).toBe('Reset');
+
+    click(backButton);
+    advanceMotion(VIEW_TRANSITION_DURATION_MS);
+    expect(
+      shadowRoot.querySelector('[data-hawk-eye-ui="panel-footer"]')?.getAttribute('data-view')
+    ).toBe('properties');
     cleanup();
   });
 

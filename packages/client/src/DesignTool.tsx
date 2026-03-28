@@ -75,6 +75,7 @@ const BORDER_WIDTH_PROPERTY_IDS = new Set<EditablePropertyId>([
 ]);
 const CLASS_TARGET_PREVIEW_STYLE_ID = 'hawk-eye-class-target-preview-style';
 let classTargetPreviewStyleElement: HTMLStyleElement | null = null;
+let lastClassTargetPreviewCss = '';
 
 function isTestRuntime() {
   const runtimeProcess = (globalThis as { process?: { env?: Record<string, string | undefined> } })
@@ -138,6 +139,7 @@ function clearClassTargetPreview() {
   }
 
   styleElement.textContent = '';
+  lastClassTargetPreviewCss = '';
 }
 
 function getClassTargetPreviewCssProperty(propertyId: EditablePropertyId, value: string) {
@@ -153,58 +155,66 @@ function getClassTargetPreviewCssProperty(propertyId: EditablePropertyId, value:
   return definition?.cssProperty ?? '';
 }
 
-function renderClassTargetPreview(draft: SelectionDraft) {
-  const target = getActiveClassTarget(draft);
+function renderAllClassTargetPreview(drafts: SelectionDraft[]) {
   const styleElement = getClassTargetPreviewStyleElement();
 
   if (!styleElement) {
     return;
   }
 
-  if (!target) {
+  if (drafts.length === 0) {
     styleElement.textContent = '';
+    lastClassTargetPreviewCss = '';
     return;
   }
 
-  const dirtyPropertyIds = getDirtyPropertyIds(draft);
+  // Merge edits across every active class target so selection changes don't
+  // accidentally clear preview styles for peer elements.
+  const declarationsBySelector = new Map<string, Map<string, string>>();
 
-  if (dirtyPropertyIds.length === 0) {
-    styleElement.textContent = '';
-    return;
-  }
+  for (const draft of drafts) {
+    const target = getActiveClassTarget(draft);
+    if (!target) continue;
 
-  const declarations = dirtyPropertyIds
-    .map((propertyId) => {
+    const dirtyPropertyIds = getDirtyPropertyIds(draft);
+    if (dirtyPropertyIds.length === 0) continue;
+
+    let cssPropertyMap = declarationsBySelector.get(target.selector);
+    if (!cssPropertyMap) {
+      cssPropertyMap = new Map<string, string>();
+      declarationsBySelector.set(target.selector, cssPropertyMap);
+    }
+
+    for (const propertyId of dirtyPropertyIds) {
       const snapshot = draft.properties[propertyId];
       const cssProperty = getClassTargetPreviewCssProperty(propertyId, snapshot.value);
+      if (!cssProperty) continue;
 
-      if (!cssProperty) {
-        return null;
-      }
+      cssPropertyMap.set(cssProperty, snapshot.value);
+    }
+  }
 
-      return `  ${cssProperty}: ${snapshot.value} !important;`;
-    })
-    .filter((value): value is string => Boolean(value));
+  const blocks = Array.from(declarationsBySelector.entries()).map(([selector, cssProps]) => {
+    const declarations = Array.from(cssProps.entries()).map(
+      ([cssProperty, value]) => `  ${cssProperty}: ${value} !important;`
+    );
+    return declarations.length > 0 ? `${selector} {\n${declarations.join('\n')}\n}` : '';
+  });
 
-  styleElement.textContent = declarations.length > 0 ? `${target.selector} {\n${declarations.join('\n')}\n}` : '';
+  const nextCss = blocks.filter(Boolean).join('\n');
+  // Always re-assign for consistent CSSOM recomputation (notably in jsdom).
+  styleElement.textContent = nextCss;
+  lastClassTargetPreviewCss = nextCss;
 }
 
 function renderDraftPreview(draft: SelectionDraft) {
   const element = getInspectableElementByKey(draft.instanceKey);
 
   if (!element) {
-    clearClassTargetPreview();
     return;
   }
 
   applyDraftToElement(element, draft);
-
-  if (getActiveClassTarget(draft)) {
-    renderClassTargetPreview(draft);
-    return;
-  }
-
-  clearClassTargetPreview();
 }
 
 function buildSavePayload(drafts: SelectionDraft[]): PendingSavePayload {
@@ -851,7 +861,6 @@ function DesignToolRuntime() {
 
   function syncSelectedDraftPreview(draft: SelectionDraft | null) {
     if (!draft || !previewEditsVisibleRef.current) {
-      clearClassTargetPreview();
       return;
     }
 
@@ -2035,17 +2044,22 @@ function DesignToolRuntime() {
 
   useEffect(() => {
     if (!enabled || !previewEditsVisible) {
-      clearClassTargetPreview();
-      return;
-    }
-
-    if (!selectedDraft) {
-      clearClassTargetPreview();
       return;
     }
 
     syncSelectedDraftPreview(selectedDraft);
   }, [enabled, previewEditsVisible, selectedDraft]);
+
+  useEffect(() => {
+    if (!enabled || !previewEditsVisible) {
+      clearClassTargetPreview();
+      return;
+    }
+
+    // Global class-target preview: driven by all dirty class-target drafts,
+    // not by the currently selected element.
+    renderAllClassTargetPreview(pendingDrafts);
+  }, [enabled, previewEditsVisible, pendingDrafts]);
 
   let saveBlockedReason: string | null = null;
   let saveBlockedState: 'error' | 'pending' = 'pending';

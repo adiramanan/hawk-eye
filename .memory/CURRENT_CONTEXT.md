@@ -18,6 +18,10 @@
 - The changes footer regression now checks the new icon shell and label data attrs instead of the old generic footer marker.
 - The changes-panel footer is back on the labeled `Edit Page` Figma variant at node `142:6480`, with Apply/Hide/Reset text labels and the active/inactive icon assets aligned to the reference.
 - The footer icon variants now match the Figma node more closely: Apply uses the active roller-brush asset, while Hide and Reset use the inactive assets from the referenced footer component.
+- The “Show edits preview” toggle now swaps to the alternate icon asset when the label is `Show` (instead of always reusing the `Hide` icon), matching the requested Figma show-state distinction.
+- In the `changes` footer, the “Hide/Show edits preview” toggle no longer sets `data-active` for `footer-hide-btn`, preventing the unwanted blue active background.
+- The changes-panel footer now matches Figma node `142:6482`: it uses a compact chevron-left back button that returns to properties, a label-only `Apply Edits` primary action, and icon-only `Hide` and `Reset` buttons.
+- The properties-panel footer now matches Figma node `142:6481`: it uses a `View Edits` pill plus icon-only `Hide` and `Reset` buttons, and the properties hide toggle now swaps to the active hide icon asset when its active fill state is shown.
 - The changes-view footer now matches Figma node `145:6830` again, with icon+label Apply/Hide/Reset buttons, hover tooltips on the footer controls, and the dedicated changes footer restored in the inspector.
 - `PerCornerControl` now applies the visible grouped value immediately when switching back into linked mode, so the standalone corner control path matches the fixed all-sides normalization behavior.
 - Grouped stroke-width edits now normalize `borderColor` to the currently visible border side when expanding a one-sided border to all sides, so bottom-only strokes no longer require a manual color change to make all four sides match.
