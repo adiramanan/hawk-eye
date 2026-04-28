@@ -417,6 +417,19 @@ function getAuthoredClassPropertyValue(
     );
   }
 
+  if (
+    propertyId === 'borderRadius' ||
+    propertyId === 'borderTopLeftRadius' ||
+    propertyId === 'borderTopRightRadius' ||
+    propertyId === 'borderBottomRightRadius' ||
+    propertyId === 'borderBottomLeftRadius'
+  ) {
+    return (
+      authoredClassStyle.getPropertyValue(cssProperty).trim() ||
+      authoredClassStyle.getPropertyValue('border-radius').trim()
+    );
+  }
+
   return authoredClassStyle.getPropertyValue(cssProperty).trim();
 }
 
@@ -445,12 +458,25 @@ export function createSelectionDraft(
       definition.cssProperty,
       authoredClassStyle
     );
+    const liveBaseline = AUTHORED_SIZE_PROPERTY_IDS.has(definition.id)
+      ? inlineValue || computedValue
+      : computedValue || inlineValue;
+    // When the class declares a property via a CSS variable (e.g. `border-radius:
+    // var(--radius-full)`), authoredValue is the literal token string which cannot
+    // be parsed as a number. In that case fall back to the computed/inline value so
+    // the panel shows the resolved effective value instead of going blank.
+    const isUnresolvableNumberValue =
+      authoredClassStyle &&
+      authoredValue &&
+      definition.control === 'number' &&
+      !shouldPreserveNonNumericBaseline(definition.id) &&
+      isNaN(parseFloat(authoredValue));
     const rawBaseline =
       authoredClassStyle
-        ? authoredValue
-        : AUTHORED_SIZE_PROPERTY_IDS.has(definition.id)
-          ? inlineValue || computedValue
-          : computedValue || inlineValue;
+        ? isUnresolvableNumberValue
+          ? liveBaseline
+          : authoredValue
+        : liveBaseline;
     const baseline =
       definition.control === 'number' &&
       !['gridColumns', 'gridRows'].includes(definition.id) &&

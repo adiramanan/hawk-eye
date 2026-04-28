@@ -142,6 +142,96 @@ describe('draft creation', () => {
     parent.remove();
   });
 
+  it('seeds corner radius snapshots from authored border-radius shorthand', () => {
+    const target = document.createElement('div');
+    document.body.append(target);
+
+    const draft = createSelectionDraft(
+      createSelectionDetails({
+        activeClassTargetId: 'src/styles.css::rounded',
+        classNames: ['rounded'],
+        classTargets: [
+          {
+            id: 'src/styles.css::rounded',
+            className: 'rounded',
+            selector: '.rounded',
+            file: 'src/styles.css',
+            line: 1,
+            column: 1,
+            fingerprint: 'rounded-fp',
+            declaredPropertyIds: ['borderRadius'],
+            declaredCssValues: {
+              'border-radius': '20px',
+            },
+          },
+        ],
+        styleAnalysisResolved: true,
+      }),
+      target
+    );
+
+    expect(draft.properties.borderRadius.baseline).toBe('20px');
+    expect(draft.properties.borderTopLeftRadius.baseline).toBe('20px');
+    expect(draft.properties.borderTopRightRadius.baseline).toBe('20px');
+    expect(draft.properties.borderBottomRightRadius.baseline).toBe('20px');
+    expect(draft.properties.borderBottomLeftRadius.baseline).toBe('20px');
+
+    target.remove();
+  });
+
+  it('falls back to computed value when the class declares a property via a CSS variable', () => {
+    const target = document.createElement('div');
+    target.style.borderRadius = '14px';
+    document.body.append(target);
+
+    const originalGetComputedStyle = window.getComputedStyle.bind(window);
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((node) => {
+      const computed = originalGetComputedStyle(node);
+      if (node !== target) return computed;
+      return new Proxy(computed, {
+        get(style, property, receiver) {
+          if (property === 'getPropertyValue') {
+            return (name: string) =>
+              name === 'border-radius' ? '14px' : computed.getPropertyValue(name);
+          }
+          return Reflect.get(style, property, receiver);
+        },
+      }) as CSSStyleDeclaration;
+    });
+
+    const draft = createSelectionDraft(
+      createSelectionDetails({
+        activeClassTargetId: 'src/styles.css::chip',
+        classNames: ['chip'],
+        classTargets: [
+          {
+            id: 'src/styles.css::chip',
+            className: 'chip',
+            selector: '.chip',
+            file: 'src/styles.css',
+            line: 1,
+            column: 1,
+            fingerprint: 'chip-fp',
+            declaredPropertyIds: ['borderRadius', 'paddingTop'],
+            declaredCssValues: {
+              'border-radius': 'var(--radius-full)',
+              'padding-top': '4px',
+            },
+          },
+        ],
+        styleAnalysisResolved: true,
+      }),
+      target
+    );
+
+    // CSS variable: should fall back to computed value (14px)
+    expect(draft.properties.borderRadius.baseline).toBe('14px');
+    // Concrete value: should use the authored value directly
+    expect(draft.properties.paddingTop.baseline).toBe('4px');
+
+    target.remove();
+  });
+
   it('rebases authored class baselines while preserving dirty property overrides', () => {
     const target = document.createElement('div');
     document.body.append(target);

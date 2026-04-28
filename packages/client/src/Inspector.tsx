@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import applyButtonIconSrc from './icons/Icon=roller-brush, Style=active.svg';
 import hideButtonActiveIconSrc from './icons/Icon=Hide button icon, Style=active.svg';
 import hideButtonIconSrc from './icons/Icon=Hide button icon, Style=inactive.svg';
 import refreshButtonIconSrc from './icons/Icon=Refresh button icon, Style=inactive.svg';
@@ -103,20 +102,6 @@ function ChevronLeftIcon() {
     <svg fill="none" height="16" viewBox="0 0 16 16" width="16" xmlns="http://www.w3.org/2000/svg">
       <path
         d="M10.5 3 5.5 8l5 5"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.5"
-      />
-    </svg>
-  );
-}
-
-function ChevronRightIcon() {
-  return (
-    <svg fill="none" height="12" viewBox="0 0 12 12" width="12" xmlns="http://www.w3.org/2000/svg">
-      <path
-        d="M4.5 3 7.5 6l-3 3"
         stroke="currentColor"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -338,7 +323,7 @@ export function Inspector({
   }));
   const [view, setView] = useState<InspectorView>('properties');
   const [exitingView, setExitingView] = useState<InspectorView | null>(null);
-  const [layerCount, setLayerCount] = useState(0);
+  const [, setLayerCount] = useState(0);
   const [previewEditsVisible, setPreviewEditsVisible] = useState(true);
   const [viewTransitionState, setViewTransitionState] = useState<ViewTransitionState>('idle');
   const [displayedStatus, setDisplayedStatus] = useState<FooterStatusEntry | null>(() =>
@@ -374,12 +359,6 @@ export function Inspector({
   const showTrigger = shellState !== 'open';
   const triggerState =
     shellState === 'opening' ? 'exiting' : shellState === 'closing' ? 'entering' : 'closed';
-  const panelEyebrow =
-    view === 'layers'
-      ? 'Live document tree'
-      : selectedDraft
-        ? 'Active selection'
-        : 'Inspector ready';
   const panelTitle = view === 'changes' ? 'Changes Done' : 'Hawk-Eye';
 
   useEffect(() => {

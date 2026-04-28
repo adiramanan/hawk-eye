@@ -422,23 +422,6 @@ function getFooterButton(
   return button;
 }
 
-function chooseSizeMenuOption(
-  shadowRoot: { querySelector(selectors: string): Element | null },
-  triggerId: string,
-  optionValue: string
-) {
-  click(getButtonControl(shadowRoot, triggerId));
-  const option = shadowRoot.querySelector(
-    `[data-hawk-eye-control="${triggerId}-option-${optionValue}"]`
-  );
-
-  if (!(option instanceof window.HTMLButtonElement)) {
-    throw new Error(`Could not find option ${optionValue} for ${triggerId}`);
-  }
-
-  click(option);
-}
-
 function getInputByLabel(
   shadowRoot: { querySelector(selectors: string): Element | null },
   label: string
@@ -1039,6 +1022,104 @@ describe('DesignTool', () => {
     expect((getControl(shadowRoot, 'paddingTop') as InstanceType<typeof window.HTMLInputElement>).value).toBe(
       '12'
     );
+
+    cleanup();
+  });
+
+  it('keeps class-authored background and corner radius values when switching class targets before fresh analysis returns', () => {
+    const hot = createHotStub();
+    globalThis.__HAWK_EYE_HOT__ = hot;
+
+    const target = document.createElement('div');
+    target.className = 'filled rounded';
+    applyBaselineStyles(target, 'demo/src/App.tsx:46:7');
+    target.style.backgroundColor = '';
+    target.style.borderRadius = '';
+    mockRect(target, { height: 64, left: 36, top: 72, width: 168 });
+    document.body.append(target);
+    setElementFromPoint(target);
+
+    const { cleanup, shadowRoot } = renderDesignTool();
+    const trigger = shadowRoot.querySelector('[data-hawk-eye-ui="trigger"]') as Element;
+
+    click(trigger);
+    click(document);
+
+    act(() => {
+      hot.emit('hawk-eye:selection', {
+        source: 'demo/src/App.tsx:46:7',
+        file: 'demo/src/App.tsx',
+        line: 46,
+        column: 7,
+        saveCapability: SAVE_CAPABILITY,
+        saveEnabled: true,
+      });
+      hot.emit(
+        'hawk-eye:style-analysis',
+        createStyleAnalysisPayload({
+          source: 'demo/src/App.tsx:46:7',
+          mode: 'unknown',
+          classNames: ['filled', 'rounded'],
+          classTargets: [
+            createClassTarget({
+              id: 'src/styles.css::filled',
+              className: 'filled',
+              file: 'src/styles.css',
+              line: 1,
+              column: 1,
+              selector: '.filled',
+              fingerprint: 'filled-fp',
+              declaredPropertyIds: ['backgroundColor'],
+              declaredCssValues: {
+                'background-color': 'rgb(17, 24, 39)',
+              },
+            }),
+            createClassTarget({
+              id: 'src/styles.css::rounded',
+              className: 'rounded',
+              file: 'src/styles.css',
+              line: 2,
+              column: 1,
+              selector: '.rounded',
+              fingerprint: 'rounded-fp',
+              declaredPropertyIds: ['backgroundColor', 'borderRadius'],
+              declaredCssValues: {
+                'background-color': 'rgb(37, 99, 235)',
+                'border-radius': '20px',
+              },
+            }),
+          ],
+          fingerprint: 'fp-46-7-a',
+        })
+      );
+    });
+
+    expect(
+      (getControl(shadowRoot, 'backgroundColor') as InstanceType<typeof window.HTMLInputElement>)
+        .value
+    ).toBe('#111827');
+
+    act(() => {
+      hot.emit('hawk-eye:selection', {
+        source: 'demo/src/App.tsx:46:7',
+        file: 'demo/src/App.tsx',
+        line: 46,
+        column: 7,
+        saveCapability: SAVE_CAPABILITY,
+        saveEnabled: true,
+      });
+    });
+
+    updateSelect(
+      getInputByLabel(shadowRoot, 'Class target') as InstanceType<typeof window.HTMLSelectElement>,
+      'src/styles.css::rounded'
+    );
+
+    expect(
+      (getControl(shadowRoot, 'backgroundColor') as InstanceType<typeof window.HTMLInputElement>)
+        .value
+    ).toBe('#2563eb');
+    expect(getInputByLabel(shadowRoot, 'Corner Radius all sides').value).toBe('20');
 
     cleanup();
   });

@@ -9,8 +9,6 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import type { PropertySnapshot } from '../types';
-
 interface FontPickerProps {
   value: string;
   onChange(value: string): void;

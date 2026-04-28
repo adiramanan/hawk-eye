@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { editablePropertyDefinitions } from '../../client/src/editable-properties';
 import type { EditablePropertyId } from '../../client/src/types';
@@ -70,14 +70,6 @@ function getLineAndColumn(text: string, index: number) {
     column: (lines.at(-1)?.length ?? 0) + 1,
     line: lines.length,
   };
-}
-
-function isIdentifierStart(char: string) {
-  return /[A-Za-z_]/.test(char);
-}
-
-function isIdentifierChar(char: string) {
-  return /[A-Za-z0-9_-]/.test(char);
 }
 
 function extractSimpleClassNames(selectorText: string) {

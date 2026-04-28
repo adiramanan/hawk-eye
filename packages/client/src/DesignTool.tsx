@@ -76,7 +76,6 @@ const BORDER_WIDTH_PROPERTY_IDS = new Set<EditablePropertyId>([
 ]);
 const CLASS_TARGET_PREVIEW_STYLE_ID = 'hawk-eye-class-target-preview-style';
 let classTargetPreviewStyleElement: HTMLStyleElement | null = null;
-let lastClassTargetPreviewCss = '';
 
 function isTestRuntime() {
   const runtimeProcess = (globalThis as { process?: { env?: Record<string, string | undefined> } })
@@ -140,7 +139,6 @@ function clearClassTargetPreview() {
   }
 
   styleElement.textContent = '';
-  lastClassTargetPreviewCss = '';
 }
 
 function getClassTargetPreviewCssProperty(propertyId: EditablePropertyId, value: string) {
@@ -165,7 +163,6 @@ function renderAllClassTargetPreview(drafts: SelectionDraft[]) {
 
   if (drafts.length === 0) {
     styleElement.textContent = '';
-    lastClassTargetPreviewCss = '';
     return;
   }
 
@@ -203,9 +200,7 @@ function renderAllClassTargetPreview(drafts: SelectionDraft[]) {
   });
 
   const nextCss = blocks.filter(Boolean).join('\n');
-  // Always re-assign for consistent CSSOM recomputation (notably in jsdom).
   styleElement.textContent = nextCss;
-  lastClassTargetPreviewCss = nextCss;
 }
 
 function renderDraftPreview(draft: SelectionDraft) {
@@ -1519,6 +1514,7 @@ function DesignToolRuntime() {
 
       clearDraftOverrides(currentDraft);
 
+      const hasResolvedClassContext = currentDraft.styleAnalysisResolved || currentDraft.classTargets.length > 0;
       const updatedDraft = createSelectionDraft(
         {
           source: currentDraft.source,
@@ -1530,7 +1526,7 @@ function DesignToolRuntime() {
           saveCapability: currentDraft.saveCapability,
           saveEnabled: currentDraft.saveEnabled,
           styleMode: currentDraft.styleMode,
-          styleAnalysisResolved: currentDraft.styleAnalysisResolved,
+          styleAnalysisResolved: hasResolvedClassContext,
           tagName: currentDraft.tagName,
           classNames: currentDraft.classNames,
           classAttributeState: currentDraft.classAttributeState,

@@ -7,6 +7,14 @@
 - 2026-03-28T11:49:52.000Z (20260328T114952000Z--codex)
 
 ## Current Status
+- The reversed button-class ownership issue is fixed: first selection of multi-class buttons now prefers the class target that authors `backgroundColor`/`color`, but property values remain scoped to the active class target instead of leaking across classes.
+- Focused verification passed for `pnpm vitest --run tests/drafts.test.ts tests/design-tool.test.ts` after correcting the button class-target heuristic and removing the cross-target visual fallback.
+- The button appearance breakage is fixed: class-target draft hydration now preserves a button's visible `backgroundColor` when the active class target does not author it directly, so multi-class buttons like `.he-button.he-button-primary` keep their fill control populated.
+- Focused verification passed for `pnpm vitest --run tests/drafts.test.ts tests/design-tool.test.ts` after narrowing the `backgroundColor` fallback to buttons and adding multi-class button regressions.
+- The class-target initialization bug is resolved: switching targets during pending analysis now seeds from the resolved class context, and authored `border-radius` shorthand now expands into the panel's corner snapshots.
+- Focused verification passed for `pnpm vitest --run tests/drafts.test.ts tests/design-tool.test.ts` after the class-target switch and shorthand-expansion fixes.
+- The panel itself still reads `selectedDraft.properties` directly; the remaining class-target behavior is upstream draft hydration, not a separate panel snapshot path.
+- The current investigation found no panel-side snapshot bug in `PropertiesPanel.tsx`: it reads `selectedDraft.properties` directly, and the only class-target-specific gating there is the existing `shouldShowAppearanceFill`/`shouldShowCornerRadius` logic plus the `getVisibleClassScopedPropertyIds` stub that currently returns `null`.
 - The remaining class-panel initialization gap is fixed: pre-analysis reselection no longer clears `classTargets`/`activeClassTargetId`, so the panel keeps the correct class-backed initialization while fresh analysis is pending.
 - Focused regressions now cover both dirty-style-analysis rebasing and the reselection-before-analysis window, and `pnpm vitest --run tests/drafts.test.ts tests/design-tool.test.ts` passed after the follow-up fix.
 - Class-backed panel initialization now rebases from fresh selection/style-analysis data instead of reusing stale `selectedDraft.properties`, so the selected class's authored values populate correctly when the panel hydrates.
@@ -98,6 +106,21 @@
 - Triage broader lint/build/test debt outside the focused design-tool suite before final release.
 
 ## Touched Areas
+- packages/client/src/drafts.ts
+- packages/client/src/DesignTool.tsx
+- tests/design-tool.test.ts
+- tests/drafts.test.ts
+- .memory/sessions/20260328T163500000Z--codex.md
+- packages/client/src/drafts.ts
+- tests/design-tool.test.ts
+- tests/drafts.test.ts
+- .memory/sessions/20260328T163204000Z--codex.md
+- packages/client/src/DesignTool.tsx
+- packages/client/src/drafts.ts
+- tests/design-tool.test.ts
+- tests/drafts.test.ts
+- .memory/sessions/20260328T120348000Z--codex.md
+- .memory/receipts.jsonl
 - packages/client/src/drafts.ts
 - tests/drafts.test.ts
 - tests/design-tool.test.ts

@@ -18,15 +18,6 @@ interface LayersPanelProps {
   onSelectByKey(instanceKey: string): void;
 }
 
-function makeLabel(source: string): string {
-  const parts = source.split(':');
-  const line = parts[parts.length - 2];
-  const file = parts.slice(0, -2).join(':');
-  const fileParts = file.split('/');
-  const basename = fileParts[fileParts.length - 1] ?? file;
-  return `${basename}:${line}`;
-}
-
 const TEXT_TAGS = new Set([
   'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
   'span', 'a', 'button', 'label', 'li',
@@ -34,7 +25,7 @@ const TEXT_TAGS = new Set([
   'code', 'em', 'strong', 'small', 'blockquote', 'legend',
 ]);
 
-export function makeDisplayLabel(element: HTMLElement, source: string) {
+export function makeDisplayLabel(element: HTMLElement, _source: string) {
   const ariaLabel = element.getAttribute('aria-label')?.trim();
   if (ariaLabel) return ariaLabel;
 
